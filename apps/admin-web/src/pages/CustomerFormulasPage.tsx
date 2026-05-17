@@ -17,6 +17,7 @@ import { Button, Card, Input } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '../components/NotificationContext';
+import { useTranslation } from 'react-i18next';
 import {
   CustomerTeaFormula,
   CustomerTeaFormulaLineItem,
@@ -29,6 +30,7 @@ interface CustomerFormulasPageProps {
 }
 
 export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerFormulasPageProps) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast, showError } = useNotification();
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
@@ -38,8 +40,6 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
 
   // Form Fields State
   const [customerId, setCustomerId] = useState('');
-  const [formulaName, setFormulaName] = useState('');
-  const [teaPowderType, setTeaPowderType] = useState('');
   const [lineItems, setLineItems] = useState<CustomerTeaFormulaLineItem[]>([
     {
       purchaseBatchCode: '',
@@ -59,8 +59,6 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
   useEffect(() => {
     if (editingFormula) {
       setCustomerId(typeof editingFormula.customerId === 'object' ? editingFormula.customerId.id : editingFormula.customerId);
-      setFormulaName(editingFormula.formulaName);
-      setTeaPowderType(editingFormula.teaPowderType);
       setLineItems(editingFormula.lineItems.map(item => ({
         purchaseBatchCode: item.purchaseBatchCode,
         purchaseBatchLineItemId: typeof item.purchaseBatchLineItemId === 'object' ? (item.purchaseBatchLineItemId as any).id || (item.purchaseBatchLineItemId as any)._id || String(item.purchaseBatchLineItemId) : String(item.purchaseBatchLineItemId),
@@ -158,7 +156,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
     },
     onSuccess: () => {
       resetForm();
-      showToast(editingFormula ? 'Formula successfully updated!' : 'Formula successfully saved!', 'success');
+      showToast(editingFormula ? t('customerFormulas.messages.updatedSuccess') : t('customerFormulas.messages.savedSuccess'), 'success');
       queryClient.invalidateQueries({
         queryKey: [endpoints.customerTeaFormulas],
       });
@@ -262,7 +260,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
         if (batchItem) {
           const stock = batchItem.availableStockInGrams ?? (selectedBatch!.numberOfBags * 50000);
           if (item.quantityInGrams > stock) {
-            errors[idx] = `Only ${stock}g available in stock`;
+            errors[idx] = t('customerFormulas.messages.stockAvailable').replace('{{stock}}', String(stock));
           }
         }
       }
@@ -295,8 +293,6 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
 
   const resetForm = () => {
     setCustomerId('');
-    setFormulaName('');
-    setTeaPowderType('');
     setLineItems([
       {
         purchaseBatchCode: '',
@@ -320,12 +316,10 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
     e.preventDefault();
     const errors: Record<string, boolean> = {};
     if (!customerId) errors.customerId = true;
-    if (!formulaName) errors.formulaName = true;
-    if (!teaPowderType) errors.teaPowderType = true;
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      showToast('Please fill in all required formula fields.', 'error');
+      showToast(t('customerFormulas.messages.fillRequired'), 'error');
       setTimeout(() => {
         const firstInvalidField = document.querySelector('.border-red-500, select.border-red-500, input.border-red-500');
         if (firstInvalidField) {
@@ -337,24 +331,22 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
     setFormErrors({});
 
     if (lineItems.length === 0) {
-      showToast('Please add at least one ingredient line item.', 'error');
+      showToast(t('customerFormulas.messages.addAtLeastOne'), 'error');
       return;
     }
 
     if (duplicateKeys.size > 0) {
-      showToast('Duplicate ingredients found. Please resolve duplicate batch and ingredient selections.', 'error');
+      showToast(t('customerFormulas.messages.duplicateFound'), 'error');
       return;
     }
 
     if (Object.keys(stockErrors).length > 0) {
-      showToast('Stock limit exceeded. Please lower ingredient quantities.', 'error');
+      showToast(t('customerFormulas.messages.stockLimit'), 'error');
       return;
     }
 
     saveMutation.mutate({
       customerId,
-      formulaName: formulaName.trim(),
-      teaPowderType: teaPowderType.trim(),
       notes: notes.trim(),
       lineItems: lineItems.map((item) => ({
         purchaseBatchCode: item.purchaseBatchCode,
@@ -384,7 +376,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
       <Card className="p-6 border border-emerald-100 bg-emerald-50/10 rounded-xl shadow-md flex flex-col gap-4 relative">
           
           <h3 className="text-lg font-bold text-slate-800">
-            Customer Tea Preference
+            {t('customerFormulas.title')}
           </h3>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -393,7 +385,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                 <div className="grid gap-1.5 w-full md:w-1/2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-slate-700">
-                      Customer <span className="text-red-500">*</span>
+                      {t('customerFormulas.customer')} <span className="text-red-500">*</span>
                     </span>
                     {canEdit && (
                       <button
@@ -401,7 +393,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                         onClick={() => setShowQuickAddCustomer(!showQuickAddCustomer)}
                         className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
                       >
-                        <Plus size={12} /> Quick Add Customer
+                        <Plus size={12} /> {t('customerFormulas.quickAddCustomer')}
                       </button>
                     )}
                   </div>
@@ -410,14 +402,14 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                     <div className="grid gap-3 sm:grid-cols-3 bg-slate-50 border border-slate-200 rounded-lg p-3 my-1">
                       <Input
                         type="text"
-                        placeholder="Customer Name"
+                        placeholder={t('customerFormulas.customerName')}
                         value={quickAddName}
                         onChange={(e) => setQuickAddName(e.target.value)}
                         className="h-9 text-xs"
                       />
                       <Input
                         type="text"
-                        placeholder="Mobile (Optional)"
+                        placeholder={t('customerFormulas.mobileOptional')}
                         value={quickAddMobile}
                         onChange={(e) => setQuickAddMobile(e.target.value)}
                         className="h-9 text-xs"
@@ -430,7 +422,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                           className="h-9 text-xs flex-1"
                           disabled={!quickAddName.trim()}
                         >
-                          Save
+                          {t('customerFormulas.save')}
                         </Button>
                         <Button
                           type="button"
@@ -442,7 +434,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                           variant="secondary"
                           className="h-9 text-xs flex-1 bg-white"
                         >
-                          Cancel
+                          {t('customerFormulas.cancel')}
                         </Button>
                       </div>
                     </div>
@@ -456,16 +448,11 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                     onChange={(e) => {
                       const val = e.target.value;
                       setCustomerId(val);
-                      const selectedCustomer = customers.find(c => c.id === val);
-                      if (selectedCustomer) {
-                        setFormulaName(`${selectedCustomer.name}'s Formula`);
-                        setTeaPowderType('Custom Blend');
-                      }
                     }}
                     required
                     disabled={!canEdit}
                   >
-                    <option value="">Select a Customer...</option>
+                    <option value="">{t('customerFormulas.selectCustomer')}</option>
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -479,7 +466,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
               <div className="border-t border-slate-200 pt-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-semibold text-slate-800">
-                    Formula Ingredients & Line Items
+                    {t('customerFormulas.ingredientsTitle')}
                   </h4>
                 </div>
 
@@ -487,12 +474,12 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                   <table className="w-full text-left text-sm whitespace-nowrap min-w-[700px]">
                     <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                       <tr>
-                        <th className="px-3 py-2 text-xs uppercase tracking-wide">Purchase Batch</th>
-                        <th className="px-3 py-2 text-xs uppercase tracking-wide">Leaf / Add on type</th>
-                        <th className="px-3 py-2 text-xs uppercase tracking-wide w-32">Quantity (g)</th>
-                        <th className="px-3 py-2 text-xs uppercase tracking-wide w-24">Price/g</th>
-                        <th className="px-3 py-2 text-xs uppercase tracking-wide w-28">Price</th>
-                        <th className="px-3 py-2 text-xs uppercase tracking-wide w-24 text-center">Action</th>
+                        <th className="px-3 py-2 text-xs uppercase tracking-wide">{t('customerFormulas.purchaseBatch')}</th>
+                        <th className="px-3 py-2 text-xs uppercase tracking-wide">{t('customerFormulas.leafAddOnType')}</th>
+                        <th className="px-3 py-2 text-xs uppercase tracking-wide w-32">{t('customerFormulas.quantityGrams')}</th>
+                        <th className="px-3 py-2 text-xs uppercase tracking-wide w-24">{t('customerFormulas.priceGram')}</th>
+                        <th className="px-3 py-2 text-xs uppercase tracking-wide w-28">{t('customerFormulas.price')}</th>
+                        <th className="px-3 py-2 text-xs uppercase tracking-wide w-24 text-center">{t('customerFormulas.action')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
@@ -525,7 +512,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                                   }
                                   disabled={!canEdit}
                                 >
-                                  <option value="">Select Batch</option>
+                                  <option value="">{t('customerFormulas.selectBatch')}</option>
                                   {batches.map((b) => (
                                     <option key={b.id} value={b.batchCode}>
                                       {b.batchCode} ({b.sellerName})
@@ -549,7 +536,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                                     }
                                     disabled={!item.purchaseBatchCode || !canEdit}
                                   >
-                                    <option value="">Select Ingredient</option>
+                                    <option value="">{t('customerFormulas.selectIngredient')}</option>
                                     {filteredIngredients.map((i) => (
                                       <option key={i.subSerialNumber} value={i.teaPowderType}>
                                         {i.teaPowderType}
@@ -558,7 +545,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                                   </select>
                                   {isDuplicate && (
                                     <span className="text-[10px] font-bold text-red-500 block mt-0.5">
-                                      Duplicate selection
+                                      {t('customerFormulas.duplicateSelection')}
                                     </span>
                                   )}
                                 </>
@@ -585,7 +572,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                                         quantityInGrams: Math.max(0, Number(e.target.value)),
                                       })
                                     }
-                                    placeholder="Grams"
+                                    placeholder={t('customerFormulas.grams')}
                                     disabled={!item.ingredientName || !canEdit}
                                   />
                                   {stockError && (
@@ -617,7 +604,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                                     onClick={() => setLockedRows({ ...lockedRows, [idx]: false })}
                                     disabled={!canEdit}
                                     className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-40"
-                                    title="Edit Row"
+                                    title={t('customerFormulas.editRow')}
                                   >
                                     <Edit3 size={14} />
                                   </button>
@@ -626,7 +613,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                                   <button
                                     type="button"
                                     className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-40"
-                                    title="Confirm/Lock Ingredient"
+                                    title={t('customerFormulas.confirmIngredient')}
                                     disabled={
                                       !item.purchaseBatchCode ||
                                       !item.ingredientName ||
@@ -648,7 +635,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                                   onClick={addLineItem}
                                   disabled={!canEdit}
                                   className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-40"
-                                  title="Add Ingredient Row"
+                                  title={t('customerFormulas.addIngredientRow')}
                                 >
                                   <Plus size={14} />
                                 </button>
@@ -659,7 +646,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                                   onClick={() => removeLineItem(idx)}
                                   disabled={!canEdit}
                                   className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
-                                  title="Remove Item"
+                                  title={t('customerFormulas.removeItem')}
                                 >
                                   <X size={14} />
                                 </button>
@@ -675,10 +662,10 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
 
               <div className="grid gap-4 mt-2">
                 <div className="grid gap-1.5">
-                  <span className="text-sm font-medium text-slate-700">Notes / Remarks</span>
+                  <span className="text-sm font-medium text-slate-700">{t('customerFormulas.notesRemarks')}</span>
                   <Input
                     type="text"
-                    placeholder="e.g. Special taste customization for wholesale client"
+                    placeholder={t('customerFormulas.notesPlaceholder')}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     disabled={!canEdit}
@@ -694,11 +681,11 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                     disabled={!canEdit}
                     className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                   />
-                  <span>Set as Default Formula for Customer</span>
+                  <span>{t('customerFormulas.setDefault')}</span>
                 </label>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">Status</span>
+                  <span className="text-sm font-medium text-slate-700">{t('customerFormulas.status')}</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -718,17 +705,17 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50/20 shadow-sm mt-2">
               <div className="flex items-center gap-6">
                 <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 border-r border-emerald-200/50 pr-6">
-                  <DollarSign size={14} className="text-emerald-600" /> Billing Details
+                  <DollarSign size={14} className="text-emerald-600" /> {t('customerFormulas.billingDetails')}
                 </h4>
                 
                 <div className="flex items-center gap-6">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Total Weight</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{t('customerFormulas.totalWeight')}</span>
                     <span className="text-sm font-bold text-slate-800">{liveTotals.totalWeight} g</span>
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Total Cost</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{t('customerFormulas.totalCost')}</span>
                     <span className="text-sm font-bold text-slate-800">₹{liveTotals.totalFormulaCost.toFixed(2)}</span>
                   </div>
                 </div>
@@ -737,12 +724,12 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
               <div className="flex items-center gap-4">
                 <div className="px-4 py-2 bg-emerald-600 rounded-lg flex items-center gap-4 text-white shadow-sm">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-emerald-100 font-semibold uppercase tracking-wider">Cost Per KG</span>
+                    <span className="text-[10px] text-emerald-100 font-semibold uppercase tracking-wider">{t('customerFormulas.costPerKg')}</span>
                     <span className="text-lg font-black leading-none">₹{liveTotals.costPerKg.toFixed(2)}</span>
                   </div>
                   <div className="h-8 w-px bg-emerald-500"></div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-emerald-100 font-semibold uppercase tracking-wider">Cost Per 100g</span>
+                    <span className="text-[10px] text-emerald-100 font-semibold uppercase tracking-wider">{t('customerFormulas.costPer100g')}</span>
                     <span className="text-sm font-bold text-emerald-50">₹{liveTotals.costPer100Grams.toFixed(2)}</span>
                   </div>
                 </div>
@@ -754,7 +741,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                     variant="secondary"
                     className="h-10 px-4 text-sm bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                   >
-                    Cancel Edit
+                    {t('customerFormulas.cancelEdit')}
                   </Button>
                 )}
 
@@ -767,7 +754,7 @@ export const CustomerFormulasPage = ({ editingFormula, onCancelEdit }: CustomerF
                   disabled={saveMutation.isPending || !canEdit}
                 >
                   <Save size={16} className="mr-1" />
-                  <span>{editingFormula ? 'Update Formula' : 'Save Formula'}</span>
+                  <span>{editingFormula ? t('customerFormulas.updateFormula') : t('customerFormulas.saveFormula')}</span>
                 </Button>
               </div>
             </div>

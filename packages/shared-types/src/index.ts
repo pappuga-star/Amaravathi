@@ -162,9 +162,7 @@ export type PurchaseBatch = {
 
 export const customerTeaFormulaSchema = z.object({
   customerId: objectIdSchema,
-  formulaName: z.string().trim().min(1),
   formulaCode: z.string().trim().optional(),
-  teaPowderType: z.string().trim().min(1),
   notes: z.string().trim().optional(),
   totalWeight: z.coerce.number().min(0),
   totalFormulaCost: z.coerce.number().min(0),
@@ -216,8 +214,6 @@ export type CustomerTeaFormula = {
   id: string;
   customerId: { id: string; name: string } | string;
   formulaCode: string;
-  formulaName: string;
-  teaPowderType: string;
   notes?: string;
   totalWeight: number;
   totalFormulaCost: number;

@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query';
 
 type SearchResultItem = {
   id: string;
-  formulaName?: string;
   formulaCode?: string;
   customerName?: string;
   leafCategoryName?: string;
@@ -115,7 +114,7 @@ export function GlobalSearch() {
     setIsOpen(false);
     setQuery('');
     if (type === 'formula') {
-      navigate(`/taste-customization?q=${encodeURIComponent(item.formulaCode || item.formulaName || '')}`);
+      navigate(`/taste-customization?q=${encodeURIComponent(item.formulaCode || '')}`);
     } else if (type === 'batch') {
       navigate(`/purchase-batch?q=${encodeURIComponent(item.batchCode || String(item.serialNumber) || '')}`);
     } else if (type === 'customer') {
@@ -214,10 +213,10 @@ export function GlobalSearch() {
                               </div>
                               <div>
                                 <p className="text-sm font-semibold text-slate-800 group-hover:text-emerald-800">
-                                  {item.formulaName}
+                                  {item.formulaCode}
                                 </p>
                                 <p className="text-xs text-slate-500">
-                                  Code: <span className="font-medium">{item.formulaCode}</span> • Customer:{' '}
+                                  Customer:{' '}
                                   <span className="font-medium text-slate-700">{item.customerName}</span>
                                 </p>
                               </div>

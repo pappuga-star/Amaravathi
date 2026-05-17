@@ -21,6 +21,7 @@ import { api, endpoints } from '../lib/api';
 import { formatCurrency, generateBatchCode } from '@amaravathi/shared-utils';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '../components/NotificationContext';
+import { useTranslation } from 'react-i18next';
 import type {
   PurchaseBatch,
   PurchaseBatchInput,
@@ -129,6 +130,7 @@ function AutocompleteInput({
 }
 
 export function AddPurchaseBatchPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
@@ -220,7 +222,7 @@ export function AddPurchaseBatchPage() {
       setShowForm(false);
       setEditingRowIndices({ 0: true });
       queryClient.invalidateQueries({ queryKey: ['batches'] });
-      showToast('Purchase batch successfully saved!', 'success');
+      showToast(t('addPurchaseBatch.messages.savedSuccess'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -233,7 +235,7 @@ export function AddPurchaseBatchPage() {
       api(`${endpoints.batches}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['batches'] });
-      showToast('Purchase batch successfully deleted.', 'success');
+      showToast(t('addPurchaseBatch.messages.deletedSuccess'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -249,7 +251,7 @@ export function AddPurchaseBatchPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teaPowderTypes'] });
-      showToast('New Tea Powder Type created.', 'success');
+      showToast(t('addPurchaseBatch.messages.newTypeCreated'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -276,7 +278,7 @@ export function AddPurchaseBatchPage() {
     onSuccess: (newSeller) => {
       setFormData((prev) => ({ ...prev, sellerName: newSeller.name }));
       queryClient.invalidateQueries({ queryKey: ['all-sellers-list'] });
-      showToast(`Supplier "${newSeller.name}" added successfully.`, 'success');
+      showToast(t('addPurchaseBatch.messages.supplierAdded').replace('{{name}}', newSeller.name), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -326,8 +328,8 @@ export function AddPurchaseBatchPage() {
   // Delete batch
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Delete Purchase Batch',
-      message: 'Are you sure you want to delete this purchase batch and all its tea powder items?',
+      title: t('addPurchaseBatch.messages.deleteConfirmTitle'),
+      message: t('addPurchaseBatch.messages.deleteConfirmMsg'),
       variant: 'danger',
     });
     if (confirmed) {
@@ -370,7 +372,7 @@ export function AddPurchaseBatchPage() {
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      showToast('Please complete all required fields.', 'error');
+      showToast(t('addPurchaseBatch.messages.fillRequired'), 'error');
       setTimeout(() => {
         const firstInvalidField = document.querySelector('.border-rose-500, input.border-rose-500');
         if (firstInvalidField) {
@@ -382,7 +384,7 @@ export function AddPurchaseBatchPage() {
     setFormErrors({});
 
     if (!formData.items || formData.items.length === 0) {
-      showToast('At least one tea powder item is required.', 'error');
+      showToast(t('addPurchaseBatch.messages.atLeastOneItem'), 'error');
       return;
     }
 
@@ -395,7 +397,7 @@ export function AddPurchaseBatchPage() {
     );
     if (duplicates.length > 0) {
       showToast(
-        `Duplicate tea powder types are not allowed. Please remove duplicates: "${duplicates[0]}".`,
+        t('addPurchaseBatch.messages.duplicateNotAllowed').replace('{{duplicate}}', duplicates[0] ?? ''),
         'error',
       );
       return;
@@ -403,15 +405,15 @@ export function AddPurchaseBatchPage() {
 
     for (const item of formData.items) {
       if (!item.teaPowderType?.trim()) {
-        showToast('Tea powder type is required for all line items.', 'error');
+        showToast(t('addPurchaseBatch.messages.typeRequired'), 'error');
         return;
       }
       if (item.ratePerKg === undefined || item.ratePerKg <= 0) {
-        showToast('Price per Kg must be greater than 0.', 'error');
+        showToast(t('addPurchaseBatch.messages.priceGreaterThanZero'), 'error');
         return;
       }
       if (item.ratePerKg > 100000) {
-        showToast('Price per Kg cannot exceed ₹1,00,000.', 'error');
+        showToast(t('addPurchaseBatch.messages.priceLimit'), 'error');
         return;
       }
     }
@@ -494,7 +496,7 @@ export function AddPurchaseBatchPage() {
           }`}
         >
           <ClipboardList size={16} />
-          <span>Purchase Batches</span>
+          <span>{t('addPurchaseBatch.tabs.purchaseBatches')}</span>
         </button>
         <button
           onClick={() => setActiveTab('types')}
@@ -505,7 +507,7 @@ export function AddPurchaseBatchPage() {
           }`}
         >
           <Coffee size={16} />
-          <span>Tea Powder Types</span>
+          <span>{t('addPurchaseBatch.tabs.teaPowderTypes')}</span>
         </button>
       </div>
 
@@ -527,12 +529,12 @@ export function AddPurchaseBatchPage() {
               <div className="flex items-center gap-3">
                 <h3 className="text-xl font-semibold text-slate-900">
                   {editingId
-                    ? 'Modify Selected Purchase Batch'
-                    : 'New Purchase Batch Form'}
+                    ? t('addPurchaseBatch.form.modifyBatch')
+                    : t('addPurchaseBatch.form.newBatch')}
                 </h3>
                 {editingId && (
                   <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-600/20">
-                    Editing Mode
+                    {t('addPurchaseBatch.form.editingMode')}
                   </span>
                 )}
               </div>
@@ -540,7 +542,7 @@ export function AddPurchaseBatchPage() {
                 type="button"
                 onClick={handleCancel}
                 className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none"
-                title="Dismiss Form"
+                title={t('addPurchaseBatch.form.dismissForm')}
               >
                 <svg
                   className="h-4.5 w-4.5"
@@ -559,7 +561,7 @@ export function AddPurchaseBatchPage() {
             </div>
 
             <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
-              <Field label="Purchase Date">
+              <Field label={t('addPurchaseBatch.form.purchaseDate')}>
                 <div className="relative">
                   <Calendar
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
@@ -589,7 +591,7 @@ export function AddPurchaseBatchPage() {
                 </div>
               </Field>
 
-              <Field label="No. of Bags">
+              <Field label={t('addPurchaseBatch.form.noOfBags')}>
                 <div className="relative">
                   <ShoppingBag
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
@@ -640,7 +642,7 @@ export function AddPurchaseBatchPage() {
                 </div>
               </Field>
 
-              <Field label="Bill Number (Invoice)">
+              <Field label={t('addPurchaseBatch.form.billNumber')}>
                 <div className="relative">
                   <FileText
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
@@ -661,7 +663,7 @@ export function AddPurchaseBatchPage() {
               </Field>
 
               <div className="md:col-span-2">
-                <Field label="Seller Name (Supplier)">
+                <Field label={t('addPurchaseBatch.form.sellerName')}>
                   <div className="relative">
                     <User
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"
@@ -674,7 +676,7 @@ export function AddPurchaseBatchPage() {
                         setFormData({ ...formData, sellerName: val })
                       }
                       options={sellerOptions}
-                      placeholder="Select or type seller name..."
+                      placeholder={t('addPurchaseBatch.form.selectSeller')}
                       onCreateNew={(val) => createSellerMutation.mutate(val)}
                       createLabel="Seller"
                       hasError={!!formErrors.sellerName}
@@ -683,14 +685,14 @@ export function AddPurchaseBatchPage() {
                 </Field>
               </div>
 
-              <Field label="Batch Code (Read-only)">
+              <Field label={t('addPurchaseBatch.form.batchCode')}>
                 <Input
                   className={`h-10 text-sm font-normal border-slate-200 cursor-not-allowed uppercase tracking-wider ${
                     batchCodePreview
                       ? 'text-slate-700 bg-slate-50'
                       : 'text-slate-400 bg-slate-50'
                   }`}
-                  value={batchCodePreview || 'Waiting for bags/date...'}
+                  value={batchCodePreview || t('addPurchaseBatch.form.batchCodePreview')}
                   disabled
                 />
               </Field>
@@ -701,7 +703,7 @@ export function AddPurchaseBatchPage() {
           <Card className="border border-slate-200 rounded-2xl shadow-sm bg-white p-0">
             <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
               <h3 className="text-xl font-semibold text-slate-900">
-                Tea Powder Line Items
+                {t('addPurchaseBatch.form.lineItemsTitle')}
               </h3>
             </div>
 
@@ -709,9 +711,9 @@ export function AddPurchaseBatchPage() {
               {/* Header row for desktop - perfect tabular alignment, hidden on mobile */}
               <div className="hidden sm:grid grid-cols-[44px_1fr_200px_136px] gap-4 px-4 pb-2 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide">
                 <div className="text-center">#</div>
-                <div>Tea Powder Type</div>
-                <div>Price per Kg</div>
-                <div className="text-center">Actions</div>
+                <div>{t('addPurchaseBatch.table.teaPowderType')}</div>
+                <div>{t('addPurchaseBatch.table.pricePerKg')}</div>
+                <div className="text-center">{t('addPurchaseBatch.table.actions')}</div>
               </div>
 
               {/* Simple unified table rows with minimal padding and standard fonts. Removed overflow-hidden to prevent clipping dropdowns */}
@@ -760,7 +762,7 @@ export function AddPurchaseBatchPage() {
                       {/* Tea Powder Type Field (Dynamic input or standard font text) */}
                       <div className="flex flex-col gap-1">
                         <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Tea Powder Type
+                          {t('addPurchaseBatch.table.teaPowderType')}
                         </span>
                         {isEditingRow ? (
                           <AutocompleteInput
@@ -769,7 +771,7 @@ export function AddPurchaseBatchPage() {
                               updateItem(index, 'teaPowderType', val)
                             }
                             options={autocompleteOptions}
-                            placeholder="Select grade or category..."
+                            placeholder={t('addPurchaseBatch.table.selectGrade')}
                             hasError={isDuplicate}
                             onCreateNew={(newVal) => {
                               createPowderTypeMutation.mutate(newVal, {
@@ -787,14 +789,14 @@ export function AddPurchaseBatchPage() {
                           <div className="text-sm font-normal text-slate-700 select-none truncate">
                             {item.teaPowderType || (
                               <span className="text-slate-400 italic">
-                                Empty Type
+                                {t('addPurchaseBatch.table.emptyType')}
                               </span>
                             )}
                           </div>
                         )}
                         {isDuplicate && (
                           <span className="text-[10px] font-medium text-red-600 mt-0.5 block">
-                            ⚠️ Duplicate tea powder type
+                            {t('addPurchaseBatch.table.duplicateType')}
                           </span>
                         )}
                       </div>
@@ -802,7 +804,7 @@ export function AddPurchaseBatchPage() {
                       {/* Price per Kg (Dynamic input or standard font text) */}
                       <div className="flex flex-col gap-1">
                         <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Price per Kg (₹)
+                          {t('addPurchaseBatch.table.pricePerKg')}
                         </span>
                         {isEditingRow ? (
                           <Input
@@ -833,7 +835,7 @@ export function AddPurchaseBatchPage() {
                       {/* Row Actions */}
                       <div className="flex flex-col gap-1 sm:items-center">
                         <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Actions
+                          {t('addPurchaseBatch.table.actions')}
                         </span>
                         <div className="flex items-center gap-2 justify-center">
                           {isEditingRow ? (
@@ -848,7 +850,7 @@ export function AddPurchaseBatchPage() {
                                 });
                               }}
                               className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm transition-all duration-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-50 disabled:hover:text-emerald-700 disabled:hover:border-emerald-200"
-                              title="Confirm line item"
+                              title={t('addPurchaseBatch.table.confirmItem')}
                             >
                               <Check className="h-4 w-4 text-current" />
                             </button>
@@ -863,7 +865,7 @@ export function AddPurchaseBatchPage() {
                                 })
                               }
                               className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 focus:outline-none"
-                              title="Edit line item"
+                              title={t('addPurchaseBatch.table.editItem')}
                             >
                               <Edit3 className="h-3.5 w-3.5 text-current" />
                             </button>
@@ -875,7 +877,7 @@ export function AddPurchaseBatchPage() {
                             onClick={() => removeItem(index)}
                             className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={formData.items!.length <= 1}
-                            title="Delete line item"
+                            title={t('addPurchaseBatch.table.deleteItem')}
                           >
                             <Trash2 className="h-3.5 w-3.5 text-current" />
                           </button>
@@ -886,7 +888,7 @@ export function AddPurchaseBatchPage() {
                               type="button"
                               onClick={addItem}
                               className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 focus:outline-none"
-                              title="Add new line item"
+                              title={t('addPurchaseBatch.table.addItem')}
                             >
                               <Plus className="h-4 w-4 text-current" />
                             </button>
@@ -914,7 +916,7 @@ export function AddPurchaseBatchPage() {
               variant="secondary"
               className="h-10 text-sm font-medium"
             >
-              Cancel
+              {t('addPurchaseBatch.actions.cancel')}
             </Button>
             <Button
               type="submit"
@@ -925,10 +927,10 @@ export function AddPurchaseBatchPage() {
               <Save className="h-4 w-4 text-current" />
               <span>
                 {saveMutation.isPending
-                  ? 'Saving...'
+                  ? t('addPurchaseBatch.actions.saving')
                   : editingId
-                    ? 'Update Purchase Batch'
-                    : 'Save Purchase Batch'}
+                    ? t('addPurchaseBatch.actions.update')
+                    : t('addPurchaseBatch.actions.save')}
               </span>
             </Button>
           </div>
@@ -941,11 +943,10 @@ export function AddPurchaseBatchPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
               <h3 className="text-xl font-semibold text-slate-900 tracking-tight">
-                Existing Purchase Batches
+                {t('addPurchaseBatch.list.title')}
               </h3>
               <p className="text-xs font-normal text-slate-500">
-                Monitor, search, and verify prices of all previously registered
-                purchase batches.
+                {t('addPurchaseBatch.list.description')}
               </p>
             </div>
             {canEdit && (
@@ -956,7 +957,7 @@ export function AddPurchaseBatchPage() {
                 className="h-10 px-5 rounded-xl border shadow-sm self-start sm:self-auto font-medium transition-all text-sm shrink-0"
               >
                 <Plus className="h-4 w-4 text-current" />
-                <span>New Purchase Batch</span>
+                <span>{t('addPurchaseBatch.list.newBatchBtn')}</span>
               </Button>
             )}
           </div>
@@ -967,7 +968,7 @@ export function AddPurchaseBatchPage() {
             <input
               type="text"
               className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-slate-400 font-semibold text-slate-700"
-              placeholder="Search by batch code, seller, bill number, or date..."
+              placeholder={t('addPurchaseBatch.list.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -980,7 +981,7 @@ export function AddPurchaseBatchPage() {
           <div className="flex flex-col gap-4">
             {isLoading ? (
               <p className="py-12 text-center text-slate-500 text-sm font-normal">
-                Loading existing records...
+                {t('addPurchaseBatch.list.loading')}
               </p>
             ) : batches.length === 0 ? (
               <div className="py-16 text-center text-slate-400 border border-slate-200 rounded-2xl bg-white shadow-sm">
@@ -989,7 +990,7 @@ export function AddPurchaseBatchPage() {
                   size={48}
                 />
                 <p className="text-sm font-medium text-slate-500">
-                  No purchase batches found matching search query.
+                  {t('addPurchaseBatch.list.noBatches')}
                 </p>
               </div>
             ) : (
@@ -1034,7 +1035,7 @@ export function AddPurchaseBatchPage() {
                             {/* Bags count */}
                             <span className="flex items-center gap-1.5 text-slate-750 font-medium shrink-0">
                               <ShoppingBag className="h-3.5 w-3.5 text-slate-400" />
-                              <span>{batch.numberOfBags} Bags</span>
+                              <span>{batch.numberOfBags} {t('addPurchaseBatch.card.bags')}</span>
                             </span>
 
                             {/* Seller */}
@@ -1055,7 +1056,7 @@ export function AddPurchaseBatchPage() {
                             {/* Items count */}
                             <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/10 shrink-0">
                               {batch.items.length}{' '}
-                              {batch.items.length === 1 ? 'Item' : 'Items'}
+                              {batch.items.length === 1 ? t('addPurchaseBatch.card.item') : t('addPurchaseBatch.card.items')}
                             </span>
                           </div>
                         </div>
@@ -1067,13 +1068,13 @@ export function AddPurchaseBatchPage() {
                             onClick={() => toggleExpand(batch.id)}
                             className="h-9 px-3.5 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900"
                           >
-                            {isExpanded ? 'Hide Items' : 'View Items'}
+                            {isExpanded ? t('addPurchaseBatch.card.hideItems') : t('addPurchaseBatch.card.viewItems')}
                           </Button>
                           <button
                             type="button"
                             onClick={() => setViewingBatch(batch)}
                             className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 active:scale-95 focus:outline-none"
-                            title="View details in print-friendly modal"
+                            title={t('addPurchaseBatch.card.viewDetailsTooltip')}
                           >
                             <Eye className="h-4 w-4 text-current" />
                           </button>
@@ -1083,7 +1084,7 @@ export function AddPurchaseBatchPage() {
                                 type="button"
                                 onClick={() => handleEdit(batch)}
                                 className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 active:scale-95 focus:outline-none"
-                                title="Edit purchase batch"
+                                title={t('addPurchaseBatch.card.editTooltip')}
                               >
                                 <Edit3 className="h-4 w-4 text-current" />
                               </button>
@@ -1091,7 +1092,7 @@ export function AddPurchaseBatchPage() {
                                 type="button"
                                 onClick={() => handleDelete(batch.id)}
                                 className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 active:scale-95 focus:outline-none"
-                                title="Delete purchase batch"
+                                title={t('addPurchaseBatch.card.deleteTooltip')}
                               >
                                 <Trash2 className="h-4 w-4 text-current" />
                               </button>
@@ -1143,7 +1144,7 @@ export function AddPurchaseBatchPage() {
                   variant="secondary"
                   className="h-9 px-3 text-xs"
                 >
-                  Previous
+                  {t('addPurchaseBatch.pagination.previous')}
                 </Button>
                 <Button
                   onClick={() =>
@@ -1153,22 +1154,22 @@ export function AddPurchaseBatchPage() {
                   variant="secondary"
                   className="h-9 px-3 text-xs"
                 >
-                  Next
+                  {t('addPurchaseBatch.pagination.next')}
                 </Button>
               </div>
               <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs text-slate-750 font-normal">
-                    Showing{' '}
+                    {t('addPurchaseBatch.pagination.showing')}{' '}
                     <span className="font-semibold">
                       {(currentPage - 1) * itemsPerPage + 1}
                     </span>{' '}
-                    to{' '}
+                    {t('addPurchaseBatch.pagination.to')}{' '}
                     <span className="font-semibold">
                       {Math.min(currentPage * itemsPerPage, batches.length)}
                     </span>{' '}
-                    of <span className="font-semibold">{batches.length}</span>{' '}
-                    results
+                    {t('addPurchaseBatch.pagination.of')} <span className="font-semibold">{batches.length}</span>{' '}
+                    {t('addPurchaseBatch.pagination.results')}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -1214,16 +1215,16 @@ export function AddPurchaseBatchPage() {
           )}
       {viewingBatch && (
         <ViewDetailsModal
-          title={viewingBatch.batchCode || 'Purchase Batch'}
-          subtitle="Purchase Batch Details"
+          title={viewingBatch.batchCode || t('addPurchaseBatch.modal.fallbackTitle')}
+          subtitle={t('addPurchaseBatch.modal.subtitle')}
           onClose={() => setViewingBatch(null)}
           fields={[
             {
-              label: 'Batch Code',
+              label: t('addPurchaseBatch.modal.batchCode'),
               value: viewingBatch.batchCode || '—',
             },
             {
-              label: 'Purchase Date',
+              label: t('addPurchaseBatch.modal.purchaseDate'),
               value: new Date(viewingBatch.purchaseDate).toLocaleDateString('en-IN', {
                 day: '2-digit',
                 month: 'short',
@@ -1231,21 +1232,21 @@ export function AddPurchaseBatchPage() {
               }),
             },
             {
-              label: 'Seller / Supplier',
+              label: t('addPurchaseBatch.modal.seller'),
               value: viewingBatch.sellerName || '—',
             },
             {
-              label: 'Bill Number',
+              label: t('addPurchaseBatch.modal.billNumber'),
               value: viewingBatch.billNumber || '—',
             },
             {
-              label: 'Bags Count',
-              value: `${viewingBatch.numberOfBags || 0} Bags`,
+              label: t('addPurchaseBatch.modal.bagsCount'),
+              value: `${viewingBatch.numberOfBags || 0} ${t('addPurchaseBatch.card.bags')}`,
             },
           ]}
           customBody={
             <div className="flex flex-col gap-4">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Line Items</span>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">{t('addPurchaseBatch.modal.lineItemsTitle')}</span>
               <div className="flex flex-col gap-2">
                 {viewingBatch.items.map((item: any) => (
                   <div key={item.subSerialNumber} className="flex justify-between items-center border border-slate-200 rounded-xl p-3 bg-slate-50/50">

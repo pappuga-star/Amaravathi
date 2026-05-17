@@ -4,8 +4,6 @@ const customerTeaFormulaSchema = new Schema(
   {
     customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
     formulaCode: { type: String, required: true, unique: true },
-    formulaName: { type: String, required: true, trim: true },
-    teaPowderType: { type: String, required: true, trim: true },
     totalWeight: { type: Number, required: true, min: 0 },
     totalFormulaCost: { type: Number, required: true, min: 0 },
     costPerKg: { type: Number, required: true, min: 0 },
@@ -67,16 +65,6 @@ const customerTeaFormulaSchema = new Schema(
   { timestamps: true },
 );
 
-customerTeaFormulaSchema.index(
-  {
-    customerId: 1,
-    formulaName: 1,
-    deletedAt: 1,
-  },
-  { unique: true }
-);
-
-customerTeaFormulaSchema.index({ formulaName: 1 });
 customerTeaFormulaSchema.index({ customerId: 1 });
 
 // Auto-generate human-readable Formula Code e.g. FORM-20260517-0001

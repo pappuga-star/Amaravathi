@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, Field, Input } from '@amaravathi/shared-ui';
 import { api, setToken } from '../lib/api';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export function Login() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [email, setEmail] = useState('admin@amaravathi.local');
   const [password, setPassword] = useState('Admin@12345');
@@ -20,25 +23,28 @@ export function Login() {
       setToken(result.token);
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t('login.failed'));
     }
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-50 p-4">
+    <main className="grid min-h-screen place-items-center bg-slate-50 p-4 relative">
+      <div className="absolute top-4 right-4 bg-white rounded-lg shadow-sm">
+        <LanguageSwitcher />
+      </div>
       <Card className="w-full max-w-md p-6">
         <p className="text-sm font-semibold text-emerald-700">
-          Amaravathi Tea Pricing System
+          {t('login.system')}
         </p>
-        <h1 className="mt-1 text-2xl font-bold">Admin login</h1>
+        <h1 className="mt-1 text-2xl font-bold">{t('login.title')}</h1>
         <form className="mt-6 grid gap-4" onSubmit={submit}>
-          <Field label="Email">
+          <Field label={t('login.email')}>
             <Input
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
           </Field>
-          <Field label="Password">
+          <Field label={t('login.password')}>
             <Input
               type="password"
               value={password}
@@ -64,7 +70,7 @@ export function Login() {
                 d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h5a3 3 0 013 3v1"
               />
             </svg>
-            <span>Sign in</span>
+            <span>{t('login.signIn')}</span>
           </Button>
         </form>
       </Card>

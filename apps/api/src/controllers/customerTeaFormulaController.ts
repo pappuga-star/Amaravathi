@@ -52,7 +52,6 @@ export const customerTeaFormulasController = {
       const customerIds = matchingCustomers.map(c => c._id);
 
       filter.$or = [
-        { formulaName: { $regex: q, $options: 'i' } },
         { formulaCode: { $regex: q, $options: 'i' } },
         ...(customerIds.length > 0 ? [{ customerId: { $in: customerIds } }] : [])
       ];
@@ -131,19 +130,7 @@ export const customerTeaFormulasController = {
       });
     }
 
-    const duplicate = await CustomerTeaFormula.findOne({
-      customerId: parsed.customerId,
-      formulaName: { $regex: new RegExp(`^${parsed.formulaName}$`, 'i') },
-      deletedAt: null,
-    });
-
-    if (duplicate) {
-      return res.status(400).json({
-        success: false,
-        message: `An active formula with the name "${parsed.formulaName}" already exists for this customer.`,
-      });
-    }
-
+    // Duplicate name checking has been intentionally removed along with formulaName
     const combinations = new Set<string>();
     for (const item of parsed.lineItems) {
       const key = `${item.purchaseBatchCode.toLowerCase()}:${item.ingredientName.toLowerCase()}`;
@@ -239,7 +226,7 @@ export const customerTeaFormulasController = {
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
-          message: 'An active formula with the same name already exists for this customer.',
+          message: 'A formula with this code already exists.',
         });
       }
       throw error;
@@ -262,24 +249,6 @@ export const customerTeaFormulasController = {
     const updatedPayload = { ...parsed };
 
     const checkCust = parsed.customerId || existingFormula.customerId;
-    const checkName = parsed.formulaName || existingFormula.formulaName;
-
-    if (parsed.customerId || parsed.formulaName) {
-      const duplicate = await CustomerTeaFormula.findOne({
-        _id: { $ne: req.params.id },
-        customerId: checkCust,
-        formulaName: { $regex: new RegExp(`^${checkName}$`, 'i') },
-        deletedAt: null,
-      });
-
-      if (duplicate) {
-        return res.status(400).json({
-          success: false,
-          message: `An active formula with the name "${checkName}" already exists for this customer.`,
-        });
-      }
-    }
-
     const finalLineItems = parsed.lineItems !== undefined ? parsed.lineItems : existingFormula.lineItems;
 
     if (finalLineItems && finalLineItems.length > 0) {
@@ -393,7 +362,7 @@ export const customerTeaFormulasController = {
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
-          message: 'An active formula with the same name already exists for this customer.',
+          message: 'A formula with this code already exists.',
         });
       }
       throw error;
@@ -459,26 +428,8 @@ export const customerTeaFormulasController = {
         .json({ success: false, message: 'Source formula not found' });
     }
 
-    const baseName = source.formulaName;
-    const duplicatedName = `${baseName} (Copy)`;
-
-    const duplicate = await CustomerTeaFormula.findOne({
-      customerId: source.customerId,
-      formulaName: { $regex: new RegExp(`^${duplicatedName}$`, 'i') },
-      deletedAt: null,
-    });
-
-    if (duplicate) {
-      return res.status(400).json({
-        success: false,
-        message: `An active formula with the name "${duplicatedName}" already exists for this customer.`,
-      });
-    }
-
     const payload = {
       customerId: source.customerId,
-      formulaName: duplicatedName,
-      teaPowderType: source.teaPowderType,
       notes: source.notes,
       totalWeight: source.totalWeight,
       totalFormulaCost: source.totalFormulaCost,

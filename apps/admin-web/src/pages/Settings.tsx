@@ -4,8 +4,10 @@ import { Card, Input, Button } from '@amaravathi/shared-ui';
 import { api } from '../lib/api';
 import { useNotification } from '../components/NotificationContext';
 import { User, Settings, Shield, Bell, HelpCircle, Save } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const { showToast } = useNotification();
   // Fetch active user profile from me endpoint
   const { data: me } = useQuery({
@@ -34,17 +36,16 @@ export function SettingsPage() {
     localStorage.setItem('setting_estate_name', estateName);
     localStorage.setItem('setting_bag_weight', bagWeight);
     localStorage.setItem('setting_currency', currency);
-    showToast('System settings updated successfully!', 'success');
+    showToast(t('settings.saveSuccess'), 'success');
   };
 
   return (
     <div className="grid gap-8">
       {/* Top Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">System Settings</h2>
+        <h2 className="text-2xl font-bold text-slate-900">{t('settings.title')}</h2>
         <p className="text-sm text-slate-500">
-          Configure your workspace defaults, user preferences, and master
-          profiles.
+          {t('settings.subtitle')}
         </p>
       </div>
 
@@ -57,7 +58,7 @@ export function SettingsPage() {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-800">
-                {me?.name ?? 'System Admin'}
+                {me?.name ?? t('settings.systemAdmin')}
               </h3>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 {me?.role ?? 'admin'}
@@ -66,7 +67,7 @@ export function SettingsPage() {
             <div className="w-full border-t border-slate-100 pt-4 flex flex-col gap-2.5 text-left text-sm">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                  Email Address
+                  {t('settings.emailAddress')}
                 </span>
                 <span className="font-semibold text-slate-700">
                   {me?.email ?? 'admin@amaravathi.local'}
@@ -74,11 +75,11 @@ export function SettingsPage() {
               </div>
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                  System Access Level
+                  {t('settings.accessLevel')}
                 </span>
                 <span className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
                   <Shield size={12} />
-                  <span>Full Privileges</span>
+                  <span>{t('settings.fullPrivileges')}</span>
                 </span>
               </div>
             </div>
@@ -94,17 +95,17 @@ export function SettingsPage() {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">
-                  Estates Master Defaults
+                  {t('settings.masterDefaults')}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Set default parameters for calculations and invoice forms.
+                  {t('settings.masterDefaultsDesc')}
                 </p>
               </div>
             </div>
 
             <form onSubmit={handleSaveSettings} className="grid gap-5">
               <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                <span>Default Estate / Corporation Name</span>
+                <span>{t('settings.estateName')}</span>
                 <Input
                   type="text"
                   value={estateName}
@@ -115,7 +116,7 @@ export function SettingsPage() {
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                  <span>Default Bag Capacity Weight (kg)</span>
+                  <span>{t('settings.bagWeight')}</span>
                   <Input
                     type="number"
                     value={bagWeight}
@@ -124,7 +125,7 @@ export function SettingsPage() {
                   />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                  <span>Standard System Currency</span>
+                  <span>{t('settings.currency')}</span>
                   <select
                     className="w-full h-10 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 bg-white"
                     value={currency}
@@ -141,11 +142,10 @@ export function SettingsPage() {
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                     <Bell size={15} className="text-slate-400" />
-                    <span>Real-Time Notifications</span>
+                    <span>{t('settings.realtimeNotifications')}</span>
                   </span>
                   <span className="text-xs text-slate-400">
-                    Trigger warnings for anomalous rates or duplicate batch
-                    codes.
+                    {t('settings.triggerWarnings')}
                   </span>
                 </div>
                 <button
@@ -170,7 +170,7 @@ export function SettingsPage() {
                   className="h-10 px-6 font-semibold transition-colors hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
                 >
                   <Save className="h-4 w-4 text-current" />
-                  <span>Save Configuration</span>
+                  <span>{t('settings.saveConfig')}</span>
                 </Button>
               </div>
             </form>
@@ -182,11 +182,10 @@ export function SettingsPage() {
             </div>
             <div>
               <h4 className="text-sm font-bold text-slate-800">
-                Need Help or Advanced Customizations?
+                {t('settings.needHelp')}
               </h4>
               <p className="text-xs text-slate-400">
-                Contact the Amaravathi engineering support team to modify tax
-                rates, database scaling, or integrate external ERP systems.
+                {t('settings.contactSupport')}
               </p>
             </div>
           </Card>

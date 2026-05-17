@@ -14,11 +14,13 @@ import { Button, Card, Input } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '../components/NotificationContext';
+import { useTranslation } from 'react-i18next';
 
 // --------------------------------------------------------
 // 1. Leaf Categories Page (No Price Field)
 // --------------------------------------------------------
 export const LeafCategoriesPage = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
   const [name, setName] = useState('');
@@ -50,7 +52,7 @@ export const LeafCategoriesPage = () => {
     onSuccess: () => {
       resetForm();
       queryClient.invalidateQueries({ queryKey: [endpoints.leafCategories] });
-      showToast('Leaf Category saved successfully!', 'success');
+      showToast(t('leafCategories.saveSuccess'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -61,7 +63,7 @@ export const LeafCategoriesPage = () => {
     mutationFn: (id: string) => api(`${endpoints.leafCategories}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [endpoints.leafCategories] });
-      showToast('Leaf Category deleted successfully!', 'success');
+      showToast(t('leafCategories.deleteSuccess'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -72,7 +74,7 @@ export const LeafCategoriesPage = () => {
     mutationFn: (id: string) => api(`${endpoints.leafCategories}/${id}/restore`, { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [endpoints.leafCategories] });
-      showToast('Leaf Category restored successfully!', 'success');
+      showToast(t('leafCategories.restoreSuccess'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -95,8 +97,8 @@ export const LeafCategoriesPage = () => {
 
   const handleRestore = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Restore Leaf Category',
-      message: 'Are you sure you want to restore this leaf category?',
+      title: t('leafCategories.confirmRestoreTitle'),
+      message: t('leafCategories.confirmRestoreMsg'),
     });
     if (confirmed) {
       restoreMutation.mutate(id);
@@ -105,8 +107,8 @@ export const LeafCategoriesPage = () => {
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Delete Leaf Category',
-      message: 'Are you sure you want to delete this leaf category?',
+      title: t('leafCategories.confirmDeleteTitle'),
+      message: t('leafCategories.confirmDeleteMsg'),
       variant: 'danger',
     });
     if (confirmed) {
@@ -123,30 +125,30 @@ export const LeafCategoriesPage = () => {
   return (
     <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
       <Card className="h-max p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
-        <h3 className="text-lg font-bold text-slate-800">{editingId ? 'Edit Leaf Category' : 'Add Leaf Category'}</h3>
+        <h3 className="text-lg font-bold text-slate-800">{editingId ? t('leafCategories.editTitle') : t('leafCategories.addTitle')}</h3>
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-            <span>Name</span>
-            <Input type="text" placeholder="e.g. Royal Gold" value={name} onChange={(e) => setName(e.target.value)} required disabled={!canEdit} />
+            <span>{t('name')}</span>
+            <Input type="text" placeholder={t('leafCategories.placeholderName')} value={name} onChange={(e) => setName(e.target.value)} required disabled={!canEdit} />
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-            <span>Description</span>
-            <textarea className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter description..." value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canEdit} />
+            <span>{t('description')}</span>
+            <textarea className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500" placeholder={t('leafCategories.placeholderDesc')} value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canEdit} />
           </label>
           <div className="flex items-center justify-between text-sm font-medium text-slate-700">
-            <span>Status</span>
+            <span>{t('status')}</span>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} disabled={!canEdit} className="sr-only peer" />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-              <span className="ml-2 text-slate-600">{active ? 'Active' : 'Inactive'}</span>
+              <span className="ml-2 text-slate-600">{active ? t('active') : t('inactive')}</span>
             </label>
           </div>
           {saveMutation.error && <p className="text-sm text-red-600 font-medium">{(saveMutation.error as any).message}</p>}
           <div className="flex gap-2 mt-2">
-            {editingId && <Button type="button" onClick={resetForm} variant="secondary" className="flex-1 h-10 text-sm font-medium">Cancel</Button>}
+            {editingId && <Button type="button" onClick={resetForm} variant="secondary" className="flex-1 h-10 text-sm font-medium">{t('cancel')}</Button>}
             <Button type="submit" variant="add" className="flex-1 h-10 text-sm font-medium" disabled={saveMutation.isPending || !canEdit}>
               <Save className="h-4 w-4 text-current" />
-              <span>{editingId ? 'Update' : 'Save'}</span>
+              <span>{editingId ? t('update') : t('save')}</span>
             </Button>
           </div>
         </form>
@@ -155,20 +157,20 @@ export const LeafCategoriesPage = () => {
       <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-lg font-bold text-slate-800">Leaf Category Records</h3>
-            <p className="text-xs text-slate-400">Total blended settings and adjustment prices</p>
+            <h3 className="text-lg font-bold text-slate-800">{t('leafCategories.records')}</h3>
+            <p className="text-xs text-slate-400">{t('leafCategories.totalBlended')}</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-xs font-semibold text-slate-600">
               {(['all', 'active', 'inactive', 'deleted'] as const).map((status) => (
                 <button key={status} onClick={() => setStatusFilter(status)} className={`px-3 py-1.5 rounded-md transition-all ${statusFilter === status ? 'bg-white text-emerald-700 shadow-sm' : 'hover:text-slate-900'}`}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {t(status)}
                 </button>
               ))}
             </div>
             <div className="relative flex items-center">
               <Search className="absolute left-3 text-slate-400 pointer-events-none" size={16} />
-              <Input className="pl-9 h-9 text-sm font-normal w-full sm:max-w-xs" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <Input className="pl-9 h-9 text-sm font-normal w-full sm:max-w-xs" placeholder={t('search')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
           </div>
         </div>
@@ -176,17 +178,17 @@ export const LeafCategoriesPage = () => {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Name</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Description</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">Status</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">Actions</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">{t('name')}</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">{t('description')}</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">{t('status')}</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400 italic text-sm">Loading records...</td></tr>
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400 italic text-sm">{t('leafCategories.loadingRecords')}</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400 italic text-sm">No records found matching filters.</td></tr>
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400 italic text-sm">{t('noRecords')}</td></tr>
               ) : (
                 items.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
@@ -194,11 +196,11 @@ export const LeafCategoriesPage = () => {
                     <td className="px-4 py-3 text-sm font-normal text-slate-500 max-w-xs truncate">{item.description || '-'}</td>
                     <td className="px-4 py-3 text-center">
                       {item.deletedAt ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700"><XCircle size={12} /> Deleted</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700"><XCircle size={12} /> {t('deleted')}</span>
                       ) : item.active ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700"><ShieldCheck size={12} /> Active</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700"><ShieldCheck size={12} /> {t('active')}</span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Inactive</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">{t('inactive')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -211,7 +213,7 @@ export const LeafCategoriesPage = () => {
                               type="button"
                               onClick={() => setViewingCategory(item)}
                               className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
-                              title="View details"
+                              title={t('viewDetails') || ''}
                             >
                               <Eye size={14} />
                             </button>
@@ -232,20 +234,20 @@ export const LeafCategoriesPage = () => {
       {viewingCategory && (
         <ViewDetailsModal
           title={viewingCategory.name}
-          subtitle="Leaf Category Details"
+          subtitle={t('leafCategories.title') + " " + t('viewDetails')}
           onClose={() => setViewingCategory(null)}
           fields={[
             {
-              label: 'Category Name',
+              label: t('leafCategories.categoryName'),
               value: viewingCategory.name,
             },
             {
-              label: 'Description',
+              label: t('description'),
               value: viewingCategory.description || '—',
             },
             {
-              label: 'Status',
-              value: viewingCategory.deletedAt ? 'Deleted' : viewingCategory.active ? 'Active' : 'Inactive',
+              label: t('status'),
+              value: viewingCategory.deletedAt ? t('deleted') : viewingCategory.active ? t('active') : t('inactive'),
               type: 'badge',
               badgeColor: viewingCategory.deletedAt ? 'red' : viewingCategory.active ? 'green' : 'slate',
             },
@@ -260,6 +262,7 @@ export const LeafCategoriesPage = () => {
 // 2. Cutting Types Page (With Leaf Category Link & Base Price)
 // --------------------------------------------------------
 export const CuttingTypesPage = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
@@ -298,7 +301,7 @@ export const CuttingTypesPage = () => {
     onSuccess: () => {
       resetForm();
       queryClient.invalidateQueries({ queryKey: [endpoints.cuttingTypes] });
-      showToast('Cutting Type saved successfully!', 'success');
+      showToast(t('cuttingTypes.saveSuccess'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -309,7 +312,7 @@ export const CuttingTypesPage = () => {
     mutationFn: (id: string) => api(`${endpoints.cuttingTypes}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [endpoints.cuttingTypes] });
-      showToast('Cutting Type deleted successfully!', 'success');
+      showToast(t('cuttingTypes.deleteSuccess'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -320,7 +323,7 @@ export const CuttingTypesPage = () => {
     mutationFn: (id: string) => api(`${endpoints.cuttingTypes}/${id}/restore`, { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [endpoints.cuttingTypes] });
-      showToast('Cutting Type restored successfully!', 'success');
+      showToast(t('cuttingTypes.restoreSuccess'), 'success');
     },
     onError: (err: any) => {
       showError(err);
@@ -349,8 +352,8 @@ export const CuttingTypesPage = () => {
 
   const handleRestore = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Restore Cutting Type',
-      message: 'Are you sure you want to restore this cutting type?',
+      title: t('cuttingTypes.confirmRestoreTitle'),
+      message: t('cuttingTypes.confirmRestoreMsg'),
     });
     if (confirmed) {
       restoreMutation.mutate(id);
@@ -359,8 +362,8 @@ export const CuttingTypesPage = () => {
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Delete Cutting Type',
-      message: 'Are you sure you want to delete this cutting type?',
+      title: t('cuttingTypes.confirmDeleteTitle'),
+      message: t('cuttingTypes.confirmDeleteMsg'),
       variant: 'danger',
     });
     if (confirmed) {
@@ -374,7 +377,7 @@ export const CuttingTypesPage = () => {
     const numericPrice = parseFloat(basePrice);
     if (isNaN(numericPrice) || numericPrice < 0) {
       setFormErrors({ basePrice: true });
-      showToast('Please enter a valid positive base price.', 'error');
+      showToast(t('cuttingTypes.invalidPrice'), 'error');
       setTimeout(() => {
         const firstInvalidField = document.querySelector('.border-rose-500, input.border-rose-500');
         if (firstInvalidField) {
@@ -390,21 +393,21 @@ export const CuttingTypesPage = () => {
   return (
     <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
       <Card className="h-max p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
-        <h3 className="text-lg font-bold text-slate-800">{editingId ? 'Edit Cutting Type' : 'Add Cutting Type'}</h3>
+        <h3 className="text-lg font-bold text-slate-800">{editingId ? t('cuttingTypes.editTitle') : t('cuttingTypes.addTitle')}</h3>
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-            <span>Parent Leaf Category</span>
+            <span>{t('cuttingTypes.parentCategory')}</span>
             <select className="h-10 rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-white" value={leafCategoryId} onChange={(e) => setLeafCategoryId(e.target.value)} required disabled={!canEdit}>
-              <option value="">Select a Leaf Category...</option>
+              <option value="">{t('cuttingTypes.selectCategory')}</option>
               {leafCategories.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-            <span>Cutting Type</span>
-            <Input type="text" placeholder="e.g. BOP" value={name} onChange={(e) => setName(e.target.value)} required disabled={!canEdit} />
+            <span>{t('cuttingTypes.cuttingType')}</span>
+            <Input type="text" placeholder={t('cuttingTypes.placeholderName')} value={name} onChange={(e) => setName(e.target.value)} required disabled={!canEdit} />
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-            <span>Base Price (₹/kg)</span>
+            <span>{t('cuttingTypes.basePrice')}</span>
             <Input
               className={
                 formErrors.basePrice ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-200'
@@ -412,7 +415,7 @@ export const CuttingTypesPage = () => {
               type="number"
               step="0.01"
               min="0"
-              placeholder="e.g. 180"
+              placeholder={t('cuttingTypes.placeholderPrice')}
               value={basePrice}
               onChange={(e) => setBasePrice(e.target.value)}
               required
@@ -420,23 +423,23 @@ export const CuttingTypesPage = () => {
             />
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-            <span>Description</span>
-            <textarea className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter description..." value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canEdit} />
+            <span>{t('description')}</span>
+            <textarea className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500" placeholder={t('cuttingTypes.placeholderDesc')} value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canEdit} />
           </label>
           <div className="flex items-center justify-between text-sm font-medium text-slate-700">
-            <span>Status</span>
+            <span>{t('status')}</span>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} disabled={!canEdit} className="sr-only peer" />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-              <span className="ml-2 text-slate-600">{active ? 'Active' : 'Inactive'}</span>
+              <span className="ml-2 text-slate-600">{active ? t('active') : t('inactive')}</span>
             </label>
           </div>
           {saveMutation.error && <p className="text-sm text-red-600 font-medium">{(saveMutation.error as any).message}</p>}
           <div className="flex gap-2 mt-2">
-            {editingId && <Button type="button" onClick={resetForm} variant="secondary" className="flex-1 h-10 text-sm font-medium">Cancel</Button>}
+            {editingId && <Button type="button" onClick={resetForm} variant="secondary" className="flex-1 h-10 text-sm font-medium">{t('cancel')}</Button>}
             <Button type="submit" variant="add" className="flex-1 h-10 text-sm font-medium" disabled={saveMutation.isPending || !canEdit}>
               <Save className="h-4 w-4 text-current" />
-              <span>{editingId ? 'Update' : 'Save'}</span>
+              <span>{editingId ? t('update') : t('save')}</span>
             </Button>
           </div>
         </form>
@@ -445,20 +448,20 @@ export const CuttingTypesPage = () => {
       <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-lg font-bold text-slate-800">Cutting Type Records</h3>
-            <p className="text-xs text-slate-400">Total blended settings and adjustment prices</p>
+            <h3 className="text-lg font-bold text-slate-800">{t('cuttingTypes.records')}</h3>
+            <p className="text-xs text-slate-400">{t('cuttingTypes.subtitle')}</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-xs font-semibold text-slate-600">
               {(['all', 'active', 'inactive', 'deleted'] as const).map((status) => (
                 <button key={status} onClick={() => setStatusFilter(status)} className={`px-3 py-1.5 rounded-md transition-all ${statusFilter === status ? 'bg-white text-emerald-700 shadow-sm' : 'hover:text-slate-900'}`}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {t(status)}
                 </button>
               ))}
             </div>
             <div className="relative flex items-center">
               <Search className="absolute left-3 text-slate-400 pointer-events-none" size={16} />
-              <Input className="pl-9 h-9 text-sm font-normal w-full sm:max-w-xs" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <Input className="pl-9 h-9 text-sm font-normal w-full sm:max-w-xs" placeholder={t('search')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
           </div>
         </div>
@@ -466,18 +469,18 @@ export const CuttingTypesPage = () => {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Name</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Leaf Category</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Base Price</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">Status</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">Actions</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">{t('name')}</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">{t('leafCategories.title')}</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">{t('cuttingTypes.basePrice')}</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">{t('status')}</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 italic text-sm">Loading records...</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 italic text-sm">{t('cuttingTypes.loadingRecords')}</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 italic text-sm">No records found matching filters.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 italic text-sm">{t('noRecords')}</td></tr>
               ) : (
                 items.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
@@ -488,11 +491,11 @@ export const CuttingTypesPage = () => {
                     <td className="px-4 py-3 text-sm font-medium text-slate-600">₹{Number(item.basePrice).toFixed(2)}/kg</td>
                     <td className="px-4 py-3 text-center">
                       {item.deletedAt ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700"><XCircle size={12} /> Deleted</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700"><XCircle size={12} /> {t('deleted')}</span>
                       ) : item.active ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700"><ShieldCheck size={12} /> Active</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700"><ShieldCheck size={12} /> {t('active')}</span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Inactive</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">{t('inactive')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -505,7 +508,7 @@ export const CuttingTypesPage = () => {
                               type="button"
                               onClick={() => setViewingCuttingType(item)}
                               className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
-                              title="View details"
+                              title={t('viewDetails') || ''}
                             >
                               <Eye size={14} />
                             </button>
@@ -526,28 +529,28 @@ export const CuttingTypesPage = () => {
       {viewingCuttingType && (
         <ViewDetailsModal
           title={viewingCuttingType.name}
-          subtitle="Cutting Type Details"
+          subtitle={t('cuttingTypes.title') + " " + t('viewDetails')}
           onClose={() => setViewingCuttingType(null)}
           fields={[
             {
-              label: 'Cutting Type Name',
+              label: t('cuttingTypes.cuttingType'),
               value: viewingCuttingType.name,
             },
             {
-              label: 'Leaf Category',
+              label: t('leafCategories.title'),
               value: typeof viewingCuttingType.leafCategoryId === 'object' ? viewingCuttingType.leafCategoryId?.name : viewingCuttingType.leafCategoryId || '—',
             },
             {
-              label: 'Base Price',
+              label: t('cuttingTypes.basePrice'),
               value: `₹${Number(viewingCuttingType.basePrice || 0).toFixed(2)}/kg`,
             },
             {
-              label: 'Description',
+              label: t('description'),
               value: viewingCuttingType.description || '—',
             },
             {
-              label: 'Status',
-              value: viewingCuttingType.deletedAt ? 'Deleted' : viewingCuttingType.active ? 'Active' : 'Inactive',
+              label: t('status'),
+              value: viewingCuttingType.deletedAt ? t('deleted') : viewingCuttingType.active ? t('active') : t('inactive'),
               type: 'badge',
               badgeColor: viewingCuttingType.deletedAt ? 'red' : viewingCuttingType.active ? 'green' : 'slate',
             },

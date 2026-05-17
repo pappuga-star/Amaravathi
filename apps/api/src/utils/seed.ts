@@ -211,9 +211,13 @@ export async function seedDatabase(exitOnComplete = false) {
     if (formulasCount === 0) {
       await CustomerTeaFormula.create({
         customerId: ramaCustomer._id,
-        formulaName: 'Kalyan Special Mix',
         leafCategoryId: assamGold._id,
         cuttingTypeId: bopCutting._id,
+        totalWeight: 160,
+        totalFormulaCost: 201.5,
+        costPerKg: 1259.37,
+        costPer100Grams: 125.93,
+        lineItems: [],
         addons: [
           { name: 'Color', price: 5, gramsPerKg: 10 },
           { name: 'Dust', price: 10, gramsPerKg: 50 },

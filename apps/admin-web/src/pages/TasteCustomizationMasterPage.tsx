@@ -4,8 +4,10 @@ import { CustomersPage } from './Modules';
 import { CustomerFormulasPage } from './CustomerFormulasPage';
 import { SavedFormulasPage } from './SavedFormulasPage';
 import { CustomerTeaFormula } from '@amaravathi/shared-types';
+import { useTranslation } from 'react-i18next';
 
 export const TasteCustomizationMasterPage = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<
     'customizations' | 'saved-formulas' | 'customers'
   >('customizations');
@@ -23,7 +25,7 @@ export const TasteCustomizationMasterPage = () => {
           }`}
         >
           <Beaker size={16} />
-          <span className="hidden sm:inline">Customer Tea Blends</span>
+          <span className="hidden sm:inline">{t('customizationTabs.teaBlends')}</span>
         </button>
         <button
           onClick={() => setActiveTab('saved-formulas')}
@@ -34,7 +36,7 @@ export const TasteCustomizationMasterPage = () => {
           }`}
         >
           <Layers size={16} />
-          <span className="hidden sm:inline">Customer Blends</span>
+          <span className="hidden sm:inline">{t('customizationTabs.savedBlends')}</span>
         </button>
         <button
           onClick={() => setActiveTab('customers')}
@@ -45,7 +47,7 @@ export const TasteCustomizationMasterPage = () => {
           }`}
         >
           <Contact size={16} />
-          <span className="hidden sm:inline">Customers</span>
+          <span className="hidden sm:inline">{t('customizationTabs.customers')}</span>
         </button>
       </div>
 

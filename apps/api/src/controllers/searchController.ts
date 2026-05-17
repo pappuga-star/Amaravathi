@@ -57,7 +57,6 @@ export async function globalSearch(req: Request, res: Response) {
     const formulas = await CustomerTeaFormula.find({
       deletedAt: null,
       $or: [
-        { formulaName: regexQuery },
         { formulaCode: regexQuery },
         { notes: regexQuery },
         { customerId: { $in: customerIds } },
@@ -73,7 +72,6 @@ export async function globalSearch(req: Request, res: Response) {
 
     results.tasteCustomizations = formulas.map((f: any) => ({
       id: f._id,
-      formulaName: f.formulaName,
       formulaCode: f.formulaCode,
       customerName: f.customerId?.name || 'Unknown',
       leafCategoryName: f.leafCategoryId?.name || 'Unknown',

@@ -24,23 +24,27 @@ import { Button } from '@amaravathi/shared-ui';
 import { clearToken, api } from '../lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { GlobalSearch } from './GlobalSearch';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 const nav = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/', label: 'Dashboard', key: 'dashboard', icon: LayoutDashboard },
   {
     to: '/purchase-batch',
     label: 'Purchase Batch',
+    key: 'purchaseBatches',
     icon: ClipboardList,
   },
-  { to: '/sellers', label: 'Sellers (Suppliers)', icon: Truck },
-  { to: '/taste-customization', label: 'Customer Customization', icon: Beaker },
-  { to: '/sales-quotations-planner', label: 'Sales & Planner', icon: Calculator },
-  { to: '/users', label: 'Users', icon: Users },
-  { to: '/reports', label: 'Reports', icon: FileBarChart },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/sellers', label: 'Sellers (Suppliers)', key: 'sellers', icon: Truck },
+  { to: '/taste-customization', label: 'Customer Customization', key: 'customerCustomization', icon: Beaker },
+  { to: '/sales-quotations-planner', label: 'Sales & Planner', key: 'salesQuotation', icon: Calculator },
+  { to: '/users', label: 'Users', key: 'users', icon: Users },
+  { to: '/reports', label: 'Reports', key: 'reports', icon: FileBarChart },
+  { to: '/settings', label: 'Settings', key: 'settings', icon: Settings },
 ];
 
 export function Layout() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const location = useLocation();
 
@@ -57,8 +61,8 @@ export function Layout() {
     return true;
   });
 
-  const title =
-    allowedNav.find((item) => item.to === location.pathname)?.label ?? 'Dashboard';
+  const activeNavItem = allowedNav.find((item) => item.to === location.pathname);
+  const title = activeNavItem ? t(`nav.${activeNavItem.key}`) : t('nav.dashboard');
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
@@ -95,7 +99,7 @@ export function Layout() {
               }
             >
               <item.icon size={18} />
-              {item.label}
+              {t(`nav.${item.key}`)}
             </NavLink>
           ))}
         </nav>
@@ -117,6 +121,7 @@ export function Layout() {
           </div>
           <div className="flex items-center gap-4">
             <GlobalSearch />
+            <LanguageSwitcher />
             <div className="flex items-center gap-2">
               <Button
                 variant="default"
@@ -124,7 +129,7 @@ export function Layout() {
                 onClick={() => document.documentElement.classList.toggle('dark')}
               >
                 <Moon className="h-4 w-4 text-current" />
-                <span className="hidden sm:inline">Theme</span>
+                <span className="hidden sm:inline">{t('theme')}</span>
               </Button>
               <Button
                 variant="default"
@@ -135,7 +140,7 @@ export function Layout() {
                 }}
               >
                 <LogOut className="h-4 w-4 text-current" />
-                <span className="hidden sm:inline">Logout</span>
+                <span className="hidden sm:inline">{t('nav.logout')}</span>
               </Button>
             </div>
           </div>
