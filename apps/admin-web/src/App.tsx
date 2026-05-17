@@ -8,6 +8,7 @@ import { AddPurchaseBatchPage, UsersPage, SellersPage } from './pages/Modules';
 import { ReportsPage } from './pages/Reports';
 import { SettingsPage } from './pages/Settings';
 import { TasteCustomizationMasterPage } from './pages/TasteCustomizationMasterPage';
+import { CustomerFormulasPage } from './pages/CustomerFormulasPage';
 import { SalesQuotationPlannerPage } from './pages/SalesQuotationPlannerPage';
 
 function Protected() {
@@ -63,6 +64,10 @@ export default function App() {
         <Route
           path="taste-customization"
           element={<TasteCustomizationMasterPage />}
+        />
+        <Route
+          path="customer-formulas/edit/:id"
+          element={<CustomerFormulasPage />}
         />
 
         {/* Legacy redirects */}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
   Star,
@@ -23,6 +24,7 @@ interface SavedFormulasPageProps {
 
 export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
   const [searchQuery, setSearchQuery] = useState('');
@@ -405,16 +407,16 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                           </Button>
                           {!isDeleted && (
                             <>
-                              {onEdit && (
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => onEdit(item)}
-                                  className="h-8 w-8 p-0 bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50"
-                                  title={t('savedFormulas.actions.edit')}
-                                >
-                                  <Edit3 size={13} />
-                                </Button>
-                              )}
+                              <Button
+                                variant="secondary"
+                                onClick={() =>
+                                  navigate(`/customer-formulas/edit/${item.id}`)
+                                }
+                                className="h-8 w-8 p-0 bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50"
+                                title={t('savedFormulas.actions.edit')}
+                              >
+                                <Edit3 size={13} />
+                              </Button>
                               <Button
                                 variant="secondary"
                                 onClick={() =>

@@ -18,6 +18,7 @@ import { api, endpoints } from '../lib/api';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '../components/NotificationContext';
 import { useTranslation } from 'react-i18next';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   CustomerTeaFormula,
   CustomerTeaFormulaLineItem,
@@ -34,9 +35,22 @@ export const CustomerFormulasPage = ({
   onCancelEdit,
 }: CustomerFormulasPageProps) => {
   const { t } = useTranslation();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast, showError } = useNotification();
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
+
+  // Fetch single formula if URL id is provided
+  const { data: fetchedFormula, isLoading: isFetchingFormula } = useQuery({
+    queryKey: ['formula', id],
+    queryFn: () =>
+      api<CustomerTeaFormula>(`${endpoints.customerTeaFormulas}/${id}`),
+    enabled: !!id,
+  });
+
+  const formulaToUse = editingFormula || fetchedFormula;
+  const editingId = id || editingFormula?.id || null;
 
   // Form Fields State
   const [customerId, setCustomerId] = useState('');
@@ -57,14 +71,16 @@ export const CustomerFormulasPage = ({
   const [lockedRows, setLockedRows] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    if (editingFormula) {
+    if (formulaToUse) {
       setCustomerId(
-        typeof editingFormula.customerId === 'object'
-          ? editingFormula.customerId.id
-          : editingFormula.customerId,
+        typeof formulaToUse.customerId === 'object'
+          ? (formulaToUse.customerId as any).id ||
+              (formulaToUse.customerId as any)._id ||
+              String(formulaToUse.customerId)
+          : String(formulaToUse.customerId),
       );
       setLineItems(
-        editingFormula.lineItems.map((item) => ({
+        formulaToUse.lineItems.map((item) => ({
           purchaseBatchCode: item.purchaseBatchCode,
           purchaseBatchLineItemId:
             typeof item.purchaseBatchLineItemId === 'object'
@@ -79,19 +95,19 @@ export const CustomerFormulasPage = ({
           rowCost: item.rowCost,
         })),
       );
-      setIsDefault(editingFormula.isDefault || false);
-      setNotes(editingFormula.notes || '');
-      setStatus(editingFormula.status);
+      setIsDefault(formulaToUse.isDefault || false);
+      setNotes(formulaToUse.notes || '');
+      setStatus(formulaToUse.status);
 
       const initialLocked: Record<number, boolean> = {};
-      editingFormula.lineItems.forEach((_, idx) => {
+      formulaToUse.lineItems.forEach((_, idx) => {
         initialLocked[idx] = true;
       });
       setLockedRows(initialLocked);
     } else {
       resetForm();
     }
-  }, [editingFormula]);
+  }, [formulaToUse]);
 
   // Quick Add Customer State
   const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
@@ -152,8 +168,8 @@ export const CustomerFormulasPage = ({
   // Mutate Operations
   const saveMutation = useMutation({
     mutationFn: (payload: any) => {
-      if (editingFormula) {
-        return api(`${endpoints.customerTeaFormulas}/${editingFormula.id}`, {
+      if (editingId) {
+        return api(`${endpoints.customerTeaFormulas}/${editingId}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
@@ -166,7 +182,7 @@ export const CustomerFormulasPage = ({
     onSuccess: () => {
       resetForm();
       showToast(
-        editingFormula
+        editingId
           ? t('customerFormulas.messages.updatedSuccess')
           : t('customerFormulas.messages.savedSuccess'),
         'success',
@@ -176,6 +192,8 @@ export const CustomerFormulasPage = ({
       });
       if (onCancelEdit) {
         onCancelEdit();
+      } else if (id) {
+        navigate('/taste-customization?tab=saved-formulas');
       }
     },
     onError: (err: any) => {
@@ -419,12 +437,29 @@ export const CustomerFormulasPage = ({
     saveMutation.mutate(payload);
   };
 
+  if (id && isFetchingFormula) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-slate-50 p-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="size-12 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
+          <p className="text-sm font-medium text-slate-500">
+            {t('customerFormulas.loadingFormula') ||
+              'Loading formula details...'}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* 2. Create/Edit Panel Form Drawer (Shows when active) */}
       <Card className="p-6 border border-emerald-100 bg-emerald-50/10 rounded-xl shadow-md flex flex-col gap-4 relative">
         <h3 className="text-lg font-bold text-slate-800">
-          {t('customerFormulas.title')}
+          {editingId
+            ? 'Edit Customer Taste Customization'
+            : t('customerFormulas.title') ||
+              'Design Customer Taste Customization'}
         </h3>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -854,14 +889,20 @@ export const CustomerFormulasPage = ({
                 </div>
               </div>
 
-              {editingFormula && (
+              {(editingId || onCancelEdit) && (
                 <Button
                   type="button"
-                  onClick={onCancelEdit}
+                  onClick={() => {
+                    if (onCancelEdit) {
+                      onCancelEdit();
+                    } else {
+                      navigate('/taste-customization?tab=saved-formulas');
+                    }
+                  }}
                   variant="secondary"
                   className="h-10 px-4 text-sm bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                 >
-                  {t('customerFormulas.cancelEdit')}
+                  Cancel
                 </Button>
               )}
 
@@ -872,11 +913,7 @@ export const CustomerFormulasPage = ({
                 disabled={saveMutation.isPending || !canEdit}
               >
                 <Save size={16} className="mr-1" />
-                <span>
-                  {editingFormula
-                    ? t('customerFormulas.updateFormula')
-                    : t('customerFormulas.saveFormula')}
-                </span>
+                <span>{editingId ? 'Update Formula' : 'Save Formula'}</span>
               </Button>
             </div>
           </div>
