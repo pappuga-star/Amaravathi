@@ -1,0 +1,482 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Search,
+  Star,
+  Copy,
+  Trash2,
+  Download,
+  Printer,
+  Eye,
+  Edit3,
+} from 'lucide-react';
+import { Button, Card, Input } from '@amaravathi/shared-ui';
+import { api, endpoints } from '../lib/api';
+import { ViewDetailsModal } from '../components/ViewDetailsModal';
+import { useNotification } from '../components/NotificationContext';
+import {
+  CustomerTeaFormula,
+} from '@amaravathi/shared-types';
+
+interface SavedFormulasPageProps {
+  onEdit?: (formula: CustomerTeaFormula) => void;
+}
+
+export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
+  const queryClient = useQueryClient();
+  const { showToast, showError, confirm } = useNotification();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive' | 'Deleted'>('All');
+  const [viewingFormula, setViewingFormula] = useState<CustomerTeaFormula | null>(null);
+
+  // Fetch Customers (for dropdown filter)
+  const { data: customersData } = useQuery({
+    queryKey: [endpoints.customers],
+    queryFn: () =>
+      api<{ items: { id: string; name: string }[] }>(
+        `${endpoints.customers}?limit=100`,
+      ),
+  });
+  const customers = customersData?.items ?? [];
+
+  // Fetch Formulas
+  const { data: formulasData, isLoading } = useQuery({
+    queryKey: [
+      endpoints.customerTeaFormulas,
+      searchQuery,
+      customerFilter,
+      statusFilter,
+    ],
+    queryFn: () => {
+      let url = `${endpoints.customerTeaFormulas}?q=${encodeURIComponent(searchQuery)}&status=${statusFilter}&limit=100`;
+      if (customerFilter) url += `&customerId=${customerFilter}`;
+      return api<{ items: CustomerTeaFormula[] }>(url);
+    },
+  });
+  const formulas = formulasData?.items ?? [];
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      api(`${endpoints.customerTeaFormulas}/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [endpoints.customerTeaFormulas] });
+      showToast('Formula successfully deleted.', 'success');
+    },
+    onError: (err: any) => {
+      showError(err);
+    },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: (id: string) =>
+      api(`${endpoints.customerTeaFormulas}/${id}/duplicate`, { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [endpoints.customerTeaFormulas] });
+      showToast('Formula successfully duplicated.', 'success');
+    },
+    onError: (err: any) => {
+      showError(err);
+    },
+  });
+
+  const setDefaultMutation = useMutation({
+    mutationFn: (id: string) =>
+      api(`${endpoints.customerTeaFormulas}/${id}/set-default`, { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [endpoints.customerTeaFormulas] });
+      showToast('Default formula set successfully.', 'success');
+    },
+  });
+
+  const exportToCSV = () => {
+    if (formulas.length === 0) {
+      showToast('No formulas to export.', 'warning');
+      return;
+    }
+    const headers = [
+      'Formula Code',
+      'Formula Name',
+      'Customer',
+      'Tea Powder Type',
+      'Total Weight (g)',
+      'Total Formula Cost (INR)',
+      'Cost Per KG (INR)',
+      'Status',
+    ];
+
+    const rows = formulas.map((item) => {
+      const customerName =
+        typeof item.customerId === 'object' ? (item.customerId as any).name : '-';
+      return [
+        item.formulaCode,
+        item.formulaName,
+        customerName,
+        item.teaPowderType,
+        item.totalWeight,
+        item.totalFormulaCost,
+        item.costPerKg,
+        item.status,
+      ];
+    });
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [
+        headers.join(','),
+        ...rows.map((e) =>
+          e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',')
+        ),
+      ].join('\n');
+
+    const link = document.createElement('a');
+    link.setAttribute('href', encodeURI(csvContent));
+    link.setAttribute(
+      'download',
+      `customer_tea_formulas_${new Date().toISOString().split('T')[0]}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const stats = {
+    total: formulas.length,
+    active: formulas.filter((f) => f.status === 'Active' && !f.deletedAt).length,
+    defaults: formulas.filter((f) => f.isDefault && !f.deletedAt).length,
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Stats Row */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="p-4 flex items-center gap-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Formulas</p>
+            <h4 className="text-2xl font-bold text-slate-800">{stats.total}</h4>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Active</p>
+            <h4 className="text-2xl font-bold text-slate-800">{stats.active}</h4>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div className="p-2.5 bg-amber-50 text-amber-600 rounded-lg">
+            <Star className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Default Formulas</p>
+            <h4 className="text-2xl font-bold text-slate-800">{stats.defaults}</h4>
+          </div>
+        </Card>
+      </div>
+
+      {/* Table Panel */}
+      <Card className="p-5 border border-slate-200 bg-white rounded-xl shadow-sm flex flex-col gap-4">
+        {/* Filters Bar */}
+        <div className="flex flex-wrap gap-3 items-center justify-between">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
+            {(['All', 'Active', 'Inactive', 'Deleted'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                  statusFilter === s
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              className="h-9 rounded-lg border border-slate-300 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+              value={customerFilter}
+              onChange={(e) => setCustomerFilter(e.target.value)}
+            >
+              <option value="">All Customers</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            <div className="relative">
+              <Search
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                size={15}
+              />
+              <Input
+                type="text"
+                placeholder="Search formulas..."
+                value={searchQuery}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                className="pl-8 h-9 text-xs w-44"
+              />
+            </div>
+
+            <Button
+              onClick={exportToCSV}
+              variant="secondary"
+              className="h-9 px-3 bg-white text-xs gap-1.5 hidden sm:flex"
+            >
+              <Download size={14} /> Export CSV
+            </Button>
+            <Button
+              onClick={() => window.print()}
+              variant="secondary"
+              className="h-9 px-3 bg-white text-xs gap-1.5 hidden sm:flex"
+            >
+              <Printer size={14} /> Print
+            </Button>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full text-left text-sm whitespace-nowrap min-w-[900px]">
+            <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-3 text-xs uppercase tracking-wide">Formula ID</th>
+                <th className="px-4 py-3 text-xs uppercase tracking-wide">Customer</th>
+                <th className="px-4 py-3 text-xs uppercase tracking-wide">Tea Powder</th>
+                <th className="px-4 py-3 text-xs uppercase tracking-wide">Total Weight</th>
+                <th className="px-4 py-3 text-xs uppercase tracking-wide">Cost / KG</th>
+                <th className="px-4 py-3 text-xs uppercase tracking-wide">Status</th>
+                <th className="px-4 py-3 text-xs uppercase tracking-wide text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-10 text-slate-400 text-sm italic">
+                    Loading formulas...
+                  </td>
+                </tr>
+              ) : formulas.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-10 text-slate-400 text-sm italic">
+                    No saved formulas found.
+                  </td>
+                </tr>
+              ) : (
+                formulas.map((item) => {
+                  const isDeleted = !!item.deletedAt;
+                  const customerName =
+                    typeof item.customerId === 'object'
+                      ? (item.customerId as any).name
+                      : 'Unknown';
+
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-slate-50 transition-colors ${isDeleted ? 'opacity-60 bg-red-50/20' : ''}`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-slate-800 flex items-center gap-1.5 font-mono text-xs">
+                            {item.formulaCode}
+                            {item.isDefault && (
+                              <Star size={11} className="text-amber-500 fill-amber-500" />
+                            )}
+                          </span>
+                          <span className="text-xs text-slate-500 mt-0.5">{item.formulaName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-700">{customerName}</td>
+                      <td className="px-4 py-3 text-slate-600 text-xs">{item.teaPowderType || 'Custom Blend'}</td>
+                      <td className="px-4 py-3 text-slate-600 text-xs">{item.totalWeight}g</td>
+                      <td className="px-4 py-3">
+                        <span className="font-bold text-emerald-700">
+                          ₹{(item.costPerKg || 0).toFixed(2)}
+                        </span>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          ₹{(item.costPer100Grams || 0).toFixed(2)} / 100g
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${
+                            isDeleted
+                              ? 'bg-red-100 text-red-700'
+                              : item.status === 'Active'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {isDeleted ? 'Deleted' : item.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="secondary"
+                            onClick={() => setViewingFormula(item)}
+                            className="h-8 px-2.5 bg-white text-blue-600 border-blue-100 hover:bg-blue-50 text-xs"
+                          >
+                            <Eye size={13} className="mr-1" /> View
+                          </Button>
+                          {!isDeleted && (
+                            <>
+                              {onEdit && (
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => onEdit(item)}
+                                  className="h-8 w-8 p-0 bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50"
+                                  title="Edit Formula"
+                                >
+                                  <Edit3 size={13} />
+                                </Button>
+                              )}
+                              <Button
+                                variant="secondary"
+                                onClick={() => duplicateMutation.mutate(item.id)}
+                                disabled={duplicateMutation.isPending}
+                                className="h-8 w-8 p-0 bg-white"
+                                title="Duplicate Formula"
+                              >
+                                <Copy size={13} />
+                              </Button>
+                              {!item.isDefault && (
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => setDefaultMutation.mutate(item.id)}
+                                  disabled={setDefaultMutation.isPending}
+                                  className="h-8 w-8 p-0 bg-white"
+                                  title="Set as Default"
+                                >
+                                  <Star size={13} className="text-slate-400" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="secondary"
+                                onClick={async () => {
+                                  const confirmed = await confirm({
+                                    title: 'Delete Formula',
+                                    message: 'Are you sure you want to delete this formula?',
+                                    variant: 'danger',
+                                  });
+                                  if (confirmed) {
+                                    deleteMutation.mutate(item.id);
+                                  }
+                                }}
+                                disabled={deleteMutation.isPending}
+                                className="h-8 w-8 p-0 bg-white text-red-500 hover:bg-red-50 hover:border-red-200"
+                                title="Delete Formula"
+                              >
+                                <Trash2 size={13} />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* View Details Modal */}
+      {viewingFormula && (
+        <ViewDetailsModal
+          title={`Formula: ${viewingFormula.formulaCode}`}
+          subtitle={`Customer: ${
+            typeof viewingFormula.customerId === 'object'
+              ? (viewingFormula.customerId as any).name
+              : viewingFormula.customerId
+          }`}
+          onClose={() => setViewingFormula(null)}
+          fields={[
+            { label: 'Formula Name', value: viewingFormula.formulaName },
+            { label: 'Tea Powder Type', value: viewingFormula.teaPowderType || 'Custom Blend' },
+            { label: 'Total Weight', value: `${viewingFormula.totalWeight}g` },
+            { label: 'Total Cost', value: `₹${(viewingFormula.totalFormulaCost || 0).toFixed(2)}` },
+            {
+              label: 'Cost Per KG',
+              value: `₹${(viewingFormula.costPerKg || 0).toFixed(2)}`,
+              highlighted: true,
+            },
+            { label: 'Cost Per 100g', value: `₹${(viewingFormula.costPer100Grams || 0).toFixed(2)}` },
+            { label: 'Notes', value: viewingFormula.notes || '—' },
+            {
+              label: 'Status',
+              value: viewingFormula.status,
+              type: 'badge',
+              badgeColor: viewingFormula.status === 'Active' ? 'green' : 'slate',
+            },
+          ]}
+          customBody={
+            <div className="border border-slate-100 rounded-xl p-4">
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-3">
+                Formula Ingredients & Line Items
+              </span>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                    <tr>
+                      <th className="px-2 py-1.5">Batch Code</th>
+                      <th className="px-2 py-1.5">Category</th>
+                      <th className="px-2 py-1.5">Ingredient Name</th>
+                      <th className="px-2 py-1.5 text-right">Qty (g)</th>
+                      <th className="px-2 py-1.5 text-right">Price/g</th>
+                      <th className="px-2 py-1.5 text-right">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {viewingFormula.lineItems && viewingFormula.lineItems.length > 0 ? (
+                      viewingFormula.lineItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="px-2 py-1.5 font-mono font-medium text-slate-600">
+                            {item.purchaseBatchCode}
+                          </td>
+                          <td className="px-2 py-1.5 text-slate-500">{item.ingredientCategory}</td>
+                          <td className="px-2 py-1.5 font-semibold text-slate-800">
+                            {item.ingredientName}
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-slate-700">
+                            {item.quantityInGrams}g
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-slate-500">
+                            ₹{item.pricePerGram.toFixed(4)}
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-bold text-slate-700">
+                            ₹{item.rowCost.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-2 py-4 text-center text-slate-400 italic">
+                          No line items in this formula.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        />
+      )}
+    </div>
+  );
+};

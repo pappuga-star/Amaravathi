@@ -1,0 +1,887 @@
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  DollarSign,
+  TrendingUp,
+  FileText,
+  Printer,
+  ChevronRight,
+  Calculator,
+  Layers,
+  Activity,
+  UserCheck,
+  ShoppingBag,
+  Sparkles,
+  ClipboardList,
+  Save,
+} from 'lucide-react';
+import { Button, Card, Input } from '@amaravathi/shared-ui';
+import { api, endpoints } from '../lib/api';
+import { useNotification } from '../components/NotificationContext';
+
+type CustomerTeaFormula = {
+  id: string;
+  customerId: { id: string; name: string } | string;
+  formulaCode: string;
+  formulaName: string;
+  leafCategoryId: { id: string; name: string; basePrice: number } | string;
+  cuttingTypeId: { id: string; name: string; priceAdjustment: number } | string;
+  addons: { name: string; price: number; gramsPerKg: number }[];
+  finalPrice: number;
+  marginPercent: number;
+  isDefault: boolean;
+  notes?: string;
+  status: 'Active' | 'Inactive';
+};
+
+export const SalesQuotationPlannerPage = () => {
+  const queryClient = useQueryClient();
+  const { showToast, showError, confirm } = useNotification();
+  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<'sales' | 'quote' | 'planner'>('sales');
+
+  // Core Data Queries
+  const { data: customersData } = useQuery({
+    queryKey: [endpoints.customers],
+    queryFn: () =>
+      api<{ items: { id: string; name: string }[] }>(
+        `${endpoints.customers}?limit=100`,
+      ),
+  });
+  const customers = customersData?.items ?? [];
+
+  const { data: formulasData } = useQuery({
+    queryKey: [endpoints.customerTeaFormulas],
+    queryFn: () =>
+      api<{ items: CustomerTeaFormula[] }>(
+        `${endpoints.customerTeaFormulas}?status=active&limit=100`,
+      ),
+  });
+  const activeFormulas = formulasData?.items ?? [];
+
+  // --- 1. SALES ENTRY TAB STATE & MUTATIONS ---
+  const [salesCustomer, setSalesCustomer] = useState('');
+  const [selectedFormulaId, setSelectedFormulaId] = useState('');
+  const [salesQuantity, setSalesQuantity] = useState<number>(100);
+  const [salesBags, setSalesBags] = useState<number>(3);
+  const [salesBillNumber, setSalesBillNumber] = useState('');
+  const [salesSuccessMsg, setSalesSuccessMsg] = useState('');
+
+  // Auto-filter formulas for selected sales customer
+  const filteredSalesFormulas = useMemo(() => {
+    return activeFormulas.filter((f) => {
+      const custId = typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
+      return custId === salesCustomer;
+    });
+  }, [salesCustomer, activeFormulas]);
+
+  // Default auto-loader: when customer is chosen, find their default formula
+  const handleSalesCustomerChange = (customerId: string) => {
+    setSalesCustomer(customerId);
+    setSalesSuccessMsg('');
+    const defaultFormula = activeFormulas.find((f) => {
+      const custId = typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
+      return custId === customerId && f.isDefault;
+    });
+    if (defaultFormula) {
+      setSelectedFormulaId(defaultFormula.id);
+    } else {
+      setSelectedFormulaId('');
+    }
+  };
+
+  const selectedSalesFormula = useMemo(() => {
+    return activeFormulas.find((f) => f.id === selectedFormulaId);
+  }, [selectedFormulaId, activeFormulas]);
+
+  const salesLeaf = useMemo(() => {
+    if (!selectedSalesFormula) return null;
+    return typeof selectedSalesFormula.leafCategoryId === 'object'
+      ? selectedSalesFormula.leafCategoryId
+      : { name: 'Leaf Category', basePrice: 0 };
+  }, [selectedSalesFormula]);
+
+  const salesCutting = useMemo(() => {
+    if (!selectedSalesFormula) return null;
+    return typeof selectedSalesFormula.cuttingTypeId === 'object'
+      ? selectedSalesFormula.cuttingTypeId
+      : { name: 'Cutting Type', priceAdjustment: 0 };
+  }, [selectedSalesFormula]);
+
+  const salesRatePerKg = selectedSalesFormula?.finalPrice ?? 0;
+  const salesTotalCost = salesQuantity * salesRatePerKg;
+
+  // Mutation to record a purchase batch transaction from formula sales entry
+  const recordBatchMutation = useMutation({
+    mutationFn: (payload: any) =>
+      api(endpoints.batches, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      setSalesSuccessMsg(
+        `Successfully logged sales invoice bill "${salesBillNumber}" with custom formulation into purchase history batches!`,
+      );
+      showToast('Sales invoice bill logged successfully!', 'success');
+      setSalesCustomer('');
+      setSelectedFormulaId('');
+      setSalesQuantity(100);
+      setSalesBags(3);
+      setSalesBillNumber('');
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+    },
+    onError: (err: any) => {
+      showError(err);
+    },
+  });
+
+  const handleSalesSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const errors: Record<string, boolean> = {};
+    if (!salesCustomer) errors.salesCustomer = true;
+    if (!selectedFormulaId) errors.selectedFormulaId = true;
+    if (!salesBillNumber.trim()) errors.salesBillNumber = true;
+    if (salesQuantity <= 0) errors.salesQuantity = true;
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      showToast('Please fill out all required invoice parameters.', 'error');
+      setTimeout(() => {
+        const firstInvalidField = document.querySelector('.border-rose-500, input.border-rose-500, select.border-rose-500');
+        if (firstInvalidField) {
+          firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+      return;
+    }
+    setFormErrors({});
+
+    const customerObj = customers.find((c) => c.id === salesCustomer);
+    const formulaObj = activeFormulas.find((f) => f.id === selectedFormulaId);
+
+    if (!customerObj || !formulaObj) return;
+
+    // Direct mapping to Purchase Batch payload to link formula seamlessly
+    const payload = {
+      purchaseDate: new Date(),
+      numberOfBags: salesBags,
+      billNumber: salesBillNumber.trim(),
+      sellerName: customerObj.name,
+      items: [
+        {
+          teaPowderType: `${formulaObj.formulaName} (${formulaObj.formulaCode})`,
+          ratePerKg: formulaObj.finalPrice,
+        },
+      ],
+    };
+    recordBatchMutation.mutate(payload);
+  };
+
+  // --- 2. QUOTATION CREATOR TAB STATE ---
+  const [quoteCustomer, setQuoteCustomer] = useState('');
+  const [quoteFormulaId, setQuoteFormulaId] = useState('');
+  const [quoteQuantity, setQuoteQuantity] = useState<number>(500);
+  const [quoteMarkup, setQuoteMarkup] = useState<number>(10); // in percent
+
+  const filteredQuoteFormulas = useMemo(() => {
+    return activeFormulas.filter((f) => {
+      const custId = typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
+      return custId === quoteCustomer;
+    });
+  }, [quoteCustomer, activeFormulas]);
+
+  const handleQuoteCustomerChange = (customerId: string) => {
+    setQuoteCustomer(customerId);
+    const defaultFormula = activeFormulas.find((f) => {
+      const custId = typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
+      return custId === customerId && f.isDefault;
+    });
+    if (defaultFormula) {
+      setQuoteFormulaId(defaultFormula.id);
+    } else {
+      setQuoteFormulaId('');
+    }
+  };
+
+  const selectedQuoteFormula = useMemo(() => {
+    return activeFormulas.find((f) => f.id === quoteFormulaId);
+  }, [quoteFormulaId, activeFormulas]);
+
+  const quoteLeaf = useMemo(() => {
+    if (!selectedQuoteFormula) return null;
+    return typeof selectedQuoteFormula.leafCategoryId === 'object'
+      ? selectedQuoteFormula.leafCategoryId
+      : { name: 'Leaf Category', basePrice: 0 };
+  }, [selectedQuoteFormula]);
+
+  const quoteCutting = useMemo(() => {
+    if (!selectedQuoteFormula) return null;
+    return typeof selectedQuoteFormula.cuttingTypeId === 'object'
+      ? selectedQuoteFormula.cuttingTypeId
+      : { name: 'Cutting Type', priceAdjustment: 0 };
+  }, [selectedQuoteFormula]);
+
+  const quoteBaseRate = selectedQuoteFormula?.finalPrice ?? 0;
+  const quoteFinalRate = quoteBaseRate + (quoteBaseRate * quoteMarkup) / 100;
+  const quoteTotalValue = quoteQuantity * quoteFinalRate;
+
+  // --- 3. MATERIAL PLANNER AGGREGATOR ---
+  const planningSummary = useMemo(() => {
+    const categories: Record<string, { name: string; totalKg: number; basePrice: number }> = {};
+    const cuttings: Record<string, { name: string; totalKg: number; adjustment: number }> = {};
+    let totalAssignedFormulas = 0;
+
+    // Use default active formulas as the primary planner indicators
+    activeFormulas.forEach((formula) => {
+      if (!formula.isDefault) return;
+      totalAssignedFormulas++;
+
+      // Leaf base planning allocation (e.g. assume a standard batch requirement of 1,000 kg per active custom default)
+      const multiplier = 1000;
+      if (typeof formula.leafCategoryId === 'object') {
+        const leaf = formula.leafCategoryId;
+        if (!categories[leaf.id]) {
+          categories[leaf.id] = { name: leaf.name, totalKg: 0, basePrice: leaf.basePrice };
+        }
+        const targetCategory = categories[leaf.id];
+        if (targetCategory) {
+          targetCategory.totalKg += multiplier;
+        }
+      }
+
+      // Cutting allocation
+      if (typeof formula.cuttingTypeId === 'object') {
+        const cutting = formula.cuttingTypeId;
+        if (!cuttings[cutting.id]) {
+          cuttings[cutting.id] = { name: cutting.name, totalKg: 0, adjustment: cutting.priceAdjustment };
+        }
+        const targetCutting = cuttings[cutting.id];
+        if (targetCutting) {
+          targetCutting.totalKg += multiplier;
+        }
+      }
+    });
+
+    return {
+      categories: Object.values(categories),
+      cuttings: Object.values(cuttings),
+      totalAssigned: totalAssignedFormulas,
+    };
+  }, [activeFormulas]);
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Tab Navigation header */}
+      <div className="flex rounded-xl border border-slate-200 p-1 bg-white shadow-sm font-semibold text-slate-600 no-print">
+        <button
+          onClick={() => setActiveTab('sales')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all ${
+            activeTab === 'sales'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <ClipboardList size={16} />
+          <span>Sales & Formula Entry</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('quote')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all ${
+            activeTab === 'quote'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <Calculator size={16} />
+          <span>Quotations Invoice</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('planner')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all ${
+            activeTab === 'planner'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <Layers size={16} />
+          <span>Material planner</span>
+        </button>
+      </div>
+
+      {/* --- TAB 1: SALES & FORMULA ENTRY --- */}
+      {activeTab === 'sales' && (
+        <div className="grid gap-6 lg:grid-cols-3 no-print">
+          {/* Main Input Form */}
+          <Card className="lg:col-span-2 p-6 border border-slate-200 bg-white rounded-xl shadow-sm flex flex-col gap-5">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">
+                Formula Sales Entry & Billing
+              </h3>
+              <p className="text-xs text-slate-400">
+                Record a tea dispatch invoice which auto-populates pre-calculated custom prices
+              </p>
+            </div>
+
+            {salesSuccessMsg && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-emerald-800 text-sm font-semibold flex items-center gap-2.5">
+                <span className="size-2 rounded-full bg-emerald-600" />
+                {salesSuccessMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSalesSubmit} className="grid gap-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                  <span>Customer (Seller)</span>
+                  <select
+                    className={`h-10 rounded-lg border px-3 text-sm bg-white ${
+                      formErrors.salesCustomer ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-300'
+                    }`}
+                    value={salesCustomer}
+                    onChange={(e) => handleSalesCustomerChange(e.target.value)}
+                    required
+                  >
+                    <option value="">Select a Customer...</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                  <span>Custom Blend Recipe</span>
+                  <select
+                    className={`h-10 rounded-lg border px-3 text-sm bg-white ${
+                      formErrors.selectedFormulaId ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-300'
+                    }`}
+                    value={selectedFormulaId}
+                    onChange={(e) => setSelectedFormulaId(e.target.value)}
+                    disabled={!salesCustomer}
+                    required
+                  >
+                    <option value="">
+                      {salesCustomer
+                        ? filteredSalesFormulas.length === 0
+                           ? 'No formulas found for customer'
+                           : 'Select Customized Blend...'
+                        : 'Choose Customer first...'}
+                    </option>
+                    {filteredSalesFormulas.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.formulaName} ({f.formulaCode}) {f.isDefault ? '[DEFAULT]' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                  <span>Dispatch Quantity (Kg)</span>
+                  <Input
+                    className={
+                      formErrors.salesQuantity ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-200'
+                    }
+                    type="number"
+                    min="1"
+                    value={salesQuantity || ''}
+                    onChange={(e) => {
+                      const qty = Math.max(1, parseInt(e.target.value) || 0);
+                      setSalesQuantity(qty);
+                      setSalesBags(Math.ceil(qty / 30));
+                    }}
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                  <span>Bags Count</span>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={salesBags || ''}
+                    onChange={(e) => setSalesBags(Math.max(1, parseInt(e.target.value) || 0))}
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                  <span>Bill / Invoice Number</span>
+                  <Input
+                    className={
+                      formErrors.salesBillNumber ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-200'
+                    }
+                    type="text"
+                    placeholder="e.g. BILL-9821"
+                    value={salesBillNumber}
+                    onChange={(e) => setSalesBillNumber(e.target.value)}
+                    required
+                  />
+                </label>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 flex justify-end">
+                <Button
+                  type="submit"
+                  variant="add"
+                  className="h-10 px-6"
+                  disabled={recordBatchMutation.isPending || !salesCustomer || !selectedFormulaId}
+                >
+                  <Save size={16} />
+                  <span>Log Invoice Sale</span>
+                </Button>
+              </div>
+            </form>
+          </Card>
+
+          {/* Sticky Calculator Summary panel */}
+          <div className="h-max flex flex-col gap-4 p-5 rounded-xl border border-emerald-200 bg-emerald-50/20">
+            <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={16} /> Auto-calculated rates
+            </h4>
+
+            {selectedSalesFormula ? (
+              <div className="flex flex-col gap-3 text-sm text-slate-600">
+                <div className="flex justify-between">
+                  <span>Blend Name:</span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[150px]">
+                    {selectedSalesFormula.formulaName}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Base Price ({salesLeaf?.name}):</span>
+                  <span className="font-semibold text-slate-800">
+                    ₹{salesLeaf?.basePrice.toFixed(2)}/kg
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Cutting Price ({salesCutting?.name}):</span>
+                  <span className="font-semibold text-slate-800">
+                    {salesCutting && salesCutting.priceAdjustment >= 0
+                      ? `+ ₹${salesCutting.priceAdjustment.toFixed(2)}`
+                      : `- ₹${Math.abs(salesCutting?.priceAdjustment ?? 0).toFixed(2)}`}
+                    /kg
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Custom Addons:</span>
+                  <span className="font-semibold text-slate-800">
+                    + ₹{(selectedSalesFormula.addons?.reduce((sum, a) => sum + (Number(a.price) || 0), 0) || 0).toFixed(2)}/kg
+                  </span>
+                </div>
+
+                <div className="border-t border-emerald-200/50 my-1 pt-2 flex justify-between text-base font-bold text-emerald-800">
+                  <span>Pre-calculated Rate:</span>
+                  <span>₹{salesRatePerKg.toFixed(2)}/kg</span>
+                </div>
+
+                <div className="flex justify-between text-xs text-slate-500 font-semibold">
+                  <span>Estimated Total Weight:</span>
+                  <span className="text-slate-800 font-bold">{salesQuantity} kg</span>
+                </div>
+
+                <div className="flex justify-between text-lg font-black text-emerald-950 border-t border-emerald-200/50 pt-2">
+                  <span>Net Invoice Value:</span>
+                  <span>₹{salesTotalCost.toLocaleString('en-IN')}.00</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">
+                Choose a customer and their formula blend to load the live calculator metrics.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB 2: QUOTATIONS INVOICE --- */}
+      {activeTab === 'quote' && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Main Controls Panel */}
+          <Card className="lg:col-span-1 p-5 border border-slate-200 bg-white rounded-xl shadow-sm flex flex-col gap-4 no-print">
+            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <Calculator size={18} /> Quotation Generator
+            </h3>
+
+            <div className="grid gap-4">
+              <label className="grid gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Select Client / Customer</span>
+                <select
+                  className="h-10 rounded-lg border border-slate-300 px-3 text-sm bg-white text-slate-700"
+                  value={quoteCustomer}
+                  onChange={(e) => handleQuoteCustomerChange(e.target.value)}
+                >
+                  <option value="">Choose a customer...</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Tailored Formula Spec</span>
+                <select
+                  className="h-10 rounded-lg border border-slate-300 px-3 text-sm bg-white text-slate-700"
+                  value={quoteFormulaId}
+                  onChange={(e) => setQuoteFormulaId(e.target.value)}
+                  disabled={!quoteCustomer}
+                >
+                  <option value="">
+                    {quoteCustomer
+                      ? filteredQuoteFormulas.length === 0
+                        ? 'No active formulas found'
+                        : 'Select formula recipe...'
+                      : 'Choose customer first...'}
+                  </option>
+                  {filteredQuoteFormulas.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.formulaName} ({f.formulaCode})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Order Volume (Kg)</span>
+                <Input
+                  type="number"
+                  min="1"
+                  value={quoteQuantity || ''}
+                  onChange={(e) => setQuoteQuantity(Math.max(1, parseInt(e.target.value) || 0))}
+                />
+              </label>
+
+              <label className="grid gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Standard Markup Margin (%)</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={quoteMarkup}
+                  onChange={(e) => setQuoteMarkup(Math.max(0, parseFloat(e.target.value) || 0))}
+                />
+              </label>
+            </div>
+
+            {selectedQuoteFormula && (
+              <Button
+                onClick={() => window.print()}
+                variant="add"
+                className="h-10 mt-2 gap-1.5"
+              >
+                <Printer size={16} />
+                <span>Print Quotation Sheet</span>
+              </Button>
+            )}
+          </Card>
+
+          {/* Quotation Slip Preview Page */}
+          <div className="lg:col-span-2">
+            {selectedQuoteFormula ? (
+              <Card className="p-8 border border-slate-200 bg-white rounded-2xl shadow-md flex flex-col gap-6 relative printable-quotation">
+                {/* Quotation Header */}
+                <div className="flex justify-between items-start border-b pb-5">
+                  <div>
+                    <h2 className="text-2xl font-black text-emerald-800 tracking-tight">
+                      AMARAVATHI TEA ESTATES
+                    </h2>
+                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                      Premium Custom Tea Blending division
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 uppercase tracking-wider">
+                      Official Quotation
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                      Ref: Q-{selectedQuoteFormula.formulaCode}-{new Date().getFullYear()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quotation Details */}
+                <div className="grid grid-cols-2 gap-5 text-sm">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Prepared For
+                    </h4>
+                    <p className="font-bold text-slate-800">
+                      {customers.find((c) => c.id === quoteCustomer)?.name}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">Active Client</p>
+                  </div>
+                  <div className="text-right">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Quotation Date
+                    </h4>
+                    <p className="font-semibold text-slate-700">
+                      {new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Custom Blend Formulation Breakdown Table */}
+                <div className="border rounded-xl overflow-hidden mt-2">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b text-slate-500 font-bold text-xs uppercase tracking-wide">
+                      <tr>
+                        <th className="px-4 py-3">Specifications Item</th>
+                        <th className="px-4 py-3 text-right">Details</th>
+                        <th className="px-4 py-3 text-right">Rate Component</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      <tr>
+                        <td className="px-4 py-3 font-semibold">
+                          Base Leaf category ({quoteLeaf?.name})
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
+                          Standard Grade Leaves
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold">
+                          ₹{quoteLeaf?.basePrice.toFixed(2)}/kg
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-semibold">
+                          Cutting Type Adjustment ({quoteCutting?.name})
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
+                          Premium Machine Cutting
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold">
+                          {quoteCutting && quoteCutting.priceAdjustment >= 0
+                            ? `+₹${quoteCutting.priceAdjustment.toFixed(2)}`
+                            : `-₹${Math.abs(quoteCutting?.priceAdjustment ?? 0).toFixed(2)}`}
+                          /kg
+                        </td>
+                      </tr>
+                      {selectedQuoteFormula.addons?.map((addon, idx) => (
+                        <tr key={idx}>
+                          <td className="px-4 py-3 font-semibold">Custom Addon: {addon.name}</td>
+                          <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
+                            Custom parameter at {addon.gramsPerKg}g/kg
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold">
+                            +₹{addon.price.toFixed(2)}/kg
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-slate-50/50">
+                        <td className="px-4 py-3 font-bold text-emerald-800">
+                          Custom Recipe Selling Price
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
+                          Formula Subtotal (₹/kg)
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-emerald-800">
+                          ₹{quoteBaseRate.toFixed(2)}/kg
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-semibold text-blue-700">
+                          Quotation Markup Margin
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
+                          Markup adjustment ({quoteMarkup}%)
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-blue-700">
+                          +₹{((quoteBaseRate * quoteMarkup) / 100).toFixed(2)}/kg
+                        </td>
+                      </tr>
+                      <tr className="bg-emerald-50/20 text-base font-bold text-emerald-900 border-t-2">
+                        <td className="px-4 py-3">Final Quoted Rate per Kg</td>
+                        <td className="px-4 py-3 text-slate-400 italic text-right text-xs font-normal">
+                          All Inclusive
+                        </td>
+                        <td className="px-4 py-3 text-right font-black">
+                          ₹{quoteFinalRate.toFixed(2)}/kg
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Subtotal metrics footer */}
+                <div className="flex flex-col gap-1.5 self-end w-full sm:w-[350px] border-t-2 border-slate-100 pt-4 text-sm font-semibold text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Target Volume Quantity:</span>
+                    <span className="text-slate-800">{quoteQuantity} kg</span>
+                  </div>
+                  <div className="flex justify-between text-base text-slate-900 font-bold border-t border-slate-100 mt-1 pt-2">
+                    <span>Total Estimated Quotation:</span>
+                    <span className="text-emerald-800 font-black text-xl">
+                      ₹{quoteTotalValue.toLocaleString('en-IN')}.00
+                    </span>
+                  </div>
+                </div>
+
+                {/* Terms and Signatures */}
+                <div className="border-t border-slate-200 pt-5 mt-4 grid grid-cols-2 text-[10px] text-slate-400 font-semibold gap-10">
+                  <div>
+                    <p className="uppercase tracking-wider font-bold mb-1 text-slate-500">
+                      Standard Terms
+                    </p>
+                    <p>Prices subject to raw tea leaf market changes. Valid for 30 calendar days from invoice generation.</p>
+                  </div>
+                  <div className="text-right flex flex-col justify-end items-end gap-1">
+                    <p className="w-28 border-b border-slate-300 mb-1"></p>
+                    <p className="uppercase tracking-wider font-bold text-slate-500">
+                      Authorized Signature
+                    </p>
+                    <p>Amaravathi Blending Division</p>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              <div className="grid place-items-center py-24 text-center border-2 border-dashed border-slate-200 bg-white rounded-xl shadow-sm">
+                <p className="text-sm text-slate-400 italic font-semibold">
+                  Quotation sheet preview is waiting for customer selection parameters...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB 3: MATERIAL PLANNER AGGREGATOR --- */}
+      {activeTab === 'planner' && (
+        <div className="grid gap-6">
+          {/* General Planner Stat summary */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card className="p-4 flex items-center gap-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+                <UserCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                  Default Customer Blends
+                </p>
+                <h4 className="text-2xl font-bold text-slate-800">
+                  {planningSummary.totalAssigned} active
+                </h4>
+              </div>
+            </Card>
+
+            <Card className="p-4 flex items-center gap-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                <ShoppingBag className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                  Standard Batch Base Allocation
+                </p>
+                <h4 className="text-2xl font-bold text-slate-800">
+                  1,000 kg / customer
+                </h4>
+              </div>
+            </Card>
+
+            <Card className="p-4 flex items-center gap-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
+                <TrendingUp className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                  Aggregated Planning Demand
+                </p>
+                <h4 className="text-2xl font-bold text-slate-800">
+                  {(planningSummary.totalAssigned * 1000).toLocaleString('en-IN')} kg
+                </h4>
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Base Leaves Demand Sheet */}
+            <Card className="p-5 border border-slate-200 bg-white rounded-xl shadow-sm flex flex-col gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <Layers size={16} className="text-slate-600" />
+                  Base Leaf Category Demand Aggregates
+                </h3>
+              </div>
+              <div className="overflow-auto rounded-lg border border-slate-100">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead className="bg-slate-50 border-b font-bold text-slate-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-4 py-2.5">Leaf Grade</th>
+                      <th className="px-4 py-2.5 text-center">Avg Base Cost</th>
+                      <th className="px-4 py-2.5 text-right">Required Inventory Volume (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {planningSummary.categories.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-6 text-center text-slate-400 italic">
+                          No active default blends assigned.
+                        </td>
+                      </tr>
+                    ) : (
+                      planningSummary.categories.map((c, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50">
+                          <td className="px-4 py-3 font-semibold text-slate-800">{c.name}</td>
+                          <td className="px-4 py-3 text-center">₹{c.basePrice.toFixed(2)}/kg</td>
+                          <td className="px-4 py-3 text-right text-emerald-700 font-bold">
+                            {c.totalKg.toLocaleString('en-IN')} kg
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {/* Cutting Types Demand Sheet */}
+            <Card className="p-5 border border-slate-200 bg-white rounded-xl shadow-sm flex flex-col gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <Activity size={16} className="text-slate-600" />
+                  Cutting Type Processing Demand Aggregates
+                </h3>
+              </div>
+              <div className="overflow-auto rounded-lg border border-slate-100">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead className="bg-slate-50 border-b font-bold text-slate-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-4 py-2.5">Cutting Profile</th>
+                      <th className="px-4 py-2.5 text-center">Price Adjustment</th>
+                      <th className="px-4 py-2.5 text-right">Machine Capacity Demand (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {planningSummary.cuttings.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-6 text-center text-slate-400 italic">
+                          No active default cutting types assigned.
+                        </td>
+                      </tr>
+                    ) : (
+                      planningSummary.cuttings.map((c, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50">
+                          <td className="px-4 py-3 font-semibold text-slate-800">{c.name}</td>
+                          <td className="px-4 py-3 text-center">
+                            {c.adjustment >= 0 ? `+₹${c.adjustment.toFixed(2)}` : `-₹${Math.abs(c.adjustment).toFixed(2)}`}/kg
+                          </td>
+                          <td className="px-4 py-3 text-right text-blue-700 font-bold">
+                            {c.totalKg.toLocaleString('en-IN')} kg
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

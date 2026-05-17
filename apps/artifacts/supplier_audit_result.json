@@ -1,0 +1,152 @@
+[
+  {
+    "supplierName": "ABC Tea Traders",
+    "contactPerson": "Aditya Sen",
+    "phone": "+91 9988776655",
+    "email": "aditya@abctea.com",
+    "materialName": "Color",
+    "cuttingType": "Color / Add-On",
+    "numberOfBags": 30,
+    "notes": "Batch Code: 30/12/25, Bill: INV-001"
+  },
+  {
+    "supplierName": "ABC Tea Traders",
+    "contactPerson": "Aditya Sen",
+    "phone": "+91 9988776655",
+    "email": "aditya@abctea.com",
+    "materialName": "Dust",
+    "cuttingType": "Dust / Add-On",
+    "numberOfBags": 30,
+    "notes": "Batch Code: 30/12/25, Bill: INV-001"
+  },
+  {
+    "supplierName": "ABC Tea Traders",
+    "contactPerson": "Aditya Sen",
+    "phone": "+91 9988776655",
+    "email": "aditya@abctea.com",
+    "materialName": "Leaf",
+    "cuttingType": "Leaf",
+    "numberOfBags": 30,
+    "notes": "Batch Code: 30/12/25, Bill: INV-001"
+  },
+  {
+    "supplierName": "ABC Tea Traders",
+    "contactPerson": "Aditya Sen",
+    "phone": "+91 9988776655",
+    "email": "aditya@abctea.com",
+    "materialName": "Lumsa",
+    "cuttingType": "Lumsa / Add-On",
+    "numberOfBags": 30,
+    "notes": "Batch Code: 30/12/25, Bill: INV-001"
+  },
+  {
+    "supplierName": "ABC Tea Traders",
+    "contactPerson": "Aditya Sen",
+    "phone": "+91 9988776655",
+    "email": "aditya@abctea.com",
+    "materialName": "Tea Powder",
+    "cuttingType": "Leaf",
+    "numberOfBags": 30,
+    "notes": "Batch Code: 30/12/25, Bill: INV-001"
+  },
+  {
+    "supplierName": "Bala Krishna traders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Assam - BPSM",
+    "cuttingType": "Leaf",
+    "numberOfBags": 5,
+    "notes": "Batch Code: 5/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Bala Krishna traders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Color",
+    "cuttingType": "Color / Add-On",
+    "numberOfBags": 5,
+    "notes": "Batch Code: 5/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Bala Krishna traders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Lumsa",
+    "cuttingType": "Lumsa / Add-On",
+    "numberOfBags": 5,
+    "notes": "Batch Code: 5/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Bala Krishna traders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Professional - Dust",
+    "cuttingType": "Dust / Add-On",
+    "numberOfBags": 5,
+    "notes": "Batch Code: 5/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Bala Krishna traders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Royal - BOP",
+    "cuttingType": "Leaf",
+    "numberOfBags": 5,
+    "notes": "Batch Code: 5/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Bala Krishna traders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Royal - BP",
+    "cuttingType": "Leaf",
+    "numberOfBags": 5,
+    "notes": "Batch Code: 5/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Venkatesh Treders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Assam - BOP",
+    "cuttingType": "Leaf",
+    "numberOfBags": 10,
+    "notes": "Batch Code: 10/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Venkatesh Treders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Assam - BOPSM",
+    "cuttingType": "Leaf",
+    "numberOfBags": 10,
+    "notes": "Batch Code: 10/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Venkatesh Treders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Assam - BPSM",
+    "cuttingType": "Leaf",
+    "numberOfBags": 10,
+    "notes": "Batch Code: 10/5/26, Bill: 2"
+  },
+  {
+    "supplierName": "Venkatesh Treders",
+    "contactPerson": "—",
+    "phone": "—",
+    "email": "—",
+    "materialName": "Assam - Dust",
+    "cuttingType": "Dust / Add-On",
+    "numberOfBags": 10,
+    "notes": "Batch Code: 10/5/26, Bill: 2"
+  }
+]
