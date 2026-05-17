@@ -111,12 +111,17 @@ function buildMasterController(
       // Cascade inactive status to dependent formulas
       if (body.active === false) {
         const mongoose = (await import('mongoose')).default;
-        const fieldName = model.modelName === 'LeafCategory' ? 'leafCategoryId' : 'cuttingTypeId';
-        if (model.modelName === 'LeafCategory' || model.modelName === 'CuttingType') {
-          await mongoose.model('CustomerTeaFormula').updateMany(
-            { [fieldName]: req.params.id },
-            { status: 'Inactive' }
-          );
+        const fieldName =
+          model.modelName === 'LeafCategory'
+            ? 'leafCategoryId'
+            : 'cuttingTypeId';
+        if (
+          model.modelName === 'LeafCategory' ||
+          model.modelName === 'CuttingType'
+        ) {
+          await mongoose
+            .model('CustomerTeaFormula')
+            .updateMany({ [fieldName]: req.params.id }, { status: 'Inactive' });
         }
       }
 
@@ -141,12 +146,15 @@ function buildMasterController(
 
       // Cascade inactive status to dependent formulas upon soft delete
       const mongoose = (await import('mongoose')).default;
-      const fieldName = model.modelName === 'LeafCategory' ? 'leafCategoryId' : 'cuttingTypeId';
-      if (model.modelName === 'LeafCategory' || model.modelName === 'CuttingType') {
-        await mongoose.model('CustomerTeaFormula').updateMany(
-          { [fieldName]: req.params.id },
-          { status: 'Inactive' }
-        );
+      const fieldName =
+        model.modelName === 'LeafCategory' ? 'leafCategoryId' : 'cuttingTypeId';
+      if (
+        model.modelName === 'LeafCategory' ||
+        model.modelName === 'CuttingType'
+      ) {
+        await mongoose
+          .model('CustomerTeaFormula')
+          .updateMany({ [fieldName]: req.params.id }, { status: 'Inactive' });
       }
 
       return ok(res, { id: req.params.id }, 'Soft Deleted');
@@ -186,4 +194,3 @@ export const cuttingTypesController = buildMasterController(
   'name',
   ['leafCategoryId'],
 );
-

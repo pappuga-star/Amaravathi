@@ -11,7 +11,7 @@ function escapeRegex(text: string): string {
 
 export async function globalSearch(req: Request, res: Response) {
   try {
-    const q = (req.query.q as string || '').trim();
+    const q = ((req.query.q as string) || '').trim();
     if (!q) {
       return res.json({
         success: true,
@@ -38,11 +38,12 @@ export async function globalSearch(req: Request, res: Response) {
 
     // 1. Search Customer Customizations (Allowed for everyone: admin, pricing_manager, operator, viewer)
     // Find matching Customers, Leaf Categories, and Cutting Types first to resolve reference joins
-    const [matchingCustomers, matchingLeaves, matchingCuttings] = await Promise.all([
-      Customer.find({ name: regexQuery, deletedAt: null }).select('_id'),
-      LeafCategory.find({ name: regexQuery, deletedAt: null }).select('_id'),
-      CuttingType.find({ name: regexQuery, deletedAt: null }).select('_id'),
-    ]);
+    const [matchingCustomers, matchingLeaves, matchingCuttings] =
+      await Promise.all([
+        Customer.find({ name: regexQuery, deletedAt: null }).select('_id'),
+        LeafCategory.find({ name: regexQuery, deletedAt: null }).select('_id'),
+        CuttingType.find({ name: regexQuery, deletedAt: null }).select('_id'),
+      ]);
 
     const customerIds = matchingCustomers.map((c) => c._id);
     const leafIds = matchingLeaves.map((l) => l._id);
@@ -94,8 +95,7 @@ export async function globalSearch(req: Request, res: Response) {
         { 'items.teaPowderType': regexQuery },
         ...batchNumericFilters,
       ],
-    })
-      .limit(10);
+    }).limit(10);
 
     results.purchaseBatches = batches.map((b: any) => ({
       id: b._id,
@@ -116,8 +116,7 @@ export async function globalSearch(req: Request, res: Response) {
           { mobileNumber: regexQuery },
           { address: regexQuery },
         ],
-      })
-        .limit(10);
+      }).limit(10);
 
       results.customers = dbCustomers.map((c: any) => ({
         id: c._id,

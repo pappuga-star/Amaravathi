@@ -278,7 +278,13 @@ export function AddPurchaseBatchPage() {
     onSuccess: (newSeller) => {
       setFormData((prev) => ({ ...prev, sellerName: newSeller.name }));
       queryClient.invalidateQueries({ queryKey: ['all-sellers-list'] });
-      showToast(t('addPurchaseBatch.messages.supplierAdded').replace('{{name}}', newSeller.name), 'success');
+      showToast(
+        t('addPurchaseBatch.messages.supplierAdded').replace(
+          '{{name}}',
+          newSeller.name,
+        ),
+        'success',
+      );
     },
     onError: (err: any) => {
       showError(err);
@@ -366,7 +372,8 @@ export function AddPurchaseBatchPage() {
 
     const errors: Record<string, boolean> = {};
     if (!formData.purchaseDate) errors.purchaseDate = true;
-    if (!formData.numberOfBags || formData.numberOfBags <= 0) errors.numberOfBags = true;
+    if (!formData.numberOfBags || formData.numberOfBags <= 0)
+      errors.numberOfBags = true;
     if (!formData.billNumber?.trim()) errors.billNumber = true;
     if (!formData.sellerName?.trim()) errors.sellerName = true;
 
@@ -374,9 +381,14 @@ export function AddPurchaseBatchPage() {
       setFormErrors(errors);
       showToast(t('addPurchaseBatch.messages.fillRequired'), 'error');
       setTimeout(() => {
-        const firstInvalidField = document.querySelector('.border-rose-500, input.border-rose-500');
+        const firstInvalidField = document.querySelector(
+          '.border-rose-500, input.border-rose-500',
+        );
         if (firstInvalidField) {
-          firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          firstInvalidField.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
         }
       }, 50);
       return;
@@ -397,7 +409,10 @@ export function AddPurchaseBatchPage() {
     );
     if (duplicates.length > 0) {
       showToast(
-        t('addPurchaseBatch.messages.duplicateNotAllowed').replace('{{duplicate}}', duplicates[0] ?? ''),
+        t('addPurchaseBatch.messages.duplicateNotAllowed').replace(
+          '{{duplicate}}',
+          duplicates[0] ?? '',
+        ),
         'error',
       );
       return;
@@ -516,759 +531,824 @@ export function AddPurchaseBatchPage() {
           <TeaPowderTypesPage />
         ) : (
           <div className="grid gap-8">
+            {/* 2. Purchase Batch Entry Form */}
+            {showForm && (
+              <form
+                onSubmit={handleSubmit}
+                className="grid gap-6 animate-in fade-in duration-300"
+              >
+                <Card className="flex flex-col gap-6 p-6 rounded-2xl shadow-sm border border-slate-200 bg-white">
+                  {/* Close Button is natively placed inside the New Purchase Batch Form corner */}
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-xl font-semibold text-slate-900">
+                        {editingId
+                          ? t('addPurchaseBatch.form.modifyBatch')
+                          : t('addPurchaseBatch.form.newBatch')}
+                      </h3>
+                      {editingId && (
+                        <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-600/20">
+                          {t('addPurchaseBatch.form.editingMode')}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none"
+                      title={t('addPurchaseBatch.form.dismissForm')}
+                    >
+                      <svg
+                        className="h-4.5 w-4.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
 
-      {/* 2. Purchase Batch Entry Form */}
-      {showForm && (
-        <form
-          onSubmit={handleSubmit}
-          className="grid gap-6 animate-in fade-in duration-300"
-        >
-          <Card className="flex flex-col gap-6 p-6 rounded-2xl shadow-sm border border-slate-200 bg-white">
-            {/* Close Button is natively placed inside the New Purchase Batch Form corner */}
-            <div className="flex items-center justify-between border-b pb-3">
-              <div className="flex items-center gap-3">
-                <h3 className="text-xl font-semibold text-slate-900">
-                  {editingId
-                    ? t('addPurchaseBatch.form.modifyBatch')
-                    : t('addPurchaseBatch.form.newBatch')}
-                </h3>
-                {editingId && (
-                  <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-600/20">
-                    {t('addPurchaseBatch.form.editingMode')}
-                  </span>
+                  <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
+                    <Field label={t('addPurchaseBatch.form.purchaseDate')}>
+                      <div className="relative">
+                        <Calendar
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                          size={18}
+                        />
+                        <Input
+                          className={`h-10 text-sm font-normal pl-10 pr-3 ${
+                            formErrors.purchaseDate
+                              ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse'
+                              : 'border-slate-200'
+                          }`}
+                          type="date"
+                          value={
+                            formData.purchaseDate instanceof Date
+                              ? formData.purchaseDate
+                                  .toISOString()
+                                  .split('T')[0]
+                              : String(formData.purchaseDate || '').split(
+                                  'T',
+                                )[0]
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val) {
+                              setFormData({
+                                ...formData,
+                                purchaseDate: new Date(val),
+                              });
+                            }
+                          }}
+                          required
+                        />
+                      </div>
+                    </Field>
+
+                    <Field label={t('addPurchaseBatch.form.noOfBags')}>
+                      <div className="relative">
+                        <ShoppingBag
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                          size={18}
+                        />
+                        <Input
+                          className={`h-10 text-sm font-normal pl-10 ${
+                            formErrors.numberOfBags
+                              ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse'
+                              : 'border-slate-200'
+                          }`}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={
+                            formData.numberOfBags
+                              ? String(Number(formData.numberOfBags))
+                              : ''
+                          }
+                          onKeyDown={(e) => {
+                            // Allow backspace, delete, tab, escape, enter
+                            if (
+                              [46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+                              // Allow Ctrl+A, Ctrl+C, Ctrl+V, Cmd+A
+                              e.ctrlKey === true ||
+                              e.metaKey === true ||
+                              // Allow arrows
+                              (e.keyCode >= 35 && e.keyCode <= 40)
+                            ) {
+                              return;
+                            }
+                            // Stop keyboard input if not a digit
+                            if (
+                              (e.shiftKey ||
+                                e.keyCode < 48 ||
+                                e.keyCode > 57) &&
+                              (e.keyCode < 96 || e.keyCode > 105)
+                            ) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(e) => {
+                            const cleanVal = e.target.value.replace(
+                              /[^0-9]/g,
+                              '',
+                            );
+                            const parsed = parseInt(cleanVal, 10);
+                            setFormData({
+                              ...formData,
+                              numberOfBags: isNaN(parsed) ? 0 : parsed,
+                            });
+                          }}
+                          required
+                        />
+                      </div>
+                    </Field>
+
+                    <Field label={t('addPurchaseBatch.form.billNumber')}>
+                      <div className="relative">
+                        <FileText
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                          size={18}
+                        />
+                        <Input
+                          className={`h-10 text-sm font-normal pl-10 ${
+                            formErrors.billNumber
+                              ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse'
+                              : 'border-slate-200'
+                          }`}
+                          value={formData.billNumber || ''}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              billNumber: e.target.value,
+                            })
+                          }
+                          placeholder="INV-001"
+                          required
+                        />
+                      </div>
+                    </Field>
+
+                    <div className="md:col-span-2">
+                      <Field label={t('addPurchaseBatch.form.sellerName')}>
+                        <div className="relative">
+                          <User
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"
+                            size={18}
+                          />
+                          <AutocompleteInput
+                            className="pl-10"
+                            value={formData.sellerName || ''}
+                            onChange={(val) =>
+                              setFormData({ ...formData, sellerName: val })
+                            }
+                            options={sellerOptions}
+                            placeholder={t(
+                              'addPurchaseBatch.form.selectSeller',
+                            )}
+                            onCreateNew={(val) =>
+                              createSellerMutation.mutate(val)
+                            }
+                            createLabel="Seller"
+                            hasError={!!formErrors.sellerName}
+                          />
+                        </div>
+                      </Field>
+                    </div>
+
+                    <Field label={t('addPurchaseBatch.form.batchCode')}>
+                      <Input
+                        className={`h-10 text-sm font-normal border-slate-200 cursor-not-allowed uppercase tracking-wider ${
+                          batchCodePreview
+                            ? 'text-slate-700 bg-slate-50'
+                            : 'text-slate-400 bg-slate-50'
+                        }`}
+                        value={
+                          batchCodePreview ||
+                          t('addPurchaseBatch.form.batchCodePreview')
+                        }
+                        disabled
+                      />
+                    </Field>
+                  </div>
+                </Card>
+
+                {/* 3. Tea Powder Line Items */}
+                <Card className="border border-slate-200 rounded-2xl shadow-sm bg-white p-0">
+                  <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
+                    <h3 className="text-xl font-semibold text-slate-900">
+                      {t('addPurchaseBatch.form.lineItemsTitle')}
+                    </h3>
+                  </div>
+
+                  <div className="p-6 flex flex-col gap-4">
+                    {/* Header row for desktop - perfect tabular alignment, hidden on mobile */}
+                    <div className="hidden sm:grid grid-cols-[44px_1fr_200px_136px] gap-4 px-4 pb-2 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                      <div className="text-center">#</div>
+                      <div>{t('addPurchaseBatch.table.teaPowderType')}</div>
+                      <div>{t('addPurchaseBatch.table.pricePerKg')}</div>
+                      <div className="text-center">
+                        {t('addPurchaseBatch.table.actions')}
+                      </div>
+                    </div>
+
+                    {/* Simple unified table rows with minimal padding and standard fonts. Removed overflow-hidden to prevent clipping dropdowns */}
+                    <div className="grid divide-y divide-slate-100 border border-slate-200/60 rounded-xl bg-white relative z-20">
+                      {formData.items?.map((item, index) => {
+                        const isDuplicate = formData.items!.some(
+                          (other, i) =>
+                            i !== index &&
+                            other.teaPowderType.trim().toLowerCase() ===
+                              item.teaPowderType.trim().toLowerCase() &&
+                            item.teaPowderType.trim() !== '',
+                        );
+
+                        // Row-level Edit mode check
+                        const isEditingRow = !!editingRowIndices[index];
+
+                        // Row is valid only when type is filled, rate is > 0, and there are no duplicates
+                        const isRowValid =
+                          item.teaPowderType?.trim() !== '' &&
+                          item.ratePerKg !== undefined &&
+                          item.ratePerKg > 0 &&
+                          !isDuplicate;
+
+                        // ➕ Add button appears ONLY on the very last view-mode row of the saved line items, and only if there's no editing row anywhere
+                        const showAddButton =
+                          index === formData.items!.length - 1 &&
+                          !isEditingRow &&
+                          !hasAnyActiveEditRow;
+
+                        return (
+                          <div
+                            key={index}
+                            className={`grid grid-cols-1 sm:grid-cols-[44px_1fr_200px_136px] gap-4 items-center py-2.5 px-4 transition-all relative ${
+                              isDuplicate
+                                ? 'bg-red-50/20 z-10'
+                                : isEditingRow
+                                  ? 'bg-slate-50/30 z-30'
+                                  : 'hover:bg-slate-50/20 z-10'
+                            }`}
+                          >
+                            {/* Index Column */}
+                            <div className="text-sm font-normal text-slate-400 text-center mx-auto sm:mx-0">
+                              {index + 1}
+                            </div>
+
+                            {/* Tea Powder Type Field (Dynamic input or standard font text) */}
+                            <div className="flex flex-col gap-1">
+                              <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                {t('addPurchaseBatch.table.teaPowderType')}
+                              </span>
+                              {isEditingRow ? (
+                                <AutocompleteInput
+                                  value={item.teaPowderType}
+                                  onChange={(val) =>
+                                    updateItem(index, 'teaPowderType', val)
+                                  }
+                                  options={autocompleteOptions}
+                                  placeholder={t(
+                                    'addPurchaseBatch.table.selectGrade',
+                                  )}
+                                  hasError={isDuplicate}
+                                  onCreateNew={(newVal) => {
+                                    createPowderTypeMutation.mutate(newVal, {
+                                      onSuccess: (newType) => {
+                                        updateItem(
+                                          index,
+                                          'teaPowderType',
+                                          newType.name,
+                                        );
+                                      },
+                                    });
+                                  }}
+                                />
+                              ) : (
+                                <div className="text-sm font-normal text-slate-700 select-none truncate">
+                                  {item.teaPowderType || (
+                                    <span className="text-slate-400 italic">
+                                      {t('addPurchaseBatch.table.emptyType')}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {isDuplicate && (
+                                <span className="text-[10px] font-medium text-red-600 mt-0.5 block">
+                                  {t('addPurchaseBatch.table.duplicateType')}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Price per Kg (Dynamic input or standard font text) */}
+                            <div className="flex flex-col gap-1">
+                              <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                {t('addPurchaseBatch.table.pricePerKg')}
+                              </span>
+                              {isEditingRow ? (
+                                <Input
+                                  className="h-10 text-sm font-normal"
+                                  type="number"
+                                  min="0.01"
+                                  max="100000"
+                                  step="0.01"
+                                  value={item.ratePerKg || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const numVal = val === '' ? 0 : Number(val);
+                                    if (numVal <= 100000) {
+                                      updateItem(index, 'ratePerKg', numVal);
+                                    } else {
+                                      updateItem(index, 'ratePerKg', 100000);
+                                    }
+                                  }}
+                                  required
+                                />
+                              ) : (
+                                <div className="text-sm font-normal text-slate-700 select-none">
+                                  {formatCurrency(item.ratePerKg)}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Row Actions */}
+                            <div className="flex flex-col gap-1 sm:items-center">
+                              <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                {t('addPurchaseBatch.table.actions')}
+                              </span>
+                              <div className="flex items-center gap-2 justify-center">
+                                {isEditingRow ? (
+                                  /* Done/Confirm Checkmark Button - ONLY active when row is valid */
+                                  <button
+                                    type="button"
+                                    disabled={!isRowValid}
+                                    onClick={() => {
+                                      setEditingRowIndices({
+                                        ...editingRowIndices,
+                                        [index]: false,
+                                      });
+                                    }}
+                                    className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm transition-all duration-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-50 disabled:hover:text-emerald-700 disabled:hover:border-emerald-200"
+                                    title={t(
+                                      'addPurchaseBatch.table.confirmItem',
+                                    )}
+                                  >
+                                    <Check className="h-4 w-4 text-current" />
+                                  </button>
+                                ) : (
+                                  /* Edit Pencil Icon Button */
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingRowIndices({
+                                        ...editingRowIndices,
+                                        [index]: true,
+                                      })
+                                    }
+                                    className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 focus:outline-none"
+                                    title={t('addPurchaseBatch.table.editItem')}
+                                  >
+                                    <Edit3 className="h-3.5 w-3.5 text-current" />
+                                  </button>
+                                )}
+
+                                {/* Delete Row Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(index)}
+                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                  disabled={formData.items!.length <= 1}
+                                  title={t('addPurchaseBatch.table.deleteItem')}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-current" />
+                                </button>
+
+                                {/* Add Row Button - Appears ONLY on the last view-mode row of the array */}
+                                {showAddButton && (
+                                  <button
+                                    type="button"
+                                    onClick={addItem}
+                                    className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 focus:outline-none"
+                                    title={t('addPurchaseBatch.table.addItem')}
+                                  >
+                                    <Plus className="h-4 w-4 text-current" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Card>
+
+                {saveMutation.error ? (
+                  <div className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700 border border-red-100">
+                    {saveMutation.error.message}
+                  </div>
+                ) : null}
+
+                {/* 4. Save / Cancel Buttons */}
+                <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-6">
+                  <Button
+                    type="button"
+                    onClick={handleCancel}
+                    variant="secondary"
+                    className="h-10 text-sm font-medium"
+                  >
+                    {t('addPurchaseBatch.actions.cancel')}
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={saveMutation.isPending}
+                    variant={editingId ? 'edit' : 'add'}
+                    className="h-10 text-sm font-medium px-10"
+                  >
+                    <Save className="h-4 w-4 text-current" />
+                    <span>
+                      {saveMutation.isPending
+                        ? t('addPurchaseBatch.actions.saving')
+                        : editingId
+                          ? t('addPurchaseBatch.actions.update')
+                          : t('addPurchaseBatch.actions.save')}
+                    </span>
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* 5. Existing Purchase Batches Section */}
+            {!showForm && (
+              <div className="border-t border-slate-200 pt-8 grid gap-6 animate-in fade-in duration-300">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-xl font-semibold text-slate-900 tracking-tight">
+                      {t('addPurchaseBatch.list.title')}
+                    </h3>
+                    <p className="text-xs font-normal text-slate-500">
+                      {t('addPurchaseBatch.list.description')}
+                    </p>
+                  </div>
+                  {canEdit && (
+                    <Button
+                      type="button"
+                      onClick={handleToggleNewForm}
+                      variant="add"
+                      className="h-10 px-5 rounded-xl border shadow-sm self-start sm:self-auto font-medium transition-all text-sm shrink-0"
+                    >
+                      <Plus className="h-4 w-4 text-current" />
+                      <span>{t('addPurchaseBatch.list.newBatchBtn')}</span>
+                    </Button>
+                  )}
+                </div>
+
+                {/* Search Box */}
+                <Card className="flex items-center gap-3 px-4 py-2 ring-1 ring-slate-200 rounded-xl bg-white shadow-sm border border-slate-200">
+                  <Search className="text-slate-400 shrink-0" size={20} />
+                  <input
+                    type="text"
+                    className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-slate-400 font-semibold text-slate-700"
+                    placeholder={t('addPurchaseBatch.list.searchPlaceholder')}
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </Card>
+
+                {/* Dense Card List Layout */}
+                <div className="flex flex-col gap-4">
+                  {isLoading ? (
+                    <p className="py-12 text-center text-slate-500 text-sm font-normal">
+                      {t('addPurchaseBatch.list.loading')}
+                    </p>
+                  ) : batches.length === 0 ? (
+                    <div className="py-16 text-center text-slate-400 border border-slate-200 rounded-2xl bg-white shadow-sm">
+                      <ShoppingBag
+                        className="mx-auto mb-3 opacity-20 text-slate-400"
+                        size={48}
+                      />
+                      <p className="text-sm font-medium text-slate-500">
+                        {t('addPurchaseBatch.list.noBatches')}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3.5">
+                      {paginatedBatches.map((batch) => {
+                        const isExpanded = !!expandedBatches[batch.id];
+                        return (
+                          <Card
+                            key={batch.id}
+                            className="flex flex-col gap-4 p-4 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 animate-in fade-in"
+                          >
+                            {/* Compact main details row */}
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between lg:gap-6">
+                              {/* Left: Badge + Batch code + details grid */}
+                              <div className="flex flex-wrap items-center gap-3 md:flex-nowrap md:gap-4 flex-1">
+                                {/* Serial tag */}
+                                <span className="inline-flex items-center justify-center shrink-0 h-8 px-2.5 rounded-lg bg-emerald-50 text-[11px] font-black text-emerald-800 ring-1 ring-emerald-600/10">
+                                  #{batch.serialNumber}
+                                </span>
+
+                                {/* Batch Code */}
+                                <span className="text-sm font-extrabold text-slate-900 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 tracking-wider font-mono shrink-0">
+                                  {batch.batchCode}
+                                </span>
+
+                                {/* Details elements */}
+                                <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-normal text-slate-600">
+                                  {/* Date */}
+                                  <span className="flex items-center gap-1.5 shrink-0">
+                                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                    <span>
+                                      {new Date(
+                                        batch.purchaseDate,
+                                      ).toLocaleDateString('en-IN', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: 'numeric',
+                                      })}
+                                    </span>
+                                  </span>
+
+                                  {/* Bags count */}
+                                  <span className="flex items-center gap-1.5 text-slate-750 font-medium shrink-0">
+                                    <ShoppingBag className="h-3.5 w-3.5 text-slate-400" />
+                                    <span>
+                                      {batch.numberOfBags}{' '}
+                                      {t('addPurchaseBatch.card.bags')}
+                                    </span>
+                                  </span>
+
+                                  {/* Seller */}
+                                  <span
+                                    className="flex items-center gap-1.5 text-slate-750 shrink-0 max-w-[180px] truncate"
+                                    title={batch.sellerName}
+                                  >
+                                    <User className="h-3.5 w-3.5 text-slate-400" />
+                                    <span>{batch.sellerName}</span>
+                                  </span>
+
+                                  {/* Bill */}
+                                  <span className="flex items-center gap-1.5 font-mono text-slate-500 shrink-0">
+                                    <FileText className="h-3.5 w-3.5 text-slate-400" />
+                                    <span>{batch.billNumber}</span>
+                                  </span>
+
+                                  {/* Items count */}
+                                  <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/10 shrink-0">
+                                    {batch.items.length}{' '}
+                                    {batch.items.length === 1
+                                      ? t('addPurchaseBatch.card.item')
+                                      : t('addPurchaseBatch.card.items')}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Right: Actions */}
+                              <div className="flex items-center gap-2 justify-end shrink-0 border-t border-slate-100 pt-3 md:border-t-0 md:pt-0">
+                                <Button
+                                  type="button"
+                                  onClick={() => toggleExpand(batch.id)}
+                                  className="h-9 px-3.5 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900"
+                                >
+                                  {isExpanded
+                                    ? t('addPurchaseBatch.card.hideItems')
+                                    : t('addPurchaseBatch.card.viewItems')}
+                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingBatch(batch)}
+                                  className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 active:scale-95 focus:outline-none"
+                                  title={t(
+                                    'addPurchaseBatch.card.viewDetailsTooltip',
+                                  )}
+                                >
+                                  <Eye className="h-4 w-4 text-current" />
+                                </button>
+                                {canEdit && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEdit(batch)}
+                                      className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 active:scale-95 focus:outline-none"
+                                      title={t(
+                                        'addPurchaseBatch.card.editTooltip',
+                                      )}
+                                    >
+                                      <Edit3 className="h-4 w-4 text-current" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(batch.id)}
+                                      className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 active:scale-95 focus:outline-none"
+                                      title={t(
+                                        'addPurchaseBatch.card.deleteTooltip',
+                                      )}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-current" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Expandable items section */}
+                            {isExpanded && (
+                              <div className="border-t border-slate-100 pt-3 animate-in slide-in-from-top duration-200">
+                                <div className="flex flex-wrap gap-2">
+                                  {batch.items.map((item) => (
+                                    <div
+                                      key={item.subSerialNumber}
+                                      className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs ring-1 ring-slate-200 shadow-sm font-medium text-slate-700"
+                                    >
+                                      <span className="grid size-4 place-items-center rounded bg-slate-200/80 text-[10px] font-black text-slate-600">
+                                        {item.subSerialNumber}
+                                      </span>
+                                      <span className="font-semibold text-slate-900">
+                                        {item.teaPowderType}
+                                      </span>
+                                      <span className="text-slate-300">|</span>
+                                      <span className="font-semibold text-emerald-700">
+                                        {formatCurrency(item.ratePerKg)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 6. Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
+                    <div className="flex flex-1 justify-between sm:hidden">
+                      <Button
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(prev - 1, 1))
+                        }
+                        disabled={currentPage === 1}
+                        variant="secondary"
+                        className="h-9 px-3 text-xs"
+                      >
+                        {t('addPurchaseBatch.pagination.previous')}
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(prev + 1, totalPages),
+                          )
+                        }
+                        disabled={currentPage === totalPages}
+                        variant="secondary"
+                        className="h-9 px-3 text-xs"
+                      >
+                        {t('addPurchaseBatch.pagination.next')}
+                      </Button>
+                    </div>
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs text-slate-750 font-normal">
+                          {t('addPurchaseBatch.pagination.showing')}{' '}
+                          <span className="font-semibold">
+                            {(currentPage - 1) * itemsPerPage + 1}
+                          </span>{' '}
+                          {t('addPurchaseBatch.pagination.to')}{' '}
+                          <span className="font-semibold">
+                            {Math.min(
+                              currentPage * itemsPerPage,
+                              batches.length,
+                            )}
+                          </span>{' '}
+                          {t('addPurchaseBatch.pagination.of')}{' '}
+                          <span className="font-semibold">
+                            {batches.length}
+                          </span>{' '}
+                          {t('addPurchaseBatch.pagination.results')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          onClick={() =>
+                            setCurrentPage((prev) => Math.max(prev - 1, 1))
+                          }
+                          disabled={currentPage === 1}
+                          variant="secondary"
+                          className="h-8 w-8 p-0 text-xs"
+                        >
+                          &lt;
+                        </Button>
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1,
+                        ).map((page) => (
+                          <Button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            variant={currentPage === page ? 'add' : 'secondary'}
+                            className="h-8 w-8 p-0 text-xs"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                        <Button
+                          onClick={() =>
+                            setCurrentPage((prev) =>
+                              Math.min(prev + 1, totalPages),
+                            )
+                          }
+                          disabled={currentPage === totalPages}
+                          variant="secondary"
+                          className="h-8 w-8 p-0 text-xs"
+                        >
+                          &gt;
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none"
-                title={t('addPurchaseBatch.form.dismissForm')}
-              >
-                <svg
-                  className="h-4.5 w-4.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
-              <Field label={t('addPurchaseBatch.form.purchaseDate')}>
-                <div className="relative">
-                  <Calendar
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                    size={18}
-                  />
-                  <Input
-                    className={`h-10 text-sm font-normal pl-10 pr-3 ${
-                      formErrors.purchaseDate ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-200'
-                    }`}
-                    type="date"
-                    value={
-                      formData.purchaseDate instanceof Date
-                        ? formData.purchaseDate.toISOString().split('T')[0]
-                        : String(formData.purchaseDate || '').split('T')[0]
-                    }
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val) {
-                        setFormData({
-                          ...formData,
-                          purchaseDate: new Date(val),
-                        });
-                      }
-                    }}
-                    required
-                  />
-                </div>
-              </Field>
-
-              <Field label={t('addPurchaseBatch.form.noOfBags')}>
-                <div className="relative">
-                  <ShoppingBag
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                    size={18}
-                  />
-                  <Input
-                    className={`h-10 text-sm font-normal pl-10 ${
-                      formErrors.numberOfBags ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-200'
-                    }`}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={
-                      formData.numberOfBags
-                        ? String(Number(formData.numberOfBags))
-                        : ''
-                    }
-                    onKeyDown={(e) => {
-                      // Allow backspace, delete, tab, escape, enter
-                      if (
-                        [46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
-                        // Allow Ctrl+A, Ctrl+C, Ctrl+V, Cmd+A
-                        e.ctrlKey === true ||
-                        e.metaKey === true ||
-                        // Allow arrows
-                        (e.keyCode >= 35 && e.keyCode <= 40)
-                      ) {
-                        return;
-                      }
-                      // Stop keyboard input if not a digit
-                      if (
-                        (e.shiftKey || e.keyCode < 48 || e.keyCode > 57) &&
-                        (e.keyCode < 96 || e.keyCode > 105)
-                      ) {
-                        e.preventDefault();
-                      }
-                    }}
-                    onChange={(e) => {
-                      const cleanVal = e.target.value.replace(/[^0-9]/g, '');
-                      const parsed = parseInt(cleanVal, 10);
-                      setFormData({
-                        ...formData,
-                        numberOfBags: isNaN(parsed) ? 0 : parsed,
-                      });
-                    }}
-                    required
-                  />
-                </div>
-              </Field>
-
-              <Field label={t('addPurchaseBatch.form.billNumber')}>
-                <div className="relative">
-                  <FileText
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                    size={18}
-                  />
-                  <Input
-                    className={`h-10 text-sm font-normal pl-10 ${
-                      formErrors.billNumber ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-200'
-                    }`}
-                    value={formData.billNumber || ''}
-                    onChange={(e) =>
-                      setFormData({ ...formData, billNumber: e.target.value })
-                    }
-                    placeholder="INV-001"
-                    required
-                  />
-                </div>
-              </Field>
-
-              <div className="md:col-span-2">
-                <Field label={t('addPurchaseBatch.form.sellerName')}>
-                  <div className="relative">
-                    <User
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"
-                      size={18}
-                    />
-                    <AutocompleteInput
-                      className="pl-10"
-                      value={formData.sellerName || ''}
-                      onChange={(val) =>
-                        setFormData({ ...formData, sellerName: val })
-                      }
-                      options={sellerOptions}
-                      placeholder={t('addPurchaseBatch.form.selectSeller')}
-                      onCreateNew={(val) => createSellerMutation.mutate(val)}
-                      createLabel="Seller"
-                      hasError={!!formErrors.sellerName}
-                    />
-                  </div>
-                </Field>
-              </div>
-
-              <Field label={t('addPurchaseBatch.form.batchCode')}>
-                <Input
-                  className={`h-10 text-sm font-normal border-slate-200 cursor-not-allowed uppercase tracking-wider ${
-                    batchCodePreview
-                      ? 'text-slate-700 bg-slate-50'
-                      : 'text-slate-400 bg-slate-50'
-                  }`}
-                  value={batchCodePreview || t('addPurchaseBatch.form.batchCodePreview')}
-                  disabled
-                />
-              </Field>
-            </div>
-          </Card>
-
-          {/* 3. Tea Powder Line Items */}
-          <Card className="border border-slate-200 rounded-2xl shadow-sm bg-white p-0">
-            <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-              <h3 className="text-xl font-semibold text-slate-900">
-                {t('addPurchaseBatch.form.lineItemsTitle')}
-              </h3>
-            </div>
-
-            <div className="p-6 flex flex-col gap-4">
-              {/* Header row for desktop - perfect tabular alignment, hidden on mobile */}
-              <div className="hidden sm:grid grid-cols-[44px_1fr_200px_136px] gap-4 px-4 pb-2 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                <div className="text-center">#</div>
-                <div>{t('addPurchaseBatch.table.teaPowderType')}</div>
-                <div>{t('addPurchaseBatch.table.pricePerKg')}</div>
-                <div className="text-center">{t('addPurchaseBatch.table.actions')}</div>
-              </div>
-
-              {/* Simple unified table rows with minimal padding and standard fonts. Removed overflow-hidden to prevent clipping dropdowns */}
-              <div className="grid divide-y divide-slate-100 border border-slate-200/60 rounded-xl bg-white relative z-20">
-                {formData.items?.map((item, index) => {
-                  const isDuplicate = formData.items!.some(
-                    (other, i) =>
-                      i !== index &&
-                      other.teaPowderType.trim().toLowerCase() ===
-                        item.teaPowderType.trim().toLowerCase() &&
-                      item.teaPowderType.trim() !== '',
-                  );
-
-                  // Row-level Edit mode check
-                  const isEditingRow = !!editingRowIndices[index];
-
-                  // Row is valid only when type is filled, rate is > 0, and there are no duplicates
-                  const isRowValid =
-                    item.teaPowderType?.trim() !== '' &&
-                    item.ratePerKg !== undefined &&
-                    item.ratePerKg > 0 &&
-                    !isDuplicate;
-
-                  // ➕ Add button appears ONLY on the very last view-mode row of the saved line items, and only if there's no editing row anywhere
-                  const showAddButton =
-                    index === formData.items!.length - 1 &&
-                    !isEditingRow &&
-                    !hasAnyActiveEditRow;
-
-                  return (
+            )}
+          </div>
+        )}
+        {viewingBatch && (
+          <ViewDetailsModal
+            title={
+              viewingBatch.batchCode ||
+              t('addPurchaseBatch.modal.fallbackTitle')
+            }
+            subtitle={t('addPurchaseBatch.modal.subtitle')}
+            onClose={() => setViewingBatch(null)}
+            fields={[
+              {
+                label: t('addPurchaseBatch.modal.batchCode'),
+                value: viewingBatch.batchCode || '—',
+              },
+              {
+                label: t('addPurchaseBatch.modal.purchaseDate'),
+                value: new Date(viewingBatch.purchaseDate).toLocaleDateString(
+                  'en-IN',
+                  {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  },
+                ),
+              },
+              {
+                label: t('addPurchaseBatch.modal.seller'),
+                value: viewingBatch.sellerName || '—',
+              },
+              {
+                label: t('addPurchaseBatch.modal.billNumber'),
+                value: viewingBatch.billNumber || '—',
+              },
+              {
+                label: t('addPurchaseBatch.modal.bagsCount'),
+                value: `${viewingBatch.numberOfBags || 0} ${t('addPurchaseBatch.card.bags')}`,
+              },
+            ]}
+            customBody={
+              <div className="flex flex-col gap-4">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                  {t('addPurchaseBatch.modal.lineItemsTitle')}
+                </span>
+                <div className="flex flex-col gap-2">
+                  {viewingBatch.items.map((item: any) => (
                     <div
-                      key={index}
-                      className={`grid grid-cols-1 sm:grid-cols-[44px_1fr_200px_136px] gap-4 items-center py-2.5 px-4 transition-all relative ${
-                        isDuplicate
-                          ? 'bg-red-50/20 z-10'
-                          : isEditingRow
-                            ? 'bg-slate-50/30 z-30'
-                            : 'hover:bg-slate-50/20 z-10'
-                      }`}
+                      key={item.subSerialNumber}
+                      className="flex justify-between items-center border border-slate-200 rounded-xl p-3 bg-slate-50/50"
                     >
-                      {/* Index Column */}
-                      <div className="text-sm font-normal text-slate-400 text-center mx-auto sm:mx-0">
-                        {index + 1}
-                      </div>
-
-                      {/* Tea Powder Type Field (Dynamic input or standard font text) */}
-                      <div className="flex flex-col gap-1">
-                        <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          {t('addPurchaseBatch.table.teaPowderType')}
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <span className="grid size-5 place-items-center rounded bg-slate-200 text-[10px] font-black text-slate-600">
+                          {item.subSerialNumber}
                         </span>
-                        {isEditingRow ? (
-                          <AutocompleteInput
-                            value={item.teaPowderType}
-                            onChange={(val) =>
-                              updateItem(index, 'teaPowderType', val)
-                            }
-                            options={autocompleteOptions}
-                            placeholder={t('addPurchaseBatch.table.selectGrade')}
-                            hasError={isDuplicate}
-                            onCreateNew={(newVal) => {
-                              createPowderTypeMutation.mutate(newVal, {
-                                onSuccess: (newType) => {
-                                  updateItem(
-                                    index,
-                                    'teaPowderType',
-                                    newType.name,
-                                  );
-                                },
-                              });
-                            }}
-                          />
-                        ) : (
-                          <div className="text-sm font-normal text-slate-700 select-none truncate">
-                            {item.teaPowderType || (
-                              <span className="text-slate-400 italic">
-                                {t('addPurchaseBatch.table.emptyType')}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {isDuplicate && (
-                          <span className="text-[10px] font-medium text-red-600 mt-0.5 block">
-                            {t('addPurchaseBatch.table.duplicateType')}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Price per Kg (Dynamic input or standard font text) */}
-                      <div className="flex flex-col gap-1">
-                        <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          {t('addPurchaseBatch.table.pricePerKg')}
+                        <span className="font-bold text-slate-800">
+                          {item.teaPowderType}
                         </span>
-                        {isEditingRow ? (
-                          <Input
-                            className="h-10 text-sm font-normal"
-                            type="number"
-                            min="0.01"
-                            max="100000"
-                            step="0.01"
-                            value={item.ratePerKg || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const numVal = val === '' ? 0 : Number(val);
-                              if (numVal <= 100000) {
-                                updateItem(index, 'ratePerKg', numVal);
-                              } else {
-                                updateItem(index, 'ratePerKg', 100000);
-                              }
-                            }}
-                            required
-                          />
-                        ) : (
-                          <div className="text-sm font-normal text-slate-700 select-none">
-                            {formatCurrency(item.ratePerKg)}
-                          </div>
-                        )}
                       </div>
-
-                      {/* Row Actions */}
-                      <div className="flex flex-col gap-1 sm:items-center">
-                        <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          {t('addPurchaseBatch.table.actions')}
-                        </span>
-                        <div className="flex items-center gap-2 justify-center">
-                          {isEditingRow ? (
-                            /* Done/Confirm Checkmark Button - ONLY active when row is valid */
-                            <button
-                              type="button"
-                              disabled={!isRowValid}
-                              onClick={() => {
-                                setEditingRowIndices({
-                                  ...editingRowIndices,
-                                  [index]: false,
-                                });
-                              }}
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm transition-all duration-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-50 disabled:hover:text-emerald-700 disabled:hover:border-emerald-200"
-                              title={t('addPurchaseBatch.table.confirmItem')}
-                            >
-                              <Check className="h-4 w-4 text-current" />
-                            </button>
-                          ) : (
-                            /* Edit Pencil Icon Button */
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setEditingRowIndices({
-                                  ...editingRowIndices,
-                                  [index]: true,
-                                })
-                              }
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 focus:outline-none"
-                              title={t('addPurchaseBatch.table.editItem')}
-                            >
-                              <Edit3 className="h-3.5 w-3.5 text-current" />
-                            </button>
-                          )}
-
-                          {/* Delete Row Button */}
-                          <button
-                            type="button"
-                            onClick={() => removeItem(index)}
-                            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={formData.items!.length <= 1}
-                            title={t('addPurchaseBatch.table.deleteItem')}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-current" />
-                          </button>
-
-                          {/* Add Row Button - Appears ONLY on the last view-mode row of the array */}
-                          {showAddButton && (
-                            <button
-                              type="button"
-                              onClick={addItem}
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 focus:outline-none"
-                              title={t('addPurchaseBatch.table.addItem')}
-                            >
-                              <Plus className="h-4 w-4 text-current" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </Card>
-
-          {saveMutation.error ? (
-            <div className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700 border border-red-100">
-              {saveMutation.error.message}
-            </div>
-          ) : null}
-
-          {/* 4. Save / Cancel Buttons */}
-          <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-6">
-            <Button
-              type="button"
-              onClick={handleCancel}
-              variant="secondary"
-              className="h-10 text-sm font-medium"
-            >
-              {t('addPurchaseBatch.actions.cancel')}
-            </Button>
-            <Button
-              type="submit"
-              disabled={saveMutation.isPending}
-              variant={editingId ? 'edit' : 'add'}
-              className="h-10 text-sm font-medium px-10"
-            >
-              <Save className="h-4 w-4 text-current" />
-              <span>
-                {saveMutation.isPending
-                  ? t('addPurchaseBatch.actions.saving')
-                  : editingId
-                    ? t('addPurchaseBatch.actions.update')
-                    : t('addPurchaseBatch.actions.save')}
-              </span>
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {/* 5. Existing Purchase Batches Section */}
-      {!showForm && (
-        <div className="border-t border-slate-200 pt-8 grid gap-6 animate-in fade-in duration-300">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-xl font-semibold text-slate-900 tracking-tight">
-                {t('addPurchaseBatch.list.title')}
-              </h3>
-              <p className="text-xs font-normal text-slate-500">
-                {t('addPurchaseBatch.list.description')}
-              </p>
-            </div>
-            {canEdit && (
-              <Button
-                type="button"
-                onClick={handleToggleNewForm}
-                variant="add"
-                className="h-10 px-5 rounded-xl border shadow-sm self-start sm:self-auto font-medium transition-all text-sm shrink-0"
-              >
-                <Plus className="h-4 w-4 text-current" />
-                <span>{t('addPurchaseBatch.list.newBatchBtn')}</span>
-              </Button>
-            )}
-          </div>
-
-          {/* Search Box */}
-          <Card className="flex items-center gap-3 px-4 py-2 ring-1 ring-slate-200 rounded-xl bg-white shadow-sm border border-slate-200">
-            <Search className="text-slate-400 shrink-0" size={20} />
-            <input
-              type="text"
-              className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-slate-400 font-semibold text-slate-700"
-              placeholder={t('addPurchaseBatch.list.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </Card>
-
-          {/* Dense Card List Layout */}
-          <div className="flex flex-col gap-4">
-            {isLoading ? (
-              <p className="py-12 text-center text-slate-500 text-sm font-normal">
-                {t('addPurchaseBatch.list.loading')}
-              </p>
-            ) : batches.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 border border-slate-200 rounded-2xl bg-white shadow-sm">
-                <ShoppingBag
-                  className="mx-auto mb-3 opacity-20 text-slate-400"
-                  size={48}
-                />
-                <p className="text-sm font-medium text-slate-500">
-                  {t('addPurchaseBatch.list.noBatches')}
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-3.5">
-                {paginatedBatches.map((batch) => {
-                  const isExpanded = !!expandedBatches[batch.id];
-                  return (
-                    <Card
-                      key={batch.id}
-                      className="flex flex-col gap-4 p-4 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 animate-in fade-in"
-                    >
-                      {/* Compact main details row */}
-                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between lg:gap-6">
-                        {/* Left: Badge + Batch code + details grid */}
-                        <div className="flex flex-wrap items-center gap-3 md:flex-nowrap md:gap-4 flex-1">
-                          {/* Serial tag */}
-                          <span className="inline-flex items-center justify-center shrink-0 h-8 px-2.5 rounded-lg bg-emerald-50 text-[11px] font-black text-emerald-800 ring-1 ring-emerald-600/10">
-                            #{batch.serialNumber}
-                          </span>
-
-                          {/* Batch Code */}
-                          <span className="text-sm font-extrabold text-slate-900 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 tracking-wider font-mono shrink-0">
-                            {batch.batchCode}
-                          </span>
-
-                          {/* Details elements */}
-                          <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-normal text-slate-600">
-                            {/* Date */}
-                            <span className="flex items-center gap-1.5 shrink-0">
-                              <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                              <span>
-                                {new Date(
-                                  batch.purchaseDate,
-                                ).toLocaleDateString('en-IN', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric',
-                                })}
-                              </span>
-                            </span>
-
-                            {/* Bags count */}
-                            <span className="flex items-center gap-1.5 text-slate-750 font-medium shrink-0">
-                              <ShoppingBag className="h-3.5 w-3.5 text-slate-400" />
-                              <span>{batch.numberOfBags} {t('addPurchaseBatch.card.bags')}</span>
-                            </span>
-
-                            {/* Seller */}
-                            <span
-                              className="flex items-center gap-1.5 text-slate-750 shrink-0 max-w-[180px] truncate"
-                              title={batch.sellerName}
-                            >
-                              <User className="h-3.5 w-3.5 text-slate-400" />
-                              <span>{batch.sellerName}</span>
-                            </span>
-
-                            {/* Bill */}
-                            <span className="flex items-center gap-1.5 font-mono text-slate-500 shrink-0">
-                              <FileText className="h-3.5 w-3.5 text-slate-400" />
-                              <span>{batch.billNumber}</span>
-                            </span>
-
-                            {/* Items count */}
-                            <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/10 shrink-0">
-                              {batch.items.length}{' '}
-                              {batch.items.length === 1 ? t('addPurchaseBatch.card.item') : t('addPurchaseBatch.card.items')}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Right: Actions */}
-                        <div className="flex items-center gap-2 justify-end shrink-0 border-t border-slate-100 pt-3 md:border-t-0 md:pt-0">
-                          <Button
-                            type="button"
-                            onClick={() => toggleExpand(batch.id)}
-                            className="h-9 px-3.5 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900"
-                          >
-                            {isExpanded ? t('addPurchaseBatch.card.hideItems') : t('addPurchaseBatch.card.viewItems')}
-                          </Button>
-                          <button
-                            type="button"
-                            onClick={() => setViewingBatch(batch)}
-                            className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 active:scale-95 focus:outline-none"
-                            title={t('addPurchaseBatch.card.viewDetailsTooltip')}
-                          >
-                            <Eye className="h-4 w-4 text-current" />
-                          </button>
-                          {canEdit && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleEdit(batch)}
-                                className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 active:scale-95 focus:outline-none"
-                                title={t('addPurchaseBatch.card.editTooltip')}
-                              >
-                                <Edit3 className="h-4 w-4 text-current" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(batch.id)}
-                                className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 active:scale-95 focus:outline-none"
-                                title={t('addPurchaseBatch.card.deleteTooltip')}
-                              >
-                                <Trash2 className="h-4 w-4 text-current" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Expandable items section */}
-                      {isExpanded && (
-                        <div className="border-t border-slate-100 pt-3 animate-in slide-in-from-top duration-200">
-                          <div className="flex flex-wrap gap-2">
-                            {batch.items.map((item) => (
-                              <div
-                                key={item.subSerialNumber}
-                                className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs ring-1 ring-slate-200 shadow-sm font-medium text-slate-700"
-                              >
-                                <span className="grid size-4 place-items-center rounded bg-slate-200/80 text-[10px] font-black text-slate-600">
-                                  {item.subSerialNumber}
-                                </span>
-                                <span className="font-semibold text-slate-900">
-                                  {item.teaPowderType}
-                                </span>
-                                <span className="text-slate-300">|</span>
-                                <span className="font-semibold text-emerald-700">
-                                  {formatCurrency(item.ratePerKg)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* 6. Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
-              <div className="flex flex-1 justify-between sm:hidden">
-                <Button
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
-                  disabled={currentPage === 1}
-                  variant="secondary"
-                  className="h-9 px-3 text-xs"
-                >
-                  {t('addPurchaseBatch.pagination.previous')}
-                </Button>
-                <Button
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                  }
-                  disabled={currentPage === totalPages}
-                  variant="secondary"
-                  className="h-9 px-3 text-xs"
-                >
-                  {t('addPurchaseBatch.pagination.next')}
-                </Button>
-              </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs text-slate-750 font-normal">
-                    {t('addPurchaseBatch.pagination.showing')}{' '}
-                    <span className="font-semibold">
-                      {(currentPage - 1) * itemsPerPage + 1}
-                    </span>{' '}
-                    {t('addPurchaseBatch.pagination.to')}{' '}
-                    <span className="font-semibold">
-                      {Math.min(currentPage * itemsPerPage, batches.length)}
-                    </span>{' '}
-                    {t('addPurchaseBatch.pagination.of')} <span className="font-semibold">{batches.length}</span>{' '}
-                    {t('addPurchaseBatch.pagination.results')}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.max(prev - 1, 1))
-                    }
-                    disabled={currentPage === 1}
-                    variant="secondary"
-                    className="h-8 w-8 p-0 text-xs"
-                  >
-                    &lt;
-                  </Button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <Button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        variant={currentPage === page ? 'add' : 'secondary'}
-                        className="h-8 w-8 p-0 text-xs"
-                      >
-                        {page}
-                      </Button>
-                    ),
-                  )}
-                  <Button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                    }
-                    disabled={currentPage === totalPages}
-                    variant="secondary"
-                    className="h-8 w-8 p-0 text-xs"
-                  >
-                    &gt;
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-            </div>
-          )}
-      {viewingBatch && (
-        <ViewDetailsModal
-          title={viewingBatch.batchCode || t('addPurchaseBatch.modal.fallbackTitle')}
-          subtitle={t('addPurchaseBatch.modal.subtitle')}
-          onClose={() => setViewingBatch(null)}
-          fields={[
-            {
-              label: t('addPurchaseBatch.modal.batchCode'),
-              value: viewingBatch.batchCode || '—',
-            },
-            {
-              label: t('addPurchaseBatch.modal.purchaseDate'),
-              value: new Date(viewingBatch.purchaseDate).toLocaleDateString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-              }),
-            },
-            {
-              label: t('addPurchaseBatch.modal.seller'),
-              value: viewingBatch.sellerName || '—',
-            },
-            {
-              label: t('addPurchaseBatch.modal.billNumber'),
-              value: viewingBatch.billNumber || '—',
-            },
-            {
-              label: t('addPurchaseBatch.modal.bagsCount'),
-              value: `${viewingBatch.numberOfBags || 0} ${t('addPurchaseBatch.card.bags')}`,
-            },
-          ]}
-          customBody={
-            <div className="flex flex-col gap-4">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">{t('addPurchaseBatch.modal.lineItemsTitle')}</span>
-              <div className="flex flex-col gap-2">
-                {viewingBatch.items.map((item: any) => (
-                  <div key={item.subSerialNumber} className="flex justify-between items-center border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                      <span className="grid size-5 place-items-center rounded bg-slate-200 text-[10px] font-black text-slate-600">
-                        {item.subSerialNumber}
-                      </span>
-                      <span className="font-bold text-slate-800">
-                        {item.teaPowderType}
+                      <span className="text-sm font-bold text-emerald-800">
+                        ₹{Number(item.ratePerKg || 0).toFixed(2)}/kg
                       </span>
                     </div>
-                    <span className="text-sm font-bold text-emerald-800">
-                      ₹{Number(item.ratePerKg || 0).toFixed(2)}/kg
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          }
-        />
-      )}
-        </div>
+            }
+          />
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}

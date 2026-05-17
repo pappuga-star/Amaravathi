@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Loader2, FileText, Beaker, Users, ChevronRight, CornerDownLeft } from 'lucide-react';
+import {
+  Search,
+  Loader2,
+  FileText,
+  Beaker,
+  Users,
+  ChevronRight,
+  CornerDownLeft,
+} from 'lucide-react';
 import { api } from '../lib/api';
 import { useQuery } from '@tanstack/react-query';
 
@@ -78,7 +86,7 @@ export function GlobalSearch() {
         return { tasteCustomizations: [], purchaseBatches: [], customers: [] };
       }
       const response = await api<{ success: boolean; data: SearchResults }>(
-        `/search?q=${encodeURIComponent(debouncedQuery)}`
+        `/search?q=${encodeURIComponent(debouncedQuery)}`,
       );
       return response.data;
     },
@@ -110,15 +118,24 @@ export function GlobalSearch() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const selectItem = (type: 'formula' | 'batch' | 'customer', item: SearchResultItem) => {
+  const selectItem = (
+    type: 'formula' | 'batch' | 'customer',
+    item: SearchResultItem,
+  ) => {
     setIsOpen(false);
     setQuery('');
     if (type === 'formula') {
-      navigate(`/taste-customization?q=${encodeURIComponent(item.formulaCode || '')}`);
+      navigate(
+        `/taste-customization?q=${encodeURIComponent(item.formulaCode || '')}`,
+      );
     } else if (type === 'batch') {
-      navigate(`/purchase-batch?q=${encodeURIComponent(item.batchCode || String(item.serialNumber) || '')}`);
+      navigate(
+        `/purchase-batch?q=${encodeURIComponent(item.batchCode || String(item.serialNumber) || '')}`,
+      );
     } else if (type === 'customer') {
-      navigate(`/taste-customization?tab=customers&q=${encodeURIComponent(item.name || '')}`);
+      navigate(
+        `/taste-customization?tab=customers&q=${encodeURIComponent(item.name || '')}`,
+      );
     }
   };
 
@@ -178,19 +195,30 @@ export function GlobalSearch() {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {!query.trim() ? (
                 <div className="text-center py-8 text-slate-400">
-                  <p className="text-sm">Type a search query to inspect items...</p>
+                  <p className="text-sm">
+                    Type a search query to inspect items...
+                  </p>
                   <p className="text-xs mt-2">
-                    Viewer role can search only <span className="font-semibold">Customer Customizations</span> and <span className="font-semibold">Purchase Batches</span>.
+                    Viewer role can search only{' '}
+                    <span className="font-semibold">
+                      Customer Customizations
+                    </span>{' '}
+                    and <span className="font-semibold">Purchase Batches</span>.
                   </p>
                 </div>
               ) : isFetching && !results ? (
                 <div className="flex justify-center items-center py-12">
-                  <Loader2 className="animate-spin text-emerald-600" size={32} />
+                  <Loader2
+                    className="animate-spin text-emerald-600"
+                    size={32}
+                  />
                 </div>
               ) : !hasResults ? (
                 <div className="text-center py-12 text-slate-400">
                   <p className="text-sm">No matches found for "{query}"</p>
-                  <p className="text-xs mt-1">Double check your spelling or search params.</p>
+                  <p className="text-xs mt-1">
+                    Double check your spelling or search params.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -198,7 +226,8 @@ export function GlobalSearch() {
                   {results && results.tasteCustomizations.length > 0 && (
                     <div>
                       <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1">
-                        Blend Customizations ({results.tasteCustomizations.length})
+                        Blend Customizations (
+                        {results.tasteCustomizations.length})
                       </h3>
                       <div className="space-y-1">
                         {results.tasteCustomizations.map((item) => (
@@ -217,7 +246,9 @@ export function GlobalSearch() {
                                 </p>
                                 <p className="text-xs text-slate-500">
                                   Customer:{' '}
-                                  <span className="font-medium text-slate-700">{item.customerName}</span>
+                                  <span className="font-medium text-slate-700">
+                                    {item.customerName}
+                                  </span>
                                 </p>
                               </div>
                             </div>
@@ -225,7 +256,10 @@ export function GlobalSearch() {
                               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                                 ₹{item.finalPrice}/kg
                               </span>
-                              <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-0.5 transition-transform" />
+                              <ChevronRight
+                                size={14}
+                                className="text-slate-300 group-hover:translate-x-0.5 transition-transform"
+                              />
                             </div>
                           </div>
                         ))}
@@ -255,17 +289,33 @@ export function GlobalSearch() {
                                   Batch Code: {item.batchCode}
                                 </p>
                                 <p className="text-xs text-slate-500">
-                                  Serial: <span className="font-medium">#{item.serialNumber}</span> • Seller:{' '}
-                                  <span className="font-medium text-slate-700">{item.sellerName}</span> • Bill:{' '}
-                                  <span className="font-medium text-slate-700">{item.billNumber}</span>
+                                  Serial:{' '}
+                                  <span className="font-medium">
+                                    #{item.serialNumber}
+                                  </span>{' '}
+                                  • Seller:{' '}
+                                  <span className="font-medium text-slate-700">
+                                    {item.sellerName}
+                                  </span>{' '}
+                                  • Bill:{' '}
+                                  <span className="font-medium text-slate-700">
+                                    {item.billNumber}
+                                  </span>
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-medium text-slate-500">
-                                {item.purchaseDate ? new Date(item.purchaseDate).toLocaleDateString() : ''}
+                                {item.purchaseDate
+                                  ? new Date(
+                                      item.purchaseDate,
+                                    ).toLocaleDateString()
+                                  : ''}
                               </span>
-                              <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-0.5 transition-transform" />
+                              <ChevronRight
+                                size={14}
+                                className="text-slate-300 group-hover:translate-x-0.5 transition-transform"
+                              />
                             </div>
                           </div>
                         ))}
@@ -274,49 +324,61 @@ export function GlobalSearch() {
                   )}
 
                   {/* 3. Customers (Hidden if role is viewer) */}
-                  {role !== 'viewer' && results && results.customers && results.customers.length > 0 && (
-                    <div>
-                      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1">
-                        Customers ({results.customers.length})
-                      </h3>
-                      <div className="space-y-1">
-                        {results.customers.map((item) => (
-                          <div
-                            key={item.id}
-                            onClick={() => selectItem('customer', item)}
-                            className="flex items-center justify-between p-2.5 hover:bg-emerald-50/50 rounded-lg cursor-pointer group transition-colors border border-transparent hover:border-emerald-100"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="p-2 bg-purple-50 rounded-lg text-purple-700">
-                                <Users size={16} />
+                  {role !== 'viewer' &&
+                    results &&
+                    results.customers &&
+                    results.customers.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1">
+                          Customers ({results.customers.length})
+                        </h3>
+                        <div className="space-y-1">
+                          {results.customers.map((item) => (
+                            <div
+                              key={item.id}
+                              onClick={() => selectItem('customer', item)}
+                              className="flex items-center justify-between p-2.5 hover:bg-emerald-50/50 rounded-lg cursor-pointer group transition-colors border border-transparent hover:border-emerald-100"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 bg-purple-50 rounded-lg text-purple-700">
+                                  <Users size={16} />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-800 group-hover:text-emerald-800">
+                                    {item.name}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    Mobile:{' '}
+                                    <span className="font-medium text-slate-700">
+                                      {item.mobileNumber}
+                                    </span>{' '}
+                                    • Address:{' '}
+                                    <span className="font-medium text-slate-600">
+                                      {item.address}
+                                    </span>
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-sm font-semibold text-slate-800 group-hover:text-emerald-800">
-                                  {item.name}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  Mobile: <span className="font-medium text-slate-700">{item.mobileNumber}</span> • Address:{' '}
-                                  <span className="font-medium text-slate-600">{item.address}</span>
-                                </p>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                    item.active
+                                      ? 'bg-green-50 text-green-700 border border-green-100'
+                                      : 'bg-slate-50 text-slate-500 border border-slate-100'
+                                  }`}
+                                >
+                                  {item.active ? 'Active' : 'Inactive'}
+                                </span>
+                                <ChevronRight
+                                  size={14}
+                                  className="text-slate-300 group-hover:translate-x-0.5 transition-transform"
+                                />
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  item.active
-                                    ? 'bg-green-50 text-green-700 border border-green-100'
-                                    : 'bg-slate-50 text-slate-500 border border-slate-100'
-                                }`}
-                              >
-                                {item.active ? 'Active' : 'Inactive'}
-                              </span>
-                              <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-0.5 transition-transform" />
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               )}
             </div>
@@ -325,10 +387,16 @@ export function GlobalSearch() {
             <div className="h-10 border-t border-slate-100 bg-slate-50 px-4 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
-                  <kbd className="bg-white border rounded px-1.5 py-0.5 font-mono">Esc</kbd> to close
+                  <kbd className="bg-white border rounded px-1.5 py-0.5 font-mono">
+                    Esc
+                  </kbd>{' '}
+                  to close
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="bg-white border rounded px-1.5 py-0.5 font-mono">⌘K</kbd> to toggle
+                  <kbd className="bg-white border rounded px-1.5 py-0.5 font-mono">
+                    ⌘K
+                  </kbd>{' '}
+                  to toggle
                 </span>
               </div>
               <span className="flex items-center gap-1">

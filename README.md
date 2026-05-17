@@ -35,11 +35,11 @@ Excluded for Phase 1:
 As part of the system hardening and visual polish audit, we systematically replaced all legacy browser popups (`alert()`, `window.alert()`, `window.confirm()`) with a premium, centralized application notification suite:
 
 1. **Centralized Notification System** (`NotificationContext.tsx`):
-   * **Custom Toasts**: Responsive toast pop-ups for success alerts, critical validation errors, and custom warnings matching the emerald/slate palette.
-   * **Promise-Based Confirmation Modals**: Seamless confirmation pop-ups with custom contextual buttons (e.g., danger-themed actions for deletions).
-   * **Validation Errors & Highlight Actions**: Raw Zod parsing errors are filtered and sanitized into clear business descriptions. Fields containing invalid values instantly transition to rose borders and trigger smooth scrolling to the first invalid field.
+   - **Custom Toasts**: Responsive toast pop-ups for success alerts, critical validation errors, and custom warnings matching the emerald/slate palette.
+   - **Promise-Based Confirmation Modals**: Seamless confirmation pop-ups with custom contextual buttons (e.g., danger-themed actions for deletions).
+   - **Validation Errors & Highlight Actions**: Raw Zod parsing errors are filtered and sanitized into clear business descriptions. Fields containing invalid values instantly transition to rose borders and trigger smooth scrolling to the first invalid field.
 2. **Type-Safe Workspace Consolidation**:
-   * Addressed strict TypeScript configurations (`exactOptionalPropertyTypes`) to ensure that all workspaces pass standard production builds (`npm run build`) cleanly without type warnings.
+   - Addressed strict TypeScript configurations (`exactOptionalPropertyTypes`) to ensure that all workspaces pass standard production builds (`npm run build`) cleanly without type warnings.
 
 ## Apps
 

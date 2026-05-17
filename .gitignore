@@ -7,3 +7,9 @@ coverage
 .env.*.local
 *.log
 .DS_Store
+
+# Scratch and temp files
+scratch/
+**/*.scratch.*
+**/scratch.*
+**/scratch/

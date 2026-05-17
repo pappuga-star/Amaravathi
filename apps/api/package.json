@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "seed": "npm run build && node dist/utils/seed.js",
-    "lint": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . && tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

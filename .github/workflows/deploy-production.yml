@@ -1,0 +1,32 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://your-production-url.com
+    steps:
+      - name: Trigger Render Deploy (API)
+        env:
+          deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK_API_PRODUCTION }}
+        run: |
+          if [ -n "$deploy_url" ]; then
+            curl "$deploy_url"
+          else
+            echo "Render deploy hook missing for production API"
+          fi
+
+      - name: Trigger Vercel Deploy (Admin Web)
+        env:
+          deploy_hook: ${{ secrets.VERCEL_DEPLOY_HOOK_PRODUCTION }}
+        run: |
+          if [ -n "$deploy_hook" ]; then
+            curl "$deploy_hook"
+          else
+            echo "Vercel deploy hook missing for production web"
+          fi

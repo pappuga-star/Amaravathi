@@ -61,7 +61,7 @@ export async function seedDatabase(exitOnComplete = false) {
   console.log('✅ Seeded users (Admin, Operator, Viewer)');
 
   // 2. Seed Sellers
-  const abcSeller = await Seller.findOneAndUpdate(
+  await Seller.findOneAndUpdate(
     { name: 'ABC Tea Traders' },
     {
       $set: {
@@ -146,7 +146,7 @@ export async function seedDatabase(exitOnComplete = false) {
     { upsert: true, new: true, runValidators: true },
   );
 
-  const bpCutting = await CuttingType.findOneAndUpdate(
+  await CuttingType.findOneAndUpdate(
     { name: 'BP', leafCategoryId: assamGold?._id },
     {
       $set: {
@@ -161,7 +161,7 @@ export async function seedDatabase(exitOnComplete = false) {
     { upsert: true, new: true, runValidators: true },
   );
 
-  const ofCutting = await CuttingType.findOneAndUpdate(
+  await CuttingType.findOneAndUpdate(
     { name: 'OF', leafCategoryId: darjeelingClassic?._id },
     {
       $set: {
@@ -191,7 +191,7 @@ export async function seedDatabase(exitOnComplete = false) {
     { upsert: true, new: true, runValidators: true },
   );
 
-  const krishnaCustomer = await Customer.findOneAndUpdate(
+  await Customer.findOneAndUpdate(
     { name: 'Krishna Cafe' },
     {
       $set: {
@@ -207,7 +207,9 @@ export async function seedDatabase(exitOnComplete = false) {
 
   // 7. Seed Customer Tea Formulas
   if (ramaCustomer && assamGold && bopCutting) {
-    const formulasCount = await CustomerTeaFormula.countDocuments({ customerId: ramaCustomer._id });
+    const formulasCount = await CustomerTeaFormula.countDocuments({
+      customerId: ramaCustomer._id,
+    });
     if (formulasCount === 0) {
       await CustomerTeaFormula.create({
         customerId: ramaCustomer._id,

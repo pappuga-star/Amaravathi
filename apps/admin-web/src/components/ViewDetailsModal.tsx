@@ -7,7 +7,15 @@ export interface ViewField {
   value: any;
   highlighted?: boolean;
   type?: 'text' | 'currency' | 'badge' | 'tags' | 'list' | undefined;
-  badgeColor?: 'green' | 'blue' | 'slate' | 'yellow' | 'red' | 'emerald' | 'indigo' | undefined;
+  badgeColor?:
+    | 'green'
+    | 'blue'
+    | 'slate'
+    | 'yellow'
+    | 'red'
+    | 'emerald'
+    | 'indigo'
+    | undefined;
 }
 
 interface ViewDetailsModalProps {
@@ -114,7 +122,9 @@ export function ViewDetailsModal({
               <div
                 key={idx}
                 className={`flex flex-col gap-1 pb-3 border-b border-slate-100 last:border-b-0 last:pb-0 ${
-                  field.highlighted ? 'bg-emerald-50/30 -mx-6 px-6 py-2 border-y border-emerald-100/50' : ''
+                  field.highlighted
+                    ? 'bg-emerald-50/30 -mx-6 px-6 py-2 border-y border-emerald-100/50'
+                    : ''
                 }`}
               >
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -130,7 +140,7 @@ export function ViewDetailsModal({
                 ) : field.type === 'badge' ? (
                   <span
                     className={`inline-flex w-max items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getBadgeClass(
-                      field.badgeColor
+                      field.badgeColor,
                     )}`}
                   >
                     {field.value}

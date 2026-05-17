@@ -18,14 +18,29 @@
     "start": "npm --workspace @amaravathi/api run start",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "format": "prettier --write ."
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "duplicates": "jscpd . --ignore \"**/node_modules/**,**/dist/**,**/package-lock.json\"",
+    "dead-code": "knip --no-exit-code",
+    "circular": "madge --circular apps packages",
+    "security": "npm audit --production",
+    "quality": "npm run format:check && npm run lint && npm run test && npm run build && npm run duplicates && npm run dead-code && npm run circular"
   },
   "devDependencies": {
+    "@eslint/js": "^8.57.1",
     "@types/node": "^24.0.0",
     "concurrently": "^9.2.1",
-    "eslint": "^8.57.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
+    "jscpd": "^4.2.3",
+    "knip": "^6.14.1",
+    "madge": "^8.0.0",
     "prettier": "^3.3.2",
     "typescript": "^5.8.0",
+    "typescript-eslint": "^8.59.3",
     "vite": "^7.0.0"
   }
 }

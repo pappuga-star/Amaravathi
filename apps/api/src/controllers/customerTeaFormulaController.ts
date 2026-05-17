@@ -2,8 +2,6 @@ import type { Request, Response } from 'express';
 import {
   CustomerTeaFormula,
   CustomerTeaFormulaHistory,
-  LeafCategory,
-  CuttingType,
   Customer,
   AddPurchaseBatch,
 } from '../models/index.js';
@@ -48,12 +46,18 @@ export const customerTeaFormulasController = {
 
     // 3. Search query
     if (q) {
-      const matchingCustomers = await Customer.find({ name: { $regex: q, $options: 'i' } }).select('_id').lean();
-      const customerIds = matchingCustomers.map(c => c._id);
+      const matchingCustomers = await Customer.find({
+        name: { $regex: q, $options: 'i' },
+      })
+        .select('_id')
+        .lean();
+      const customerIds = matchingCustomers.map((c) => c._id);
 
       filter.$or = [
         { formulaCode: { $regex: q, $options: 'i' } },
-        ...(customerIds.length > 0 ? [{ customerId: { $in: customerIds } }] : [])
+        ...(customerIds.length > 0
+          ? [{ customerId: { $in: customerIds } }]
+          : []),
       ];
     }
 
@@ -120,9 +124,24 @@ export const customerTeaFormulasController = {
   },
 
   async create(req: Request, res: Response) {
-    const parsed = customerTeaFormulaSchema.parse(req.body);
+    console.log('Incoming Customer Tea Formula Payload:');
+    console.log(JSON.stringify(req.body, null, 2));
 
-    const customer = await Customer.findOne({ _id: parsed.customerId, active: true });
+    let parsed;
+    try {
+      parsed = customerTeaFormulaSchema.parse(req.body);
+    } catch (e: any) {
+      return res.status(422).json({
+        success: false,
+        message: 'Validation failed',
+        errors: e.errors,
+      });
+    }
+
+    const customer = await Customer.findOne({
+      _id: parsed.customerId,
+      active: true,
+    });
     if (!customer) {
       return res.status(400).json({
         success: false,
@@ -142,7 +161,9 @@ export const customerTeaFormulasController = {
       }
       combinations.add(key);
 
-      const batch = await AddPurchaseBatch.findOne({ batchCode: item.purchaseBatchCode });
+      const batch = await AddPurchaseBatch.findOne({
+        batchCode: item.purchaseBatchCode,
+      });
       if (!batch) {
         return res.status(400).json({
           success: false,
@@ -152,7 +173,7 @@ export const customerTeaFormulasController = {
       const batchItem = batch.items.find(
         (bi: any) =>
           bi._id?.toString() === item.purchaseBatchLineItemId ||
-          bi.teaPowderType.toLowerCase() === item.ingredientName.toLowerCase()
+          bi.teaPowderType.toLowerCase() === item.ingredientName.toLowerCase(),
       );
       if (!batchItem) {
         return res.status(400).json({
@@ -160,7 +181,8 @@ export const customerTeaFormulasController = {
           message: `Ingredient "${item.ingredientName}" not found in Purchase Batch "${item.purchaseBatchCode}".`,
         });
       }
-      const availableStock = batchItem.availableStockInGrams ?? (batch.numberOfBags * 50000);
+      const availableStock =
+        batchItem.availableStockInGrams || batch.numberOfBags * 50000;
       if (item.quantityInGrams > availableStock) {
         return res.status(400).json({
           success: false,
@@ -171,29 +193,46 @@ export const customerTeaFormulasController = {
 
     let totalWeight = 0;
     let totalFormulaCost = 0;
-    const updatedLineItems = await Promise.all(parsed.lineItems.map(async (item) => {
-      const batch = await AddPurchaseBatch.findOne({ batchCode: item.purchaseBatchCode });
-      const batchItem = batch?.items.find(
-        (bi: any) =>
-          bi._id?.toString() === item.purchaseBatchLineItemId ||
-          bi.teaPowderType.toLowerCase() === item.ingredientName.toLowerCase()
-      );
-      const pricePerGram = batchItem ? (batchItem.ratePerKg / 1000) : (item.pricePerGram || 0);
-      const rowCost = Number((item.quantityInGrams * pricePerGram).toFixed(4));
-      totalWeight += item.quantityInGrams;
-      totalFormulaCost += rowCost;
-      return {
-        ...item,
-        pricePerGram,
-        rowCost,
-        purchaseBatchLineItemId: batchItem ? batchItem._id.toString() : item.purchaseBatchLineItemId,
-      };
-    }));
+    const updatedLineItems = await Promise.all(
+      parsed.lineItems.map(async (item) => {
+        const batch = await AddPurchaseBatch.findOne({
+          batchCode: item.purchaseBatchCode,
+        });
+        const batchItem = batch?.items.find(
+          (bi: any) =>
+            bi._id?.toString() === item.purchaseBatchLineItemId ||
+            bi.teaPowderType.toLowerCase() ===
+              item.ingredientName.toLowerCase(),
+        );
+        const pricePerGram = batchItem
+          ? batchItem.ratePerKg / 1000
+          : item.pricePerGram || 0;
+        const rowCost = Number(
+          (item.quantityInGrams * pricePerGram).toFixed(4),
+        );
+        totalWeight += item.quantityInGrams;
+        totalFormulaCost += rowCost;
+        return {
+          ...item,
+          pricePerGram,
+          rowCost,
+          purchaseBatchLineItemId: batchItem
+            ? batchItem._id.toString()
+            : item.purchaseBatchLineItemId,
+        };
+      }),
+    );
 
     totalFormulaCost = Number(totalFormulaCost.toFixed(4));
     totalWeight = Number(totalWeight.toFixed(4));
-    const costPerKg = totalWeight > 0 ? Number(((totalFormulaCost / totalWeight) * 1000).toFixed(4)) : 0;
-    const costPer100Grams = totalWeight > 0 ? Number(((totalFormulaCost / totalWeight) * 100).toFixed(4)) : 0;
+    const costPerKg =
+      totalWeight > 0
+        ? Number(((totalFormulaCost / totalWeight) * 1000).toFixed(4))
+        : 0;
+    const costPer100Grams =
+      totalWeight > 0
+        ? Number(((totalFormulaCost / totalWeight) * 100).toFixed(4))
+        : 0;
 
     if (parsed.isDefault) {
       await CustomerTeaFormula.updateMany(
@@ -221,7 +260,10 @@ export const customerTeaFormulasController = {
         changeType: 'Create',
       });
 
-      return created(res, { ...formula.toObject(), id: formula._id.toString() });
+      return created(res, {
+        ...formula.toObject(),
+        id: formula._id.toString(),
+      });
     } catch (error: any) {
       if (error.code === 11000) {
         return res.status(400).json({
@@ -249,7 +291,10 @@ export const customerTeaFormulasController = {
     const updatedPayload = { ...parsed };
 
     const checkCust = parsed.customerId || existingFormula.customerId;
-    const finalLineItems = parsed.lineItems !== undefined ? parsed.lineItems : existingFormula.lineItems;
+    const finalLineItems =
+      parsed.lineItems !== undefined
+        ? parsed.lineItems
+        : existingFormula.lineItems;
 
     if (finalLineItems && finalLineItems.length > 0) {
       const combinations = new Set<string>();
@@ -263,7 +308,9 @@ export const customerTeaFormulasController = {
         }
         combinations.add(key);
 
-        const batch = await AddPurchaseBatch.findOne({ batchCode: item.purchaseBatchCode });
+        const batch = await AddPurchaseBatch.findOne({
+          batchCode: item.purchaseBatchCode,
+        });
         if (!batch) {
           return res.status(400).json({
             success: false,
@@ -273,7 +320,8 @@ export const customerTeaFormulasController = {
         const batchItem = batch.items.find(
           (bi: any) =>
             bi._id?.toString() === item.purchaseBatchLineItemId ||
-            bi.teaPowderType.toLowerCase() === item.ingredientName.toLowerCase()
+            bi.teaPowderType.toLowerCase() ===
+              item.ingredientName.toLowerCase(),
         );
         if (!batchItem) {
           return res.status(400).json({
@@ -281,7 +329,8 @@ export const customerTeaFormulasController = {
             message: `Ingredient "${item.ingredientName}" not found in Purchase Batch "${item.purchaseBatchCode}".`,
           });
         }
-        const availableStock = batchItem.availableStockInGrams ?? (batch.numberOfBags * 50000);
+        const availableStock =
+          batchItem.availableStockInGrams || batch.numberOfBags * 50000;
         if (item.quantityInGrams > availableStock) {
           return res.status(400).json({
             success: false,
@@ -292,29 +341,46 @@ export const customerTeaFormulasController = {
 
       let totalWeight = 0;
       let totalFormulaCost = 0;
-      const updatedLineItems = await Promise.all(finalLineItems.map(async (item: any) => {
-        const batch = await AddPurchaseBatch.findOne({ batchCode: item.purchaseBatchCode });
-        const batchItem = batch?.items.find(
-          (bi: any) =>
-            bi._id?.toString() === item.purchaseBatchLineItemId ||
-            bi.teaPowderType.toLowerCase() === item.ingredientName.toLowerCase()
-        );
-        const pricePerGram = batchItem ? (batchItem.ratePerKg / 1000) : (item.pricePerGram || 0);
-        const rowCost = Number((item.quantityInGrams * pricePerGram).toFixed(4));
-        totalWeight += item.quantityInGrams;
-        totalFormulaCost += rowCost;
-        return {
-          ...item,
-          pricePerGram,
-          rowCost,
-          purchaseBatchLineItemId: batchItem ? batchItem._id.toString() : item.purchaseBatchLineItemId,
-        };
-      }));
+      const updatedLineItems = await Promise.all(
+        finalLineItems.map(async (item: any) => {
+          const batch = await AddPurchaseBatch.findOne({
+            batchCode: item.purchaseBatchCode,
+          });
+          const batchItem = batch?.items.find(
+            (bi: any) =>
+              bi._id?.toString() === item.purchaseBatchLineItemId ||
+              bi.teaPowderType.toLowerCase() ===
+                item.ingredientName.toLowerCase(),
+          );
+          const pricePerGram = batchItem
+            ? batchItem.ratePerKg / 1000
+            : item.pricePerGram || 0;
+          const rowCost = Number(
+            (item.quantityInGrams * pricePerGram).toFixed(4),
+          );
+          totalWeight += item.quantityInGrams;
+          totalFormulaCost += rowCost;
+          return {
+            ...item,
+            pricePerGram,
+            rowCost,
+            purchaseBatchLineItemId: batchItem
+              ? batchItem._id.toString()
+              : item.purchaseBatchLineItemId,
+          };
+        }),
+      );
 
       totalFormulaCost = Number(totalFormulaCost.toFixed(4));
       totalWeight = Number(totalWeight.toFixed(4));
-      const costPerKg = totalWeight > 0 ? Number(((totalFormulaCost / totalWeight) * 1000).toFixed(4)) : 0;
-      const costPer100Grams = totalWeight > 0 ? Number(((totalFormulaCost / totalWeight) * 100).toFixed(4)) : 0;
+      const costPerKg =
+        totalWeight > 0
+          ? Number(((totalFormulaCost / totalWeight) * 1000).toFixed(4))
+          : 0;
+      const costPer100Grams =
+        totalWeight > 0
+          ? Number(((totalFormulaCost / totalWeight) * 100).toFixed(4))
+          : 0;
 
       updatedPayload.lineItems = updatedLineItems;
       updatedPayload.totalWeight = totalWeight;

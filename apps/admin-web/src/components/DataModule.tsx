@@ -32,7 +32,9 @@ export function DataModule({
   const [form, setForm] = useState<Record<string, string>>({});
   const [q, setQ] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [viewingRow, setViewingRow] = useState<Record<string, unknown> | null>(null);
+  const [viewingRow, setViewingRow] = useState<Record<string, unknown> | null>(
+    null,
+  );
 
   // Fetch current user details for role-based administrative gates
   const { data: me } = useQuery({
@@ -252,7 +254,9 @@ export function DataModule({
             </label>
           ))}
           {mutation.error ? (
-            <p className="text-sm text-red-600 font-medium">{mutation.error.message}</p>
+            <p className="text-sm text-red-600 font-medium">
+              {mutation.error.message}
+            </p>
           ) : null}
           <div className="flex gap-2 mt-2">
             {editingId && (
@@ -295,7 +299,10 @@ export function DataModule({
               {table.getHeaderGroups().map((group) => (
                 <tr key={group.id}>
                   {group.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                    <th
+                      key={header.id}
+                      className="px-4 py-3 font-semibold text-xs uppercase tracking-wide"
+                    >
                       {flexRender(
                         header.column.columnDef.header,
                         header.getContext(),
@@ -308,15 +315,24 @@ export function DataModule({
             <tbody className="divide-y divide-slate-100">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={fields.length + 1} className="px-4 py-8 text-center text-slate-400 italic text-sm">
+                  <td
+                    colSpan={fields.length + 1}
+                    className="px-4 py-8 text-center text-slate-400 italic text-sm"
+                  >
                     No {title.toLowerCase()} records found.
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr
+                    key={row.id}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3 text-sm font-normal text-slate-600">
+                      <td
+                        key={cell.id}
+                        className="px-4 py-3 text-sm font-normal text-slate-600"
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),

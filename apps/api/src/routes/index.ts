@@ -1,5 +1,10 @@
-import { Router } from 'express';
-import type { NextFunction, Request, RequestHandler, Response } from 'express';
+import {
+  Router,
+  type NextFunction,
+  type Request,
+  type RequestHandler,
+  type Response,
+} from 'express';
 import mongoose from 'mongoose';
 import {
   teaPowderTypeSchema,
@@ -7,7 +12,13 @@ import {
   customerSchema,
   userSchema,
 } from '@amaravathi/shared-types';
-import { createUser, login, me, updateUser, deleteUser } from '../controllers/authController.js';
+import {
+  createUser,
+  login,
+  me,
+  updateUser,
+  deleteUser,
+} from '../controllers/authController.js';
 import { globalSearch } from '../controllers/searchController.js';
 import { crudController } from '../controllers/crudController.js';
 import {
@@ -54,7 +65,8 @@ const asyncHandler =
 router.get('/health', (_req, res) => {
   const dbState = mongoose.connection.readyState;
   // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-  const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
+  const dbStatus =
+    dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
   const dbName = mongoose.connection.db?.databaseName ?? 'unknown';
   res.json({
     success: true,
@@ -129,9 +141,6 @@ router.delete(
     return res.json({ success: true, message: 'Deleted', data: { id } });
   }),
 );
-
-
-
 
 router.get('/add-purchase-batch', asyncHandler(listAddPurchaseBatches));
 router.post(
@@ -217,11 +226,15 @@ router.delete(
     const { id } = req.params;
     const customer = await Customer.findById(id);
     if (!customer) {
-      return res.status(404).json({ success: false, message: 'Record not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Record not found' });
     }
     // Check if this customer is used inside any formulas
     const mongoose = (await import('mongoose')).default;
-    const formulaUse = await mongoose.model('CustomerTeaFormula').findOne({ customerId: id });
+    const formulaUse = await mongoose
+      .model('CustomerTeaFormula')
+      .findOne({ customerId: id });
     if (formulaUse) {
       return res.status(400).json({
         success: false,
@@ -290,7 +303,6 @@ router.post(
   permit('admin'),
   asyncHandler(cuttingTypesController.restore),
 );
-
 
 // Customer Tea Formulas routes
 router.get(

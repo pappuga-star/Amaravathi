@@ -1,0 +1,66 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop, staging]
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Format Check
+        run: npm run format:check > format-report.txt || true
+
+      - name: Linting
+        run: npm run lint > lint-report.txt || true
+
+      - name: Testing
+        run: npm run test > test-report.txt || true
+
+      - name: Build
+        run: npm run build > build-report.txt || true
+
+      - name: Duplicates Detection
+        run: npm run duplicates > duplicates-report.txt || true
+
+      - name: Dead Code Detection
+        run: npm run dead-code > dead-code-report.txt || true
+
+      - name: Circular Dependencies
+        run: npm run circular > circular-report.txt || true
+
+      - name: Security Audit
+        run: npm run security > security-report.txt || true
+
+      - name: Fail if Any Gate Failed
+        run: |
+          npm run format:check && \
+          npm run lint && \
+          npm run test && \
+          npm run build && \
+          npm run duplicates && \
+          npm run dead-code && \
+          npm run circular && \
+          npm run security
+
+      - name: Upload Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: |
+            *-report.txt

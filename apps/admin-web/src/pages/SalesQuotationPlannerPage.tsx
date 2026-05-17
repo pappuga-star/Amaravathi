@@ -39,7 +39,9 @@ export const SalesQuotationPlannerPage = () => {
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
-  const [activeTab, setActiveTab] = useState<'sales' | 'quote' | 'planner'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'quote' | 'planner'>(
+    'sales',
+  );
 
   // Core Data Queries
   const { data: customersData } = useQuery({
@@ -71,7 +73,8 @@ export const SalesQuotationPlannerPage = () => {
   // Auto-filter formulas for selected sales customer
   const filteredSalesFormulas = useMemo(() => {
     return activeFormulas.filter((f) => {
-      const custId = typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
+      const custId =
+        typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
       return custId === salesCustomer;
     });
   }, [salesCustomer, activeFormulas]);
@@ -81,7 +84,8 @@ export const SalesQuotationPlannerPage = () => {
     setSalesCustomer(customerId);
     setSalesSuccessMsg('');
     const defaultFormula = activeFormulas.find((f) => {
-      const custId = typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
+      const custId =
+        typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
       return custId === customerId && f.isDefault;
     });
     if (defaultFormula) {
@@ -121,7 +125,10 @@ export const SalesQuotationPlannerPage = () => {
       }),
     onSuccess: () => {
       setSalesSuccessMsg(
-        t('salesQuotationPlanner.sales.successLog').replace('{{bill}}', salesBillNumber)
+        t('salesQuotationPlanner.sales.successLog').replace(
+          '{{bill}}',
+          salesBillNumber,
+        ),
       );
       showToast(t('salesQuotationPlanner.sales.successToast'), 'success');
       setSalesCustomer('');
@@ -149,9 +156,14 @@ export const SalesQuotationPlannerPage = () => {
       setFormErrors(errors);
       showToast(t('salesQuotationPlanner.sales.fillRequired'), 'error');
       setTimeout(() => {
-        const firstInvalidField = document.querySelector('.border-rose-500, input.border-rose-500, select.border-rose-500');
+        const firstInvalidField = document.querySelector(
+          '.border-rose-500, input.border-rose-500, select.border-rose-500',
+        );
         if (firstInvalidField) {
-          firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          firstInvalidField.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
         }
       }, 50);
       return;
@@ -187,7 +199,8 @@ export const SalesQuotationPlannerPage = () => {
 
   const filteredQuoteFormulas = useMemo(() => {
     return activeFormulas.filter((f) => {
-      const custId = typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
+      const custId =
+        typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
       return custId === quoteCustomer;
     });
   }, [quoteCustomer, activeFormulas]);
@@ -195,7 +208,8 @@ export const SalesQuotationPlannerPage = () => {
   const handleQuoteCustomerChange = (customerId: string) => {
     setQuoteCustomer(customerId);
     const defaultFormula = activeFormulas.find((f) => {
-      const custId = typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
+      const custId =
+        typeof f.customerId === 'object' ? f.customerId.id : f.customerId;
       return custId === customerId && f.isDefault;
     });
     if (defaultFormula) {
@@ -229,8 +243,14 @@ export const SalesQuotationPlannerPage = () => {
 
   // --- 3. MATERIAL PLANNER AGGREGATOR ---
   const planningSummary = useMemo(() => {
-    const categories: Record<string, { name: string; totalKg: number; basePrice: number }> = {};
-    const cuttings: Record<string, { name: string; totalKg: number; adjustment: number }> = {};
+    const categories: Record<
+      string,
+      { name: string; totalKg: number; basePrice: number }
+    > = {};
+    const cuttings: Record<
+      string,
+      { name: string; totalKg: number; adjustment: number }
+    > = {};
     let totalAssignedFormulas = 0;
 
     // Use default active formulas as the primary planner indicators
@@ -243,7 +263,11 @@ export const SalesQuotationPlannerPage = () => {
       if (typeof formula.leafCategoryId === 'object') {
         const leaf = formula.leafCategoryId;
         if (!categories[leaf.id]) {
-          categories[leaf.id] = { name: leaf.name, totalKg: 0, basePrice: leaf.basePrice };
+          categories[leaf.id] = {
+            name: leaf.name,
+            totalKg: 0,
+            basePrice: leaf.basePrice,
+          };
         }
         const targetCategory = categories[leaf.id];
         if (targetCategory) {
@@ -255,7 +279,11 @@ export const SalesQuotationPlannerPage = () => {
       if (typeof formula.cuttingTypeId === 'object') {
         const cutting = formula.cuttingTypeId;
         if (!cuttings[cutting.id]) {
-          cuttings[cutting.id] = { name: cutting.name, totalKg: 0, adjustment: cutting.priceAdjustment };
+          cuttings[cutting.id] = {
+            name: cutting.name,
+            totalKg: 0,
+            adjustment: cutting.priceAdjustment,
+          };
         }
         const targetCutting = cuttings[cutting.id];
         if (targetCutting) {
@@ -337,13 +365,17 @@ export const SalesQuotationPlannerPage = () => {
                   <span>{t('salesQuotationPlanner.sales.customerLabel')}</span>
                   <select
                     className={`h-10 rounded-lg border px-3 text-sm bg-white ${
-                      formErrors.salesCustomer ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-300'
+                      formErrors.salesCustomer
+                        ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse'
+                        : 'border-slate-300'
                     }`}
                     value={salesCustomer}
                     onChange={(e) => handleSalesCustomerChange(e.target.value)}
                     required
                   >
-                    <option value="">{t('salesQuotationPlanner.sales.selectCustomer')}</option>
+                    <option value="">
+                      {t('salesQuotationPlanner.sales.selectCustomer')}
+                    </option>
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -353,10 +385,14 @@ export const SalesQuotationPlannerPage = () => {
                 </label>
 
                 <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                  <span>{t('salesQuotationPlanner.sales.customBlendRecipe')}</span>
+                  <span>
+                    {t('salesQuotationPlanner.sales.customBlendRecipe')}
+                  </span>
                   <select
                     className={`h-10 rounded-lg border px-3 text-sm bg-white ${
-                      formErrors.selectedFormulaId ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-300'
+                      formErrors.selectedFormulaId
+                        ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse'
+                        : 'border-slate-300'
                     }`}
                     value={selectedFormulaId}
                     onChange={(e) => setSelectedFormulaId(e.target.value)}
@@ -366,13 +402,16 @@ export const SalesQuotationPlannerPage = () => {
                     <option value="">
                       {salesCustomer
                         ? filteredSalesFormulas.length === 0
-                           ? t('salesQuotationPlanner.sales.noFormulas')
-                           : t('salesQuotationPlanner.sales.selectCustomBlend')
+                          ? t('salesQuotationPlanner.sales.noFormulas')
+                          : t('salesQuotationPlanner.sales.selectCustomBlend')
                         : t('salesQuotationPlanner.sales.chooseCustomerFirst')}
                     </option>
                     {filteredSalesFormulas.map((f) => (
                       <option key={f.id} value={f.id}>
-                        Blend {f.formulaCode} {f.isDefault ? t('salesQuotationPlanner.sales.defaultLabel') : ''}
+                        Blend {f.formulaCode}{' '}
+                        {f.isDefault
+                          ? t('salesQuotationPlanner.sales.defaultLabel')
+                          : ''}
                       </option>
                     ))}
                   </select>
@@ -381,10 +420,14 @@ export const SalesQuotationPlannerPage = () => {
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                  <span>{t('salesQuotationPlanner.sales.dispatchQuantity')}</span>
+                  <span>
+                    {t('salesQuotationPlanner.sales.dispatchQuantity')}
+                  </span>
                   <Input
                     className={
-                      formErrors.salesQuantity ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-200'
+                      formErrors.salesQuantity
+                        ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse'
+                        : 'border-slate-200'
                     }
                     type="number"
                     min="1"
@@ -404,7 +447,9 @@ export const SalesQuotationPlannerPage = () => {
                     type="number"
                     min="1"
                     value={salesBags || ''}
-                    onChange={(e) => setSalesBags(Math.max(1, parseInt(e.target.value) || 0))}
+                    onChange={(e) =>
+                      setSalesBags(Math.max(1, parseInt(e.target.value) || 0))
+                    }
                     required
                   />
                 </label>
@@ -413,10 +458,14 @@ export const SalesQuotationPlannerPage = () => {
                   <span>{t('salesQuotationPlanner.sales.billNumber')}</span>
                   <Input
                     className={
-                      formErrors.salesBillNumber ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse' : 'border-slate-200'
+                      formErrors.salesBillNumber
+                        ? 'border-rose-500 ring-1 ring-rose-500 animate-pulse'
+                        : 'border-slate-200'
                     }
                     type="text"
-                    placeholder={t('salesQuotationPlanner.sales.billPlaceholder')}
+                    placeholder={t(
+                      'salesQuotationPlanner.sales.billPlaceholder',
+                    )}
                     value={salesBillNumber}
                     onChange={(e) => setSalesBillNumber(e.target.value)}
                     required
@@ -429,7 +478,11 @@ export const SalesQuotationPlannerPage = () => {
                   type="submit"
                   variant="add"
                   className="h-10 px-6"
-                  disabled={recordBatchMutation.isPending || !salesCustomer || !selectedFormulaId}
+                  disabled={
+                    recordBatchMutation.isPending ||
+                    !salesCustomer ||
+                    !selectedFormulaId
+                  }
                 >
                   <Save size={16} />
                   <span>{t('salesQuotationPlanner.sales.logInvoiceSale')}</span>
@@ -441,7 +494,8 @@ export const SalesQuotationPlannerPage = () => {
           {/* Sticky Calculator Summary panel */}
           <div className="h-max flex flex-col gap-4 p-5 rounded-xl border border-emerald-200 bg-emerald-50/20">
             <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-2">
-              <Sparkles size={16} /> {t('salesQuotationPlanner.sales.autoCalcRates')}
+              <Sparkles size={16} />{' '}
+              {t('salesQuotationPlanner.sales.autoCalcRates')}
             </h4>
 
             {selectedSalesFormula ? (
@@ -453,13 +507,23 @@ export const SalesQuotationPlannerPage = () => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{t('salesQuotationPlanner.sales.basePrice').replace('{{name}}', salesLeaf?.name || '')}</span>
+                  <span>
+                    {t('salesQuotationPlanner.sales.basePrice').replace(
+                      '{{name}}',
+                      salesLeaf?.name || '',
+                    )}
+                  </span>
                   <span className="font-semibold text-slate-800">
                     ₹{salesLeaf?.basePrice.toFixed(2)}/kg
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{t('salesQuotationPlanner.sales.cuttingPrice').replace('{{name}}', salesCutting?.name || '')}</span>
+                  <span>
+                    {t('salesQuotationPlanner.sales.cuttingPrice').replace(
+                      '{{name}}',
+                      salesCutting?.name || '',
+                    )}
+                  </span>
                   <span className="font-semibold text-slate-800">
                     {salesCutting && salesCutting.priceAdjustment >= 0
                       ? `+ ₹${salesCutting.priceAdjustment.toFixed(2)}`
@@ -470,7 +534,14 @@ export const SalesQuotationPlannerPage = () => {
                 <div className="flex justify-between">
                   <span>{t('salesQuotationPlanner.sales.customAddons')}</span>
                   <span className="font-semibold text-slate-800">
-                    + ₹{(selectedSalesFormula.addons?.reduce((sum, a) => sum + (Number(a.price) || 0), 0) || 0).toFixed(2)}/kg
+                    + ₹
+                    {(
+                      selectedSalesFormula.addons?.reduce(
+                        (sum, a) => sum + (Number(a.price) || 0),
+                        0,
+                      ) || 0
+                    ).toFixed(2)}
+                    /kg
                   </span>
                 </div>
 
@@ -481,11 +552,15 @@ export const SalesQuotationPlannerPage = () => {
 
                 <div className="flex justify-between text-xs text-slate-500 font-semibold">
                   <span>{t('salesQuotationPlanner.sales.estTotalWeight')}</span>
-                  <span className="text-slate-800 font-bold">{salesQuantity} kg</span>
+                  <span className="text-slate-800 font-bold">
+                    {salesQuantity} kg
+                  </span>
                 </div>
 
                 <div className="flex justify-between text-lg font-black text-emerald-950 border-t border-emerald-200/50 pt-2">
-                  <span>{t('salesQuotationPlanner.sales.netInvoiceValue')}</span>
+                  <span>
+                    {t('salesQuotationPlanner.sales.netInvoiceValue')}
+                  </span>
                   <span>₹{salesTotalCost.toLocaleString('en-IN')}.00</span>
                 </div>
               </div>
@@ -515,7 +590,9 @@ export const SalesQuotationPlannerPage = () => {
                   value={quoteCustomer}
                   onChange={(e) => handleQuoteCustomerChange(e.target.value)}
                 >
-                  <option value="">{t('salesQuotationPlanner.sales.selectCustomer')}</option>
+                  <option value="">
+                    {t('salesQuotationPlanner.sales.selectCustomer')}
+                  </option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -553,7 +630,9 @@ export const SalesQuotationPlannerPage = () => {
                   type="number"
                   min="1"
                   value={quoteQuantity || ''}
-                  onChange={(e) => setQuoteQuantity(Math.max(1, parseInt(e.target.value) || 0))}
+                  onChange={(e) =>
+                    setQuoteQuantity(Math.max(1, parseInt(e.target.value) || 0))
+                  }
                 />
               </label>
 
@@ -564,7 +643,9 @@ export const SalesQuotationPlannerPage = () => {
                   min="0"
                   step="0.1"
                   value={quoteMarkup}
-                  onChange={(e) => setQuoteMarkup(Math.max(0, parseFloat(e.target.value) || 0))}
+                  onChange={(e) =>
+                    setQuoteMarkup(Math.max(0, parseFloat(e.target.value) || 0))
+                  }
                 />
               </label>
             </div>
@@ -600,7 +681,9 @@ export const SalesQuotationPlannerPage = () => {
                       {t('salesQuotationPlanner.quote.officialQuotation')}
                     </span>
                     <p className="text-[10px] text-slate-400 mt-1 font-mono">
-                      {t('salesQuotationPlanner.quote.ref')} Q-{selectedQuoteFormula.formulaCode}-{new Date().getFullYear()}
+                      {t('salesQuotationPlanner.quote.ref')} Q-
+                      {selectedQuoteFormula.formulaCode}-
+                      {new Date().getFullYear()}
                     </p>
                   </div>
                 </div>
@@ -614,14 +697,18 @@ export const SalesQuotationPlannerPage = () => {
                     <p className="font-bold text-slate-800">
                       {customers.find((c) => c.id === quoteCustomer)?.name}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">{t('salesQuotationPlanner.quote.activeClient')}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {t('salesQuotationPlanner.quote.activeClient')}
+                    </p>
                   </div>
                   <div className="text-right">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
                       {t('salesQuotationPlanner.quote.quotationDate')}
                     </h4>
                     <p className="font-semibold text-slate-700">
-                      {new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })}
+                      {new Date().toLocaleDateString('en-IN', {
+                        dateStyle: 'long',
+                      })}
                     </p>
                   </div>
                 </div>
@@ -631,15 +718,23 @@ export const SalesQuotationPlannerPage = () => {
                   <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50 border-b text-slate-500 font-bold text-xs uppercase tracking-wide">
                       <tr>
-                        <th className="px-4 py-3">{t('salesQuotationPlanner.quote.specItem')}</th>
-                        <th className="px-4 py-3 text-right">{t('salesQuotationPlanner.quote.details')}</th>
-                        <th className="px-4 py-3 text-right">{t('salesQuotationPlanner.quote.rateComponent')}</th>
+                        <th className="px-4 py-3">
+                          {t('salesQuotationPlanner.quote.specItem')}
+                        </th>
+                        <th className="px-4 py-3 text-right">
+                          {t('salesQuotationPlanner.quote.details')}
+                        </th>
+                        <th className="px-4 py-3 text-right">
+                          {t('salesQuotationPlanner.quote.rateComponent')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
                       <tr>
                         <td className="px-4 py-3 font-semibold">
-                          {t('salesQuotationPlanner.quote.baseLeafCategory').replace('{{name}}', quoteLeaf?.name || '')}
+                          {t(
+                            'salesQuotationPlanner.quote.baseLeafCategory',
+                          ).replace('{{name}}', quoteLeaf?.name || '')}
                         </td>
                         <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
                           {t('salesQuotationPlanner.quote.standardGradeLeaves')}
@@ -650,10 +745,14 @@ export const SalesQuotationPlannerPage = () => {
                       </tr>
                       <tr>
                         <td className="px-4 py-3 font-semibold">
-                          {t('salesQuotationPlanner.quote.cuttingTypeAdj').replace('{{name}}', quoteCutting?.name || '')}
+                          {t(
+                            'salesQuotationPlanner.quote.cuttingTypeAdj',
+                          ).replace('{{name}}', quoteCutting?.name || '')}
                         </td>
                         <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
-                          {t('salesQuotationPlanner.quote.premiumMachineCutting')}
+                          {t(
+                            'salesQuotationPlanner.quote.premiumMachineCutting',
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold">
                           {quoteCutting && quoteCutting.priceAdjustment >= 0
@@ -664,9 +763,15 @@ export const SalesQuotationPlannerPage = () => {
                       </tr>
                       {selectedQuoteFormula.addons?.map((addon, idx) => (
                         <tr key={idx}>
-                          <td className="px-4 py-3 font-semibold">{t('salesQuotationPlanner.quote.customAddon').replace('{{name}}', addon.name)}</td>
+                          <td className="px-4 py-3 font-semibold">
+                            {t(
+                              'salesQuotationPlanner.quote.customAddon',
+                            ).replace('{{name}}', addon.name)}
+                          </td>
                           <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
-                            {t('salesQuotationPlanner.quote.customParameter').replace('{{grams}}', addon.gramsPerKg.toString())}
+                            {t(
+                              'salesQuotationPlanner.quote.customParameter',
+                            ).replace('{{grams}}', addon.gramsPerKg.toString())}
                           </td>
                           <td className="px-4 py-3 text-right font-semibold">
                             +₹{addon.price.toFixed(2)}/kg
@@ -675,7 +780,9 @@ export const SalesQuotationPlannerPage = () => {
                       ))}
                       <tr className="bg-slate-50/50">
                         <td className="px-4 py-3 font-bold text-emerald-800">
-                          {t('salesQuotationPlanner.quote.customRecipeSellingPrice')}
+                          {t(
+                            'salesQuotationPlanner.quote.customRecipeSellingPrice',
+                          )}
                         </td>
                         <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
                           {t('salesQuotationPlanner.quote.formulaSubtotal')}
@@ -686,17 +793,24 @@ export const SalesQuotationPlannerPage = () => {
                       </tr>
                       <tr>
                         <td className="px-4 py-3 font-semibold text-blue-700">
-                          {t('salesQuotationPlanner.quote.quotationMarkupMargin')}
+                          {t(
+                            'salesQuotationPlanner.quote.quotationMarkupMargin',
+                          )}
                         </td>
                         <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
-                          {t('salesQuotationPlanner.quote.markupAdjustment').replace('{{markup}}', quoteMarkup.toString())}
+                          {t(
+                            'salesQuotationPlanner.quote.markupAdjustment',
+                          ).replace('{{markup}}', quoteMarkup.toString())}
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-blue-700">
-                          +₹{((quoteBaseRate * quoteMarkup) / 100).toFixed(2)}/kg
+                          +₹{((quoteBaseRate * quoteMarkup) / 100).toFixed(2)}
+                          /kg
                         </td>
                       </tr>
                       <tr className="bg-emerald-50/20 text-base font-bold text-emerald-900 border-t-2">
-                        <td className="px-4 py-3">{t('salesQuotationPlanner.quote.finalQuotedRate')}</td>
+                        <td className="px-4 py-3">
+                          {t('salesQuotationPlanner.quote.finalQuotedRate')}
+                        </td>
                         <td className="px-4 py-3 text-slate-400 italic text-right text-xs font-normal">
                           {t('salesQuotationPlanner.quote.allInclusive')}
                         </td>
@@ -715,7 +829,9 @@ export const SalesQuotationPlannerPage = () => {
                     <span className="text-slate-800">{quoteQuantity} kg</span>
                   </div>
                   <div className="flex justify-between text-base text-slate-900 font-bold border-t border-slate-100 mt-1 pt-2">
-                    <span>{t('salesQuotationPlanner.quote.totalEstimated')}</span>
+                    <span>
+                      {t('salesQuotationPlanner.quote.totalEstimated')}
+                    </span>
                     <span className="text-emerald-800 font-black text-xl">
                       ₹{quoteTotalValue.toLocaleString('en-IN')}.00
                     </span>
@@ -764,7 +880,8 @@ export const SalesQuotationPlannerPage = () => {
                   {t('salesQuotationPlanner.planner.defaultCustomerBlends')}
                 </p>
                 <h4 className="text-2xl font-bold text-slate-800">
-                  {planningSummary.totalAssigned} {t('salesQuotationPlanner.planner.active')}
+                  {planningSummary.totalAssigned}{' '}
+                  {t('salesQuotationPlanner.planner.active')}
                 </h4>
               </div>
             </Card>
@@ -792,7 +909,10 @@ export const SalesQuotationPlannerPage = () => {
                   {t('salesQuotationPlanner.planner.aggPlanningDemand')}
                 </p>
                 <h4 className="text-2xl font-bold text-slate-800">
-                  {(planningSummary.totalAssigned * 1000).toLocaleString('en-IN')} {t('salesQuotationPlanner.planner.kg')}
+                  {(planningSummary.totalAssigned * 1000).toLocaleString(
+                    'en-IN',
+                  )}{' '}
+                  {t('salesQuotationPlanner.planner.kg')}
                 </h4>
               </div>
             </Card>
@@ -811,25 +931,42 @@ export const SalesQuotationPlannerPage = () => {
                 <table className="w-full text-left text-xs whitespace-nowrap">
                   <thead className="bg-slate-50 border-b font-bold text-slate-500 uppercase tracking-wider">
                     <tr>
-                      <th className="px-4 py-2.5">{t('salesQuotationPlanner.planner.leafGrade')}</th>
-                      <th className="px-4 py-2.5 text-center">{t('salesQuotationPlanner.planner.avgBaseCost')}</th>
-                      <th className="px-4 py-2.5 text-right">{t('salesQuotationPlanner.planner.reqInventoryVol')}</th>
+                      <th className="px-4 py-2.5">
+                        {t('salesQuotationPlanner.planner.leafGrade')}
+                      </th>
+                      <th className="px-4 py-2.5 text-center">
+                        {t('salesQuotationPlanner.planner.avgBaseCost')}
+                      </th>
+                      <th className="px-4 py-2.5 text-right">
+                        {t('salesQuotationPlanner.planner.reqInventoryVol')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                     {planningSummary.categories.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-4 py-6 text-center text-slate-400 italic">
-                          {t('salesQuotationPlanner.planner.noActiveDefaultBlends')}
+                        <td
+                          colSpan={3}
+                          className="px-4 py-6 text-center text-slate-400 italic"
+                        >
+                          {t(
+                            'salesQuotationPlanner.planner.noActiveDefaultBlends',
+                          )}
                         </td>
                       </tr>
                     ) : (
                       planningSummary.categories.map((c, i) => (
                         <tr key={i} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3 font-semibold text-slate-800">{c.name}</td>
-                          <td className="px-4 py-3 text-center">₹{c.basePrice.toFixed(2)}/{t('salesQuotationPlanner.planner.kg')}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-800">
+                            {c.name}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            ₹{c.basePrice.toFixed(2)}/
+                            {t('salesQuotationPlanner.planner.kg')}
+                          </td>
                           <td className="px-4 py-3 text-right text-emerald-700 font-bold">
-                            {c.totalKg.toLocaleString('en-IN')} {t('salesQuotationPlanner.planner.kg')}
+                            {c.totalKg.toLocaleString('en-IN')}{' '}
+                            {t('salesQuotationPlanner.planner.kg')}
                           </td>
                         </tr>
                       ))
@@ -851,27 +988,44 @@ export const SalesQuotationPlannerPage = () => {
                 <table className="w-full text-left text-xs whitespace-nowrap">
                   <thead className="bg-slate-50 border-b font-bold text-slate-500 uppercase tracking-wider">
                     <tr>
-                      <th className="px-4 py-2.5">{t('salesQuotationPlanner.planner.cuttingProfile')}</th>
-                      <th className="px-4 py-2.5 text-center">{t('salesQuotationPlanner.planner.priceAdjustment')}</th>
-                      <th className="px-4 py-2.5 text-right">{t('salesQuotationPlanner.planner.machineCapDemand')}</th>
+                      <th className="px-4 py-2.5">
+                        {t('salesQuotationPlanner.planner.cuttingProfile')}
+                      </th>
+                      <th className="px-4 py-2.5 text-center">
+                        {t('salesQuotationPlanner.planner.priceAdjustment')}
+                      </th>
+                      <th className="px-4 py-2.5 text-right">
+                        {t('salesQuotationPlanner.planner.machineCapDemand')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                     {planningSummary.cuttings.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-4 py-6 text-center text-slate-400 italic">
-                          {t('salesQuotationPlanner.planner.noActiveDefaultCuttings')}
+                        <td
+                          colSpan={3}
+                          className="px-4 py-6 text-center text-slate-400 italic"
+                        >
+                          {t(
+                            'salesQuotationPlanner.planner.noActiveDefaultCuttings',
+                          )}
                         </td>
                       </tr>
                     ) : (
                       planningSummary.cuttings.map((c, i) => (
                         <tr key={i} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3 font-semibold text-slate-800">{c.name}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-800">
+                            {c.name}
+                          </td>
                           <td className="px-4 py-3 text-center">
-                            {c.adjustment >= 0 ? `+₹${c.adjustment.toFixed(2)}` : `-₹${Math.abs(c.adjustment).toFixed(2)}`}/{t('salesQuotationPlanner.planner.kg')}
+                            {c.adjustment >= 0
+                              ? `+₹${c.adjustment.toFixed(2)}`
+                              : `-₹${Math.abs(c.adjustment).toFixed(2)}`}
+                            /{t('salesQuotationPlanner.planner.kg')}
                           </td>
                           <td className="px-4 py-3 text-right text-blue-700 font-bold">
-                            {c.totalKg.toLocaleString('en-IN')} {t('salesQuotationPlanner.planner.kg')}
+                            {c.totalKg.toLocaleString('en-IN')}{' '}
+                            {t('salesQuotationPlanner.planner.kg')}
                           </td>
                         </tr>
                       ))

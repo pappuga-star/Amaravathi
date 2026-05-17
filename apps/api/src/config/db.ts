@@ -13,7 +13,7 @@ export async function connectDatabase(): Promise<void> {
   const isAtlas = uri.includes('mongodb+srv');
   const dbName = uri.split('/').pop()?.split('?')[0] ?? 'unknown';
   const clusterHint = isAtlas
-    ? uri.match(/@([^/]+)/)?.[1] ?? 'Atlas'
+    ? (uri.match(/@([^/]+)/)?.[1] ?? 'Atlas')
     : '127.0.0.1 (local)';
 
   try {

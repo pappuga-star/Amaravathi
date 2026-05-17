@@ -13,7 +13,10 @@ export const TeaPowderTypesPage = () => {
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewingType, setViewingType] = useState<{ id: string; name: string } | null>(null);
+  const [viewingType, setViewingType] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Fetch current user details for role-based actions
   const { data: me } = useQuery({
@@ -663,7 +666,9 @@ export const CustomersPage = () => {
     queryKey: ['customer-formulas', viewingCustomer?.id],
     queryFn: () =>
       viewingCustomer
-        ? api<{ items: any[] }>(`${endpoints.customerTeaFormulas}?customerId=${viewingCustomer.id}`)
+        ? api<{ items: any[] }>(
+            `${endpoints.customerTeaFormulas}?customerId=${viewingCustomer.id}`,
+          )
         : Promise.resolve({ items: [] }),
     enabled: !!viewingCustomer,
   });
@@ -671,7 +676,8 @@ export const CustomersPage = () => {
 
   const { data: me } = useQuery({
     queryKey: ['me'],
-    queryFn: () => api<{ name: string; email: string; role: string }>('/auth/me'),
+    queryFn: () =>
+      api<{ name: string; email: string; role: string }>('/auth/me'),
   });
   const isAdmin = me?.role === 'admin';
   const canEdit = me?.role === 'admin' || me?.role === 'pricing_manager';
@@ -691,7 +697,11 @@ export const CustomersPage = () => {
   const items = data?.items ?? [];
 
   const saveMutation = useMutation({
-    mutationFn: (payload: { name: string; address?: string; mobileNumber?: string }) => {
+    mutationFn: (payload: {
+      name: string;
+      address?: string;
+      mobileNumber?: string;
+    }) => {
       if (editingId) {
         return api(`${endpoints.customers}/${editingId}`, {
           method: 'PUT',
@@ -713,7 +723,8 @@ export const CustomersPage = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api(`${endpoints.customers}/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      api(`${endpoints.customers}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [endpoints.customers] });
     },
@@ -830,7 +841,10 @@ export const CustomersPage = () => {
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-bold text-slate-800">Customer Records</h3>
           <div className="relative w-full sm:max-w-xs flex items-center">
-            <Search className="absolute left-3 text-slate-400 pointer-events-none" size={16} />
+            <Search
+              className="absolute left-3 text-slate-400 pointer-events-none"
+              size={16}
+            />
             <Input
               className="pl-9 h-10 text-sm font-normal"
               placeholder="Search"
@@ -844,25 +858,45 @@ export const CustomersPage = () => {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Name</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Address</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Mobile Number</th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">Actions</th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                  Name
+                </th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                  Address
+                </th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                  Mobile Number
+                </th>
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-400 italic text-sm">
+                  <td
+                    colSpan={4}
+                    className="px-4 py-8 text-center text-slate-400 italic text-sm"
+                  >
                     No customers found.
                   </td>
                 </tr>
               ) : (
                 items.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-normal text-slate-700">{item.name}</td>
-                    <td className="px-4 py-3 text-sm font-normal text-slate-600">{item.address || '-'}</td>
-                    <td className="px-4 py-3 text-sm font-normal text-slate-500">{item.mobileNumber || '-'}</td>
+                  <tr
+                    key={item.id}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
+                    <td className="px-4 py-3 text-sm font-normal text-slate-700">
+                      {item.name}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-normal text-slate-600">
+                      {item.address || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-normal text-slate-500">
+                      {item.mobileNumber || '-'}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
@@ -921,7 +955,9 @@ export const CustomersPage = () => {
           ]}
           customBody={
             <div className="flex flex-col gap-4">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Customized Recipes</span>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                Customized Recipes
+              </span>
               {customerFormulas.length === 0 ? (
                 <div className="py-8 text-center text-slate-400 italic text-sm border border-slate-100 rounded-xl bg-slate-50/50">
                   No customized formulas set for this customer yet.
@@ -929,48 +965,77 @@ export const CustomersPage = () => {
               ) : (
                 <div className="flex flex-col gap-4">
                   {customerFormulas.map((formula: any) => {
-                    const isNewFormula = formula.lineItems && formula.lineItems.length > 0;
-                    const finalPriceDisplay = isNewFormula ? formula.costPerKg : formula.finalPrice;
+                    const isNewFormula =
+                      formula.lineItems && formula.lineItems.length > 0;
+                    const finalPriceDisplay = isNewFormula
+                      ? formula.costPerKg
+                      : formula.finalPrice;
 
                     return (
-                      <div key={formula.id} className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3">
+                      <div
+                        key={formula.id}
+                        className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3"
+                      >
                         <div className="flex justify-between items-start border-b border-slate-200/60 pb-2">
                           <div>
-                            <span className="text-xs font-mono font-bold text-slate-500 block">{formula.formulaCode}</span>
-                            <span className="font-bold text-slate-800 text-sm">{formula.formulaName}</span>
+                            <span className="text-xs font-mono font-bold text-slate-500 block">
+                              {formula.formulaCode}
+                            </span>
+                            <span className="font-bold text-slate-800 text-sm">
+                              {formula.formulaName}
+                            </span>
                           </div>
                           <span className="text-lg font-black text-emerald-800">
                             ₹{(finalPriceDisplay ?? 0).toFixed(2)}/kg
                           </span>
                         </div>
-                        
+
                         {!isNewFormula ? (
                           <>
                             <div className="grid grid-cols-2 gap-4 text-xs">
                               <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Leaf Category</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                  Leaf Category
+                                </span>
                                 <span className="font-semibold text-slate-700">
-                                  {typeof formula.leafCategoryId === 'object' ? formula.leafCategoryId.name : '-'}
+                                  {typeof formula.leafCategoryId === 'object'
+                                    ? formula.leafCategoryId.name
+                                    : '-'}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cutting Type</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                  Cutting Type
+                                </span>
                                 <span className="font-semibold text-slate-700">
-                                  {typeof formula.cuttingTypeId === 'object' ? formula.cuttingTypeId.name : '-'}
+                                  {typeof formula.cuttingTypeId === 'object'
+                                    ? formula.cuttingTypeId.name
+                                    : '-'}
                                 </span>
                               </div>
                             </div>
 
                             {formula.addons && formula.addons.length > 0 && (
                               <div className="border-t border-slate-200/40 pt-2 text-xs">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Add-Ons Added</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                  Add-Ons Added
+                                </span>
                                 <div className="flex flex-col gap-1.5 pl-2 border-l-2 border-emerald-400">
-                                  {formula.addons.map((addon: any, idx: number) => (
-                                    <div key={idx} className="flex justify-between text-slate-600 font-medium">
-                                      <span>{addon.name} ({addon.gramsPerKg}g/kg)</span>
-                                      <span>₹{addon.price.toFixed(2)}/kg</span>
-                                    </div>
-                                  ))}
+                                  {formula.addons.map(
+                                    (addon: any, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="flex justify-between text-slate-600 font-medium"
+                                      >
+                                        <span>
+                                          {addon.name} ({addon.gramsPerKg}g/kg)
+                                        </span>
+                                        <span>
+                                          ₹{addon.price.toFixed(2)}/kg
+                                        </span>
+                                      </div>
+                                    ),
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -979,32 +1044,50 @@ export const CustomersPage = () => {
                           <>
                             <div className="grid grid-cols-2 gap-4 text-xs">
                               <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tea Powder Type</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                  Tea Powder Type
+                                </span>
                                 <span className="font-semibold text-slate-700">
                                   {formula.teaPowderType || '-'}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Weight</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                  Total Weight
+                                </span>
                                 <span className="font-semibold text-slate-700">
                                   {formula.totalWeight || 0} g
                                 </span>
                               </div>
                             </div>
 
-                            {formula.lineItems && formula.lineItems.length > 0 && (
-                              <div className="border-t border-slate-200/40 pt-2 text-xs">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Blend Ingredients</span>
-                                <div className="flex flex-col gap-1.5 pl-2 border-l-2 border-emerald-400">
-                                  {formula.lineItems.map((item: any, idx: number) => (
-                                    <div key={idx} className="flex justify-between text-slate-600 font-medium">
-                                      <span>{item.ingredientName} ({item.purchaseBatchCode})</span>
-                                      <span>{item.quantityInGrams}g @ ₹{item.pricePerGram.toFixed(4)}/g</span>
-                                    </div>
-                                  ))}
+                            {formula.lineItems &&
+                              formula.lineItems.length > 0 && (
+                                <div className="border-t border-slate-200/40 pt-2 text-xs">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                    Blend Ingredients
+                                  </span>
+                                  <div className="flex flex-col gap-1.5 pl-2 border-l-2 border-emerald-400">
+                                    {formula.lineItems.map(
+                                      (item: any, idx: number) => (
+                                        <div
+                                          key={idx}
+                                          className="flex justify-between text-slate-600 font-medium"
+                                        >
+                                          <span>
+                                            {item.ingredientName} (
+                                            {item.purchaseBatchCode})
+                                          </span>
+                                          <span>
+                                            {item.quantityInGrams}g @ ₹
+                                            {item.pricePerGram.toFixed(4)}/g
+                                          </span>
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
                           </>
                         )}
                       </div>

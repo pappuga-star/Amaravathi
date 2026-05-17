@@ -11,7 +11,8 @@ export const TasteCustomizationMasterPage = () => {
   const [activeTab, setActiveTab] = useState<
     'customizations' | 'saved-formulas' | 'customers'
   >('customizations');
-  const [editingFormula, setEditingFormula] = useState<CustomerTeaFormula | null>(null);
+  const [editingFormula, setEditingFormula] =
+    useState<CustomerTeaFormula | null>(null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,7 +26,9 @@ export const TasteCustomizationMasterPage = () => {
           }`}
         >
           <Beaker size={16} />
-          <span className="hidden sm:inline">{t('customizationTabs.teaBlends')}</span>
+          <span className="hidden sm:inline">
+            {t('customizationTabs.teaBlends')}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab('saved-formulas')}
@@ -36,7 +39,9 @@ export const TasteCustomizationMasterPage = () => {
           }`}
         >
           <Layers size={16} />
-          <span className="hidden sm:inline">{t('customizationTabs.savedBlends')}</span>
+          <span className="hidden sm:inline">
+            {t('customizationTabs.savedBlends')}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab('customers')}
@@ -47,7 +52,9 @@ export const TasteCustomizationMasterPage = () => {
           }`}
         >
           <Contact size={16} />
-          <span className="hidden sm:inline">{t('customizationTabs.customers')}</span>
+          <span className="hidden sm:inline">
+            {t('customizationTabs.customers')}
+          </span>
         </button>
       </div>
 

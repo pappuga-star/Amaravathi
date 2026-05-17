@@ -24,7 +24,7 @@
   "success": "Success",
   "theme": "Theme",
   "all": "All",
-  
+
   "login": {
     "title": "Admin login",
     "email": "Email",
@@ -33,7 +33,7 @@
     "failed": "Login failed",
     "system": "Amaravathi Tea Pricing System"
   },
-  
+
   "dashboard": {
     "teaPowderTypes": "Tea powder types",
     "purchaseBatches": "Purchase batches",
@@ -46,7 +46,7 @@
     "step3": "Add purchase batches",
     "step4": "Search and verify rates"
   },
-  
+
   "settings": {
     "title": "System Settings",
     "subtitle": "Configure your workspace defaults, user preferences, and master profiles.",
@@ -66,13 +66,13 @@
     "contactSupport": "Contact the Amaravathi engineering support team to modify tax rates, database scaling, or integrate external ERP systems.",
     "saveSuccess": "System settings updated successfully!"
   },
-  
+
   "customizationTabs": {
     "teaBlends": "Customer Tea Blends",
     "savedBlends": "Saved Blends",
     "customers": "Customers"
   },
-  
+
   "savedFormulas": {
     "totalFormulas": "Total Formulas",
     "active": "Active",
@@ -127,7 +127,7 @@
       "deleted": "Deleted"
     }
   },
-  
+
   "customerFormulas": {
     "title": "Customer Tea Preference",
     "customer": "Customer",
@@ -370,7 +370,7 @@
     "settings": "Settings",
     "logout": "Logout"
   },
-  
+
   "leafCategories": {
     "title": "Leaf Categories",
     "subtitle": "Blended parent types definition",
@@ -390,7 +390,7 @@
     "totalBlended": "Total blended parent types definition",
     "loadingRecords": "Loading records..."
   },
-  
+
   "cuttingTypes": {
     "title": "Cutting Types",
     "subtitle": "Total blended settings and adjustment prices",

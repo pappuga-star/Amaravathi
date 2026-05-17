@@ -36,8 +36,18 @@ const nav = [
     icon: ClipboardList,
   },
   { to: '/sellers', label: 'Sellers (Suppliers)', key: 'sellers', icon: Truck },
-  { to: '/taste-customization', label: 'Customer Customization', key: 'customerCustomization', icon: Beaker },
-  { to: '/sales-quotations-planner', label: 'Sales & Planner', key: 'salesQuotation', icon: Calculator },
+  {
+    to: '/taste-customization',
+    label: 'Customer Customization',
+    key: 'customerCustomization',
+    icon: Beaker,
+  },
+  {
+    to: '/sales-quotations-planner',
+    label: 'Sales & Planner',
+    key: 'salesQuotation',
+    icon: Calculator,
+  },
   { to: '/users', label: 'Users', key: 'users', icon: Users },
   { to: '/reports', label: 'Reports', key: 'reports', icon: FileBarChart },
   { to: '/settings', label: 'Settings', key: 'settings', icon: Settings },
@@ -61,8 +71,12 @@ export function Layout() {
     return true;
   });
 
-  const activeNavItem = allowedNav.find((item) => item.to === location.pathname);
-  const title = activeNavItem ? t(`nav.${activeNavItem.key}`) : t('nav.dashboard');
+  const activeNavItem = allowedNav.find(
+    (item) => item.to === location.pathname,
+  );
+  const title = activeNavItem
+    ? t(`nav.${activeNavItem.key}`)
+    : t('nav.dashboard');
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
@@ -126,7 +140,9 @@ export function Layout() {
               <Button
                 variant="default"
                 className="h-9 px-3"
-                onClick={() => document.documentElement.classList.toggle('dark')}
+                onClick={() =>
+                  document.documentElement.classList.toggle('dark')
+                }
               >
                 <Moon className="h-4 w-4 text-current" />
                 <span className="hidden sm:inline">{t('theme')}</span>

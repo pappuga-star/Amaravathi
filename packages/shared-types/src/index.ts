@@ -130,7 +130,6 @@ export type Customer = {
   deletedAt?: string;
 };
 
-
 export type ApiResponse<T> = {
   success: boolean;
   data?: T;
@@ -164,22 +163,26 @@ export const customerTeaFormulaSchema = z.object({
   customerId: objectIdSchema,
   formulaCode: z.string().trim().optional(),
   notes: z.string().trim().optional(),
-  totalWeight: z.coerce.number().min(0),
-  totalFormulaCost: z.coerce.number().min(0),
-  costPerKg: z.coerce.number().min(0),
-  costPer100Grams: z.coerce.number().min(0),
+  totalWeight: z.coerce.number().min(0).optional(),
+  totalFormulaCost: z.coerce.number().min(0).optional(),
+  costPerKg: z.coerce.number().min(0).optional(),
+  costPer100Grams: z.coerce.number().min(0).optional(),
   isDefault: z.boolean().default(false),
   status: z.enum(['Active', 'Inactive']).default('Active'),
-  
-  lineItems: z.array(z.object({
-    purchaseBatchCode: z.string().trim().min(1),
-    purchaseBatchLineItemId: z.string().trim().min(1),
-    ingredientCategory: z.enum(['Leaf', 'Add-On']),
-    ingredientName: z.string().trim().min(1),
-    quantityInGrams: z.coerce.number().positive(),
-    pricePerGram: z.coerce.number().min(0),
-    rowCost: z.coerce.number().min(0),
-  })).min(1),
+
+  lineItems: z
+    .array(
+      z.object({
+        purchaseBatchCode: z.string().trim().min(1),
+        purchaseBatchLineItemId: z.string().trim().min(1),
+        ingredientCategory: z.enum(['Leaf', 'Add-On']),
+        ingredientName: z.string().trim().min(1),
+        quantityInGrams: z.coerce.number().positive(),
+        pricePerGram: z.coerce.number().min(0).optional(),
+        rowCost: z.coerce.number().min(0).optional(),
+      }),
+    )
+    .min(1),
 
   // Legacy fields for partial backwards compatibility (Deprecated)
   /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
@@ -187,11 +190,15 @@ export const customerTeaFormulaSchema = z.object({
   /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
   cuttingTypeId: objectIdSchema.optional(),
   /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
-  addons: z.array(z.object({
-    name: z.string().trim().min(1),
-    price: z.coerce.number().min(0),
-    gramsPerKg: z.coerce.number().min(0),
-  })).optional(),
+  addons: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1),
+        price: z.coerce.number().min(0),
+        gramsPerKg: z.coerce.number().min(0),
+      }),
+    )
+    .optional(),
   /** @deprecated Maintain for backwards compatibility with old records. Use totalFormulaCost instead. */
   finalPrice: z.coerce.number().min(0).optional(),
   /** @deprecated Maintain for backwards compatibility with old records. */

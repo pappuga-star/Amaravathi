@@ -1,0 +1,29 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy (API)
+        env:
+          deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK_API_STAGING }}
+        run: |
+          if [ -n "$deploy_url" ]; then
+            curl "$deploy_url"
+          else
+            echo "Render deploy hook missing for staging API"
+          fi
+
+      - name: Trigger Vercel Deploy (Admin Web)
+        env:
+          deploy_hook: ${{ secrets.VERCEL_DEPLOY_HOOK_STAGING }}
+        run: |
+          if [ -n "$deploy_hook" ]; then
+            curl "$deploy_hook"
+          else
+            echo "Vercel deploy hook missing for staging web"
+          fi

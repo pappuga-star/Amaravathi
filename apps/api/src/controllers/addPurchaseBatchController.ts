@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
-import { purchaseBatchSchema } from '@amaravathi/shared-types';
-import type { PurchaseBatch } from '@amaravathi/shared-types';
+import {
+  purchaseBatchSchema,
+  type PurchaseBatch,
+} from '@amaravathi/shared-types';
 import { created, ok } from '../utils/apiResponse.js';
 import { AddPurchaseBatch as AddPurchaseBatchModel } from '../models/index.js';
 
@@ -161,7 +163,7 @@ function formatBatch(batch: any): PurchaseBatch {
       teaPowderType: item.teaPowderType,
       ratePerKg: item.ratePerKg,
       ingredientCategory: item.ingredientCategory || 'Leaf',
-      pricePerGram: item.pricePerGram || (item.ratePerKg / 1000),
+      pricePerGram: item.pricePerGram || item.ratePerKg / 1000,
       availableStockInGrams: item.availableStockInGrams || 50000,
     })),
     createdAt: batch.createdAt.toISOString(),

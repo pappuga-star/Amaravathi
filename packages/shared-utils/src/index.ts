@@ -24,7 +24,14 @@ export function parseBatchCode(batchCode: string): {
   const yearRaw = firstSplit.split('_')[0] || '';
   const year = Number(yearRaw);
 
-  if (isNaN(bags) || isNaN(month) || isNaN(year) || bags <= 0 || month <= 0 || year <= 0) {
+  if (
+    isNaN(bags) ||
+    isNaN(month) ||
+    isNaN(year) ||
+    bags <= 0 ||
+    month <= 0 ||
+    year <= 0
+  ) {
     throw new Error(
       'Batch code must follow bags/month/year format, for example 30/12/25',
     );

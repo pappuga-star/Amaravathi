@@ -33,4 +33,7 @@ cuttingTypeSchema.pre('validate', function setNameKey(next) {
   next();
 });
 
-export const CuttingType = mongoose.model<ICuttingType>('CuttingType', cuttingTypeSchema);
+export const CuttingType = mongoose.model<ICuttingType>(
+  'CuttingType',
+  cuttingTypeSchema,
+);

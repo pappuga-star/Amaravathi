@@ -279,6 +279,7 @@ Based on our comprehensive system audit, the current technical structure is extr
 ### Root Cause Analysis
 
 During our live API & Database Audit of the **"Unable to Add Purchase"** friction point, we identified a critical uniqueness constraint conflict inside MongoDB:
+
 - **Index Constancy**: The database schema enforces a strict global uniqueness constraint (`unique: true`) on the `batchCode` field.
 - **Generation Determinism**: The system automatically generates the `batchCode` as `[numberOfBags]/[month]/[year]` (e.g. `10/5/26` representing 10 bags in May 2026).
 - **Collision Friction**: If an administrator tries to add a second distinct purchase batch in the same month that happens to contain the exact same number of bags (e.g. 10 bags), the generated `batchCode` collides (`10/5/26`), throwing a database-level `E11000 duplicate key error` and blocking the record insertion entirely.
@@ -296,4 +297,3 @@ During our live API & Database Audit of the **"Unable to Add Purchase"** frictio
 3. **Validation & Test Coverage**:
    - Added automated tests inside [index.test.ts](file:///Users/admin/Desktop/Amaravathi/packages/shared-utils/src/index.test.ts#L16-L29) validating that suffix-bearing batch codes (like `30/12/25-2` or `10/5/26_A`) parse successfully.
    - Ran live double-save simulations verifying clean storage on the MongoDB Atlas cluster.
-

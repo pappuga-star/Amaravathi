@@ -28,6 +28,7 @@ export async function api<T>(
   });
   const payload = (await response.json()) as ApiResponse<T>;
   if (!response.ok || !payload.success) {
+    console.error('API Error Response:', payload);
     let msg = payload.message ?? 'API request failed';
     const errors = (payload as any).errors;
     if (errors) {

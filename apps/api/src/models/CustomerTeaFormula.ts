@@ -2,7 +2,11 @@ import mongoose, { Schema } from 'mongoose';
 
 const customerTeaFormulaSchema = new Schema(
   {
-    customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
+    customerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Customer',
+      required: true,
+    },
     formulaCode: { type: String, required: true, unique: true },
     totalWeight: { type: Number, required: true, min: 0 },
     totalFormulaCost: { type: Number, required: true, min: 0 },
@@ -11,13 +15,20 @@ const customerTeaFormulaSchema = new Schema(
     lineItems: [
       {
         purchaseBatchCode: { type: String, required: true },
-        purchaseBatchLineItemId: { type: Schema.Types.ObjectId, required: true },
-        ingredientCategory: { type: String, enum: ['Leaf', 'Add-On'], required: true },
+        purchaseBatchLineItemId: {
+          type: Schema.Types.ObjectId,
+          required: true,
+        },
+        ingredientCategory: {
+          type: String,
+          enum: ['Leaf', 'Add-On'],
+          required: true,
+        },
         ingredientName: { type: String, required: true },
         quantityInGrams: { type: Number, required: true, min: 0 },
         pricePerGram: { type: Number, required: true, min: 0 },
         rowCost: { type: Number, required: true, min: 0 },
-      }
+      },
     ],
     /**
      * @deprecated Legacy field maintained for backwards compatibility with old records.
@@ -46,7 +57,7 @@ const customerTeaFormulaSchema = new Schema(
         name: { type: String, trim: true },
         price: { type: Number, min: 0 },
         gramsPerKg: { type: Number, min: 0 },
-      }
+      },
     ],
     /**
      * @deprecated Legacy field maintained for backwards compatibility with old records.

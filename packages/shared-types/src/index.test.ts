@@ -73,7 +73,7 @@ describe('Master Data Zod Schemas', () => {
           quantityInGrams: 100,
           pricePerGram: 0.5,
           rowCost: 50,
-        }
+        },
       ],
       isDefault: true,
       notes: 'Custom tea recipe',

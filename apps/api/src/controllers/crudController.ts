@@ -60,7 +60,11 @@ export function crudController(
       if (!item)
         throw Object.assign(new Error('Record not found'), { status: 404 });
       const itemObj = item.toObject ? item.toObject() : item;
-      return ok(res, { ...itemObj, id: (item as any)._id.toString() }, 'Updated');
+      return ok(
+        res,
+        { ...itemObj, id: (item as any)._id.toString() },
+        'Updated',
+      );
     },
 
     async remove(req: Request, res: Response) {

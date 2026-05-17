@@ -68,40 +68,46 @@ export async function updateUser(req: Request, res: Response) {
   if (body.email !== undefined) updateData.email = body.email;
   if (body.role !== undefined) updateData.role = body.role;
   if (body.active !== undefined) updateData.active = body.active;
-  
+
   if (body.password) {
     updateData.passwordHash = await bcrypt.hash(body.password, 12);
   }
-  
+
   const user = await User.findByIdAndUpdate(
     req.params.id,
     { $set: updateData },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   );
-  
+
   if (!user) {
     throw Object.assign(new Error('User not found'), { status: 404 });
   }
-  
-  return ok(res, {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    active: user.active,
-  }, 'Updated');
+
+  return ok(
+    res,
+    {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      active: user.active,
+    },
+    'Updated',
+  );
 }
 
 export async function deleteUser(req: Request, res: Response) {
   if (req.user?.id === req.params.id) {
-    throw Object.assign(new Error('You cannot delete your own administrative account.'), { status: 400 });
+    throw Object.assign(
+      new Error('You cannot delete your own administrative account.'),
+      { status: 400 },
+    );
   }
-  
+
   const user = await User.findByIdAndDelete(req.params.id);
   if (!user) {
     throw Object.assign(new Error('User not found'), { status: 404 });
   }
-  
+
   return ok(res, { id: req.params.id }, 'Deleted');
 }
-

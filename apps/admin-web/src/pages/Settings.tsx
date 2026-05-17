@@ -43,10 +43,10 @@ export function SettingsPage() {
     <div className="grid gap-8">
       {/* Top Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">{t('settings.title')}</h2>
-        <p className="text-sm text-slate-500">
-          {t('settings.subtitle')}
-        </p>
+        <h2 className="text-2xl font-bold text-slate-900">
+          {t('settings.title')}
+        </h2>
+        <p className="text-sm text-slate-500">{t('settings.subtitle')}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
