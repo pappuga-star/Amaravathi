@@ -2,12 +2,25 @@ import type { ErrorRequestHandler } from 'express';
 import mongoose from 'mongoose';
 import { ZodError } from 'zod';
 
+function zodIssuesToFieldMap(error: ZodError): Record<string, string> {
+  return error.issues.reduce(
+    (acc, issue) => {
+      const key = issue.path.length ? issue.path.join('.') : 'root';
+      if (!acc[key]) {
+        acc[key] = issue.message;
+      }
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+}
+
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error instanceof ZodError) {
     return res.status(422).json({
       success: false,
       message: 'Validation failed',
-      errors: error.flatten(),
+      errors: zodIssuesToFieldMap(error),
     });
   }
 

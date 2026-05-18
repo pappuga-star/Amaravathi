@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import type { Model } from 'mongoose';
 import type { ZodObject, ZodRawShape } from 'zod';
+import { escapeRegex, isSearchQueryPresent } from '@amaravathi/shared-utils';
 import { created, ok } from '../utils/apiResponse.js';
 
 export function crudController(
@@ -10,14 +11,16 @@ export function crudController(
 ) {
   return {
     async list(req: Request, res: Response) {
-      const q = String(req.query.q ?? '').trim();
+      const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
       const page = Math.max(Number(req.query.page ?? 1), 1);
       const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
       const filter =
-        q && searchFields.length
+        isSearchQueryPresent(rawQ) && searchFields.length
           ? {
               $or: searchFields.map((field) => ({
-                [field]: { $regex: q, $options: 'i' },
+                [field]: {
+                  $regex: new RegExp(escapeRegex(String(rawQ).trim()), 'i'),
+                },
               })),
             }
           : {};

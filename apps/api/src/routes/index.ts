@@ -12,6 +12,7 @@ import {
   customerSchema,
   userSchema,
 } from '@amaravathi/shared-types';
+import { escapeRegex } from '@amaravathi/shared-utils';
 import {
   createUser,
   login,
@@ -19,6 +20,7 @@ import {
   updateUser,
   deleteUser,
 } from '../controllers/authController.js';
+import { globalSearchRoutes } from './globalSearchRoutes.js';
 import { globalSearch } from '../controllers/searchController.js';
 import { crudController } from '../controllers/crudController.js';
 import {
@@ -45,7 +47,6 @@ import {
 } from '../models/index.js';
 import {
   leafCategoriesController,
-  cuttingTypesController,
 } from '../controllers/masterController.js';
 import { customerTeaFormulasController } from '../controllers/customerTeaFormulaController.js';
 
@@ -82,7 +83,7 @@ router.post('/auth/login', asyncHandler(login));
 
 router.use(requireAuth);
 router.get('/auth/me', asyncHandler(me));
-router.get('/search', asyncHandler(globalSearch));
+router.use('/global-search', globalSearchRoutes);
 router.post('/users', permit('admin'), asyncHandler(createUser));
 
 const teaPowderTypes = crudController(TeaPowderType, teaPowderTypeSchema, [
@@ -126,9 +127,12 @@ router.delete(
         .json({ success: false, message: 'Record not found' });
     }
 
-    // 2. Check if used in Purchase Batch line items (items.teaPowderType matching name)
+    // 2. Check if used in Purchase Batch line items
     const batchUse = await AddPurchaseBatch.findOne({
-      'items.teaPowderType': { $regex: `^${item.name}$`, $options: 'i' },
+      'lineItems.teaPowderTypeName': new RegExp(
+        `^${escapeRegex(item.name)}$`,
+        'i',
+      ),
     });
     if (batchUse) {
       return res.status(400).json({
@@ -194,7 +198,7 @@ router.delete(
     }
     // Check if this seller is used inside any AddPurchaseBatch records
     const batchUse = await AddPurchaseBatch.findOne({
-      sellerName: { $regex: `^${seller.name}$`, $options: 'i' },
+      sellerName: new RegExp(`^${escapeRegex(seller.name)}$`, 'i'),
     });
     if (batchUse) {
       return res.status(400).json({
@@ -280,29 +284,6 @@ router.post(
   asyncHandler(leafCategoriesController.restore),
 );
 
-// Cutting Types API
-router.get('/cutting-types', asyncHandler(cuttingTypesController.list));
-router.post(
-  '/cutting-types',
-  permit('admin', 'pricing_manager'),
-  asyncHandler(cuttingTypesController.create),
-);
-router.get('/cutting-types/:id', asyncHandler(cuttingTypesController.get));
-router.put(
-  '/cutting-types/:id',
-  permit('admin', 'pricing_manager'),
-  asyncHandler(cuttingTypesController.update),
-);
-router.delete(
-  '/cutting-types/:id',
-  permit('admin'),
-  asyncHandler(cuttingTypesController.remove),
-);
-router.post(
-  '/cutting-types/:id/restore',
-  permit('admin'),
-  asyncHandler(cuttingTypesController.restore),
-);
 
 // Customer Tea Formulas routes
 router.get(

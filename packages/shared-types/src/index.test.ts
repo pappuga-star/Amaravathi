@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   leafCategorySchema,
-  cuttingTypeSchema,
+  userSchema,
   customerTeaFormulaSchema,
 } from './index';
 
@@ -24,34 +24,35 @@ describe('Master Data Zod Schemas', () => {
     });
   });
 
-  describe('cuttingTypeSchema', () => {
-    it('validates correct cutting type data', () => {
-      const result = cuttingTypeSchema.safeParse({
-        name: 'BOP',
-        basePrice: 25.5,
-        leafCategoryId: '507f1f77bcf86cd799439012',
-        description: 'Broken Orange Pekoe',
+  describe('userSchema', () => {
+    it('validates correct user data with all required fields', () => {
+      const result = userSchema.safeParse({
+        name: 'John Doe',
+        email: 'john@example.com',
+        role: 'admin',
         active: true,
       });
       expect(result.success).toBe(true);
     });
 
-    it('allows negative basePrice if adjustment', () => {
-      const result = cuttingTypeSchema.safeParse({
-        name: 'Dust Adjustment',
-        basePrice: -10,
-        leafCategoryId: '507f1f77bcf86cd799439012',
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it('rejects empty name', () => {
-      const result = cuttingTypeSchema.safeParse({
-        name: '',
-        basePrice: 0,
-        leafCategoryId: '507f1f77bcf86cd799439012',
+    it('rejects invalid role', () => {
+      const result = userSchema.safeParse({
+        name: 'John Doe',
+        email: 'john@example.com',
+        role: 'super_admin',
       });
       expect(result.success).toBe(false);
+    });
+
+    it('defaults role to viewer if omitted', () => {
+      const result = userSchema.safeParse({
+        name: 'John Doe',
+        email: 'john@example.com',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.role).toBe('viewer');
+      }
     });
   });
 
@@ -108,6 +109,26 @@ describe('Master Data Zod Schemas', () => {
         status: 'InvalidStatus', // Only Active or Inactive allowed
       });
       expect(result.success).toBe(false);
+    });
+
+    it('rejects empty or missing purchaseBatchLineItemId', () => {
+      const payload = {
+        ...validPayload,
+        lineItems: [
+          {
+            ...validPayload.lineItems[0],
+            purchaseBatchLineItemId: '',
+          },
+        ],
+      };
+      const result = customerTeaFormulaSchema.safeParse(payload);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const error = result.error.errors.find(
+          (err) => err.path.includes('purchaseBatchLineItemId')
+        );
+        expect(error?.message).toBe('Purchase Batch Line Item ID is required.');
+      }
     });
   });
 });

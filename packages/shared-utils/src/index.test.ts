@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateBatchCode, parseBatchCode } from './index';
+import { generateBatchCode, parseBatchCode, isSearchQueryPresent } from './index';
 
 describe('batch code utilities', () => {
   it('generates SOP batch code from bags and purchase date', () => {
@@ -27,3 +27,23 @@ describe('batch code utilities', () => {
     });
   });
 });
+
+describe('isSearchQueryPresent utility', () => {
+  it('returns false for undefined, null, empty string, and whitespace', () => {
+    expect(isSearchQueryPresent(undefined)).toBe(false);
+    expect(isSearchQueryPresent(null)).toBe(false);
+    expect(isSearchQueryPresent('')).toBe(false);
+    expect(isSearchQueryPresent('   ')).toBe(false);
+    expect(isSearchQueryPresent('null')).toBe(false);
+    expect(isSearchQueryPresent('undefined')).toBe(false);
+    expect(isSearchQueryPresent('NULL')).toBe(false);
+    expect(isSearchQueryPresent('Undefined')).toBe(false);
+  });
+
+  it('returns true for valid search queries', () => {
+    expect(isSearchQueryPresent('tea')).toBe(true);
+    expect(isSearchQueryPresent('  Assam  ')).toBe(true);
+    expect(isSearchQueryPresent('123')).toBe(true);
+  });
+});
+

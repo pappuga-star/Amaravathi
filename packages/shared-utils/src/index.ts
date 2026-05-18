@@ -60,3 +60,15 @@ export function formatCurrency(value: number): string {
     maximumFractionDigits: 2,
   }).format(value);
 }
+
+export function isSearchQueryPresent(search: string | undefined | null): boolean {
+  if (search === undefined || search === null) {
+    return false;
+  }
+  const trimmed = String(search).trim();
+  return trimmed !== '' && trimmed.toLowerCase() !== 'null' && trimmed.toLowerCase() !== 'undefined';
+}
+
+export function escapeRegex(value: string): string {
+  return value.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}

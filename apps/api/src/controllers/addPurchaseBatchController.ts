@@ -3,28 +3,27 @@ import {
   purchaseBatchSchema,
   type PurchaseBatch,
 } from '@amaravathi/shared-types';
+import { escapeRegex, isSearchQueryPresent } from '@amaravathi/shared-utils';
 import { created, ok } from '../utils/apiResponse.js';
 import { AddPurchaseBatch as AddPurchaseBatchModel } from '../models/index.js';
 
 export async function createAddPurchaseBatch(req: Request, res: Response) {
   const body = purchaseBatchSchema.parse(req.body);
-  const purchaseBatch = await AddPurchaseBatchModel.create(body);
+  const payload = normalizePayload(body);
+  const purchaseBatch = await AddPurchaseBatchModel.create(payload);
   return created(res, formatBatch(purchaseBatch.toObject()));
 }
 
 export async function updateAddPurchaseBatch(req: Request, res: Response) {
-  const body = purchaseBatchSchema.partial().parse(req.body);
-  const purchaseBatch = await AddPurchaseBatchModel.findByIdAndUpdate(
-    req.params.id,
-    body,
-    {
-      new: true,
-      runValidators: true,
-    },
-  ).lean();
+  const body = purchaseBatchSchema.parse(req.body);
+  const payload = normalizePayload(body);
+  const purchaseBatch = await AddPurchaseBatchModel.findById(req.params.id);
   if (!purchaseBatch)
     throw Object.assign(new Error('Purchase batch not found'), { status: 404 });
-  return ok(res, formatBatch(purchaseBatch), 'Updated');
+
+  purchaseBatch.set(payload);
+  await purchaseBatch.save();
+  return ok(res, formatBatch(purchaseBatch.toObject()), 'Updated');
 }
 
 export async function getAddPurchaseBatch(req: Request, res: Response) {
@@ -37,16 +36,19 @@ export async function getAddPurchaseBatch(req: Request, res: Response) {
 }
 
 export async function listAddPurchaseBatches(req: Request, res: Response) {
-  const q = String(req.query.q ?? '').trim();
+  const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
   const page = Math.max(Number(req.query.page ?? 1), 1);
   const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
 
   let filter: any = {};
-  if (q) {
+  if (isSearchQueryPresent(rawQ)) {
+    const q = String(rawQ).trim();
+    const safeRegex = new RegExp(escapeRegex(q), 'i');
     const conditions: any[] = [
-      { batchCode: { $regex: q, $options: 'i' } },
-      { sellerName: { $regex: q, $options: 'i' } },
-      { billNumber: { $regex: q, $options: 'i' } },
+      { batchCode: safeRegex },
+      { sellerName: safeRegex },
+      { billNumber: safeRegex },
+      { 'lineItems.teaPowderTypeName': safeRegex },
     ];
 
     // Check if query is a valid date
@@ -109,15 +111,17 @@ export async function lookupAddPurchaseBatch(req: Request, res: Response) {
 }
 
 export async function searchAddPurchaseBatches(req: Request, res: Response) {
-  const q = String(req.query.q ?? '').trim();
-  if (!q) return ok(res, []);
+  const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
+  if (!isSearchQueryPresent(rawQ)) return ok(res, []);
 
+  const q = String(rawQ).trim();
+  const safeRegex = new RegExp(escapeRegex(q), 'i');
   const purchaseBatches = await AddPurchaseBatchModel.find({
     $or: [
-      { batchCode: { $regex: q, $options: 'i' } },
-      { sellerName: { $regex: q, $options: 'i' } },
-      { billNumber: { $regex: q, $options: 'i' } },
-      { 'items.teaPowderType': { $regex: q, $options: 'i' } },
+      { batchCode: safeRegex },
+      { sellerName: safeRegex },
+      { billNumber: safeRegex },
+      { 'lineItems.teaPowderTypeName': safeRegex },
     ],
   })
     .sort({ purchaseDate: -1, createdAt: -1 })
@@ -129,16 +133,17 @@ export async function searchAddPurchaseBatches(req: Request, res: Response) {
 
 export async function latestRatesByTeaPowder(_req: Request, res: Response) {
   const purchaseBatches = await AddPurchaseBatchModel.find()
+    .select('lineItems batchCode purchaseDate')
     .sort({ purchaseDate: -1, createdAt: -1 })
     .lean();
   const latestByType = new Map<string, any>();
 
   for (const batch of purchaseBatches) {
-    for (const item of (batch as any).items) {
-      if (!latestByType.has(item.teaPowderType)) {
-        latestByType.set(item.teaPowderType, {
-          teaPowderType: item.teaPowderType,
-          ratePerKg: item.ratePerKg,
+    for (const item of (batch as any).lineItems ?? []) {
+      if (!latestByType.has(item.teaPowderTypeName)) {
+        latestByType.set(item.teaPowderTypeName, {
+          teaPowderType: item.teaPowderTypeName,
+          ratePerKg: item.pricePerKg,
           batchCode: (batch as any).batchCode,
           purchaseDate: (batch as any).purchaseDate,
         });
@@ -150,23 +155,76 @@ export async function latestRatesByTeaPowder(_req: Request, res: Response) {
 }
 
 function formatBatch(batch: any): PurchaseBatch {
+  const lineItems = (batch.lineItems ?? batch.items ?? []).map((item: any) => ({
+    _id: item._id ? String(item._id) : undefined,
+    id: item._id ? String(item._id) : undefined,
+    teaPowderTypeId: String(item.teaPowderTypeId ?? ''),
+    teaPowderTypeName: item.teaPowderTypeName ?? item.teaPowderType ?? '',
+    quantityKg: Number(item.quantityKg ?? 1),
+    pricePerKg: Number(item.pricePerKg ?? item.ratePerKg ?? 0),
+    totalAmount: Number(
+      item.totalAmount ??
+        Number(item.quantityKg ?? 1) * Number(item.pricePerKg ?? item.ratePerKg ?? 0),
+    ),
+    availableStockInGrams: Number(item.availableStockInGrams ?? 0),
+    teaPowderType: item.teaPowderTypeName ?? item.teaPowderType ?? '',
+    ratePerKg: Number(item.pricePerKg ?? item.ratePerKg ?? 0),
+    ingredientCategory: item.ingredientCategory ?? 'Leaf',
+    pricePerGram:
+      Number(item.pricePerKg ?? item.ratePerKg ?? 0) > 0
+        ? Number(item.pricePerKg ?? item.ratePerKg ?? 0) / 1000
+        : 0,
+    subSerialNumber: Number(item.subSerialNumber ?? 0) || undefined,
+  }));
+
   return {
     id: String(batch._id),
     serialNumber: batch.serialNumber,
     numberOfBags: batch.numberOfBags,
     purchaseDate: batch.purchaseDate.toISOString(),
     billNumber: batch.billNumber,
-    sellerName: batch.sellerName,
+    sellerId: batch.sellerId ? String(batch.sellerId) : '',
+    sellerName: batch.sellerName ?? '',
     batchCode: batch.batchCode,
-    items: batch.items.map((item: any) => ({
-      subSerialNumber: item.subSerialNumber,
-      teaPowderType: item.teaPowderType,
-      ratePerKg: item.ratePerKg,
-      ingredientCategory: item.ingredientCategory || 'Leaf',
-      pricePerGram: item.pricePerGram || item.ratePerKg / 1000,
-      availableStockInGrams: item.availableStockInGrams || 50000,
-    })),
+    lineItems,
+    items: lineItems,
+    totalQuantityKg: Number(batch.totalQuantityKg ?? 0),
+    totalBatchAmount: Number(batch.totalBatchAmount ?? 0),
     createdAt: batch.createdAt.toISOString(),
     updatedAt: batch.updatedAt.toISOString(),
+  };
+}
+
+function normalizePayload(body: any) {
+  const lineItems = body.lineItems.map((item: any) => {
+    const quantityKg = Number(item.quantityKg);
+    const pricePerKg = Number(item.pricePerKg);
+    return {
+      teaPowderTypeId: item.teaPowderTypeId,
+      teaPowderTypeName: String(item.teaPowderTypeName).trim(),
+      quantityKg,
+      pricePerKg,
+      totalAmount: Number((quantityKg * pricePerKg).toFixed(2)),
+      availableStockInGrams: Math.round(quantityKg * 1000),
+    };
+  });
+
+  const totalQuantityKg = Number(
+    lineItems.reduce((sum: number, item: any) => sum + item.quantityKg, 0).toFixed(3),
+  );
+  const totalBatchAmount = Number(
+    lineItems.reduce((sum: number, item: any) => sum + item.totalAmount, 0).toFixed(2),
+  );
+
+  return {
+    purchaseDate: body.purchaseDate,
+    numberOfBags: Number(body.numberOfBags),
+    billNumber: String(body.billNumber).trim(),
+    sellerId: body.sellerId ? String(body.sellerId).trim() : undefined,
+    sellerName: String(body.sellerName ?? '').trim(),
+    batchCode: body.batchCode,
+    lineItems,
+    totalQuantityKg,
+    totalBatchAmount,
   };
 }

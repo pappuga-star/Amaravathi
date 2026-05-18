@@ -10,14 +10,20 @@ export const marginTypes = ['amount', 'percentage'] as const;
 export type Role = (typeof roles)[number];
 export type MarginType = (typeof marginTypes)[number];
 
-export const objectIdSchema = z.string().min(1);
-export const mobileSchema = z.string().trim().min(7).max(20);
+export const objectIdSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-f\d]{24}$/i, 'Invalid ID format');
+export const mobileSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{10}$/, 'Mobile number must be exactly 10 digits');
 
 export const userSchema = z.object({
   name: z.string().trim().min(2),
   email: z.string().trim().email().toLowerCase(),
   password: z.string().min(8).optional(),
-  role: z.enum(roles),
+  role: z.enum(roles).default('viewer'),
   active: z.boolean().default(true),
 });
 
@@ -32,24 +38,40 @@ export const teaPowderTypeSchema = z.object({
   active: z.boolean().default(true),
 });
 
-export const purchaseBatchItemSchema = z.object({
-  subSerialNumber: z.number().int().positive().optional(),
-  teaPowderType: z.string().trim().min(1),
-  ratePerKg: z.coerce.number().positive(),
-  ingredientCategory: z.enum(['Leaf', 'Add-On']).optional(),
-  pricePerGram: z.coerce.number().optional(),
-  availableStockInGrams: z.coerce.number().optional(),
+export const purchaseBatchLineItemSchema = z.object({
+  teaPowderTypeId: objectIdSchema,
+  teaPowderTypeName: z.string().trim().min(1),
+  quantityKg: z.coerce.number().positive(),
+  pricePerKg: z.coerce.number().positive(),
+  totalAmount: z.coerce.number().nonnegative().optional(),
 });
 
-export const purchaseBatchSchema = z.object({
-  serialNumber: z.number().int().positive().optional(),
-  numberOfBags: z.coerce.number().int().positive(),
-  purchaseDate: z.coerce.date(),
-  billNumber: z.string().trim().min(1),
-  sellerName: z.string().trim().min(1),
-  batchCode: z.string().trim().optional(),
-  items: z.array(purchaseBatchItemSchema).min(1),
-});
+export const purchaseBatchSchema = z
+  .object({
+    serialNumber: z.number().int().positive().optional(),
+    numberOfBags: z.coerce.number().int().positive(),
+    purchaseDate: z.coerce.date(),
+    billNumber: z.string().trim().min(1),
+    sellerId: z.string().trim().optional(),
+    sellerName: z.string().trim().optional(),
+    batchCode: z.string().trim().optional(),
+    lineItems: z.array(purchaseBatchLineItemSchema).min(1),
+    totalQuantityKg: z.coerce.number().nonnegative().optional(),
+    totalBatchAmount: z.coerce.number().nonnegative().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const keys = value.lineItems.map((item) =>
+      item.teaPowderTypeId.trim().toLowerCase(),
+    );
+    const duplicates = keys.filter((key, idx) => keys.indexOf(key) !== idx);
+    if (duplicates.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['lineItems'],
+        message: 'Duplicate tea powder types are not allowed in a batch.',
+      });
+    }
+  });
 
 export const purchaseBatchSearchSchema = z.object({
   q: z.string().trim().min(1),
@@ -59,12 +81,15 @@ export type UserInput = z.infer<typeof userSchema>;
 export type TeaPowderTypeInput = z.infer<typeof teaPowderTypeSchema>;
 
 export type PurchaseBatchInput = z.infer<typeof purchaseBatchSchema>;
-export type PurchaseBatchItemInput = z.infer<typeof purchaseBatchItemSchema>;
+export type PurchaseBatchLineItemInput = z.infer<
+  typeof purchaseBatchLineItemSchema
+>;
+export type PurchaseBatchItemInput = PurchaseBatchLineItemInput;
 
 export const sellerSchema = z.object({
   name: z.string().trim().min(2),
   contactPerson: z.string().trim().optional(),
-  phone: z.string().trim().optional(),
+  phone: mobileSchema.optional(),
   email: z.string().trim().optional(),
   active: z.boolean().default(true),
 });
@@ -77,16 +102,7 @@ export const leafCategorySchema = z.object({
   active: z.boolean().default(true),
 });
 
-export const cuttingTypeSchema = z.object({
-  name: z.string().trim().min(1),
-  basePrice: z.coerce.number(),
-  leafCategoryId: objectIdSchema,
-  description: z.string().trim().optional(),
-  active: z.boolean().default(true),
-});
-
 export type LeafCategoryInput = z.infer<typeof leafCategorySchema>;
-export type CuttingTypeInput = z.infer<typeof cuttingTypeSchema>;
 
 export type LeafCategory = {
   id: string;
@@ -98,22 +114,10 @@ export type LeafCategory = {
   deletedAt?: string;
 };
 
-export type CuttingType = {
-  id: string;
-  name: string;
-  basePrice: number;
-  leafCategoryId: string;
-  description?: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string;
-};
-
 export const customerSchema = z.object({
   name: z.string().trim().min(2),
   address: z.string().trim().optional(),
-  mobileNumber: z.string().trim().optional(),
+  mobileNumber: mobileSchema.optional(),
   active: z.boolean().default(true),
 });
 
@@ -138,12 +142,22 @@ export type ApiResponse<T> = {
 };
 
 export type PurchaseBatchItem = {
-  subSerialNumber: number;
-  teaPowderType: string;
-  ratePerKg: number;
+  _id?: string;
+  id?: string;
+  teaPowderTypeId: string;
+  teaPowderTypeName: string;
+  quantityKg: number;
+  pricePerKg: number;
+  totalAmount: number;
+  /** @deprecated Use teaPowderTypeName */
+  teaPowderType?: string;
+  /** @deprecated Use pricePerKg */
+  ratePerKg?: number;
+  /** @deprecated */
   ingredientCategory?: 'Leaf' | 'Add-On';
-  pricePerGram?: number;
   availableStockInGrams?: number;
+  pricePerGram?: number;
+  subSerialNumber?: number;
 };
 
 export type PurchaseBatch = {
@@ -152,9 +166,14 @@ export type PurchaseBatch = {
   numberOfBags: number;
   purchaseDate: string;
   billNumber: string;
+  sellerId: string;
   sellerName: string;
   batchCode: string;
+  lineItems: PurchaseBatchItem[];
+  /** @deprecated Use lineItems */
   items: PurchaseBatchItem[];
+  totalQuantityKg: number;
+  totalBatchAmount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -174,7 +193,12 @@ export const customerTeaFormulaSchema = z.object({
     .array(
       z.object({
         purchaseBatchCode: z.string().trim().min(1),
-        purchaseBatchLineItemId: z.string().trim().min(1),
+        purchaseBatchLineItemId: z
+          .string({
+            required_error: 'Purchase Batch Line Item ID is required.',
+          })
+          .trim()
+          .min(1, 'Purchase Batch Line Item ID is required.'),
         ingredientCategory: z.enum(['Leaf', 'Add-On']),
         ingredientName: z.string().trim().min(1),
         quantityInGrams: z.coerce.number().positive(),
@@ -187,8 +211,6 @@ export const customerTeaFormulaSchema = z.object({
   // Legacy fields for partial backwards compatibility (Deprecated)
   /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
   leafCategoryId: objectIdSchema.optional(),
-  /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
-  cuttingTypeId: objectIdSchema.optional(),
   /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
   addons: z
     .array(
@@ -236,8 +258,6 @@ export type CustomerTeaFormula = {
   // Legacy fields (Deprecated)
   /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
   leafCategoryId?: { id: string; name: string } | string;
-  /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
-  cuttingTypeId?: { id: string; name: string; basePrice: number } | string;
   /** @deprecated Maintain for backwards compatibility with old records. Use lineItems instead. */
   addons?: { name: string; price: number; gramsPerKg: number }[];
   /** @deprecated Maintain for backwards compatibility with old records. Use totalFormulaCost instead. */

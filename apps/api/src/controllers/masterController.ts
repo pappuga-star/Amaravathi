@@ -1,10 +1,13 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { LeafCategory, CuttingType } from '../models/index.js';
+import { LeafCategory } from '../models/index.js';
 import {
   leafCategorySchema,
-  cuttingTypeSchema,
 } from '@amaravathi/shared-types';
+import {
+  escapeRegex,
+  isSearchQueryPresent as isSearchQueryPresentUtil,
+} from '@amaravathi/shared-utils';
 import { ok, created } from '../utils/apiResponse.js';
 
 function buildMasterController(
@@ -16,7 +19,7 @@ function buildMasterController(
 ) {
   return {
     async list(req: Request, res: Response) {
-      const q = String(req.query.q ?? '').trim();
+      const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
       const status = String(req.query.status ?? 'all')
         .trim()
         .toLowerCase();
@@ -34,9 +37,11 @@ function buildMasterController(
       const filter: any = {};
 
       // 1. Search Query
-      if (q && searchFields.length) {
+      if (isSearchQueryPresentUtil(rawQ) && searchFields.length) {
+        const q = String(rawQ).trim();
+        const safeRegex = new RegExp(escapeRegex(q), 'i');
         filter.$or = searchFields.map((field) => ({
-          [field]: { $regex: q, $options: 'i' },
+          [field]: safeRegex,
         }));
       }
 
@@ -185,12 +190,4 @@ export const leafCategoriesController = buildMasterController(
   leafCategorySchema,
   ['name', 'description'],
   'name',
-);
-
-export const cuttingTypesController = buildMasterController(
-  CuttingType,
-  cuttingTypeSchema,
-  ['name', 'description'],
-  'name',
-  ['leafCategoryId'],
 );
