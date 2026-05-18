@@ -6,3 +6,5 @@ export * from './Customer.js';
 export * from './LeafCategory.js';
 export * from './CustomerTeaFormula.js';
 export * from './CustomerTeaFormulaHistory.js';
+export * from './GeneralItemPurchase.js';
+export * from './GeneralItemsMaster.js';

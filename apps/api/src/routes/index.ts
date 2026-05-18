@@ -37,6 +37,19 @@ import {
   latestPurchaseRates,
   sellerPurchaseHistory,
 } from '../controllers/reportController.js';
+import {
+  createGeneralItem,
+  createGeneralItemsMaster,
+  deleteGeneralItem,
+  deleteGeneralItemsMaster,
+  generalItemsRateHistory,
+  generalItemsStockSummary,
+  getGeneralItem,
+  listGeneralItems,
+  listGeneralItemsMaster,
+  updateGeneralItem,
+  updateGeneralItemsMaster,
+} from '../controllers/generalItemsController.js';
 import { requireAuth, permit } from '../middleware/auth.js';
 import {
   TeaPowderType,
@@ -167,6 +180,49 @@ router.delete(
   '/add-purchase-batch/:id',
   permit('admin'),
   asyncHandler(deleteAddPurchaseBatch),
+);
+
+router.get('/general-items', asyncHandler(listGeneralItems));
+router.post(
+  '/general-items',
+  permit('admin', 'pricing_manager'),
+  asyncHandler(createGeneralItem),
+);
+router.get(
+  '/general-items/rate-history',
+  asyncHandler(generalItemsRateHistory),
+);
+router.get(
+  '/general-items/stock-summary',
+  asyncHandler(generalItemsStockSummary),
+);
+router.get('/general-items/:id', asyncHandler(getGeneralItem));
+router.put(
+  '/general-items/:id',
+  permit('admin', 'pricing_manager'),
+  asyncHandler(updateGeneralItem),
+);
+router.delete(
+  '/general-items/:id',
+  permit('admin'),
+  asyncHandler(deleteGeneralItem),
+);
+
+router.get('/general-items-master', asyncHandler(listGeneralItemsMaster));
+router.post(
+  '/general-items-master',
+  permit('admin', 'pricing_manager'),
+  asyncHandler(createGeneralItemsMaster),
+);
+router.put(
+  '/general-items-master/:id',
+  permit('admin', 'pricing_manager'),
+  asyncHandler(updateGeneralItemsMaster),
+);
+router.delete(
+  '/general-items-master/:id',
+  permit('admin'),
+  asyncHandler(deleteGeneralItemsMaster),
 );
 
 router.get('/users', permit('admin'), asyncHandler(users.list));
