@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { CheckCircle2, AlertCircle, Info, XCircle, X } from 'lucide-react';
 import { Button } from '@amaravathi/shared-ui';
+import { Portal } from './ui/Portal';
+import { Z_INDEX } from '../constants/zIndex';
 
 interface Toast {
   id: string;
@@ -46,9 +48,6 @@ export function NotificationProvider({
 }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  useEffect(() => {
-    console.log('NotificationProvider mounted');
-  }, []);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     options: ConfirmOptions;
@@ -138,7 +137,11 @@ export function NotificationProvider({
       {children}
 
       {/* Responsive Toast List */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-full max-w-sm px-4 sm:px-0">
+      <Portal>
+      <div
+        className="fixed bottom-4 right-4 flex flex-col gap-2 w-full max-w-sm px-4 sm:px-0"
+        style={{ zIndex: Z_INDEX.toast }}
+      >
         {toasts.map((toast) => {
           const typeClasses = {
             success:
@@ -178,14 +181,20 @@ export function NotificationProvider({
           );
         })}
       </div>
+      </Portal>
 
       {/* Styled Confirmation Modal */}
       {confirmDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+        <Portal>
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm"
+          style={{ zIndex: Z_INDEX.modalBackdrop }}
+        >
           <div
             className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95 duration-200"
             role="dialog"
             aria-modal="true"
+            style={{ zIndex: Z_INDEX.modal }}
           >
             <div className="flex items-start gap-4">
               <div
@@ -227,6 +236,7 @@ export function NotificationProvider({
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </NotificationContext.Provider>
   );

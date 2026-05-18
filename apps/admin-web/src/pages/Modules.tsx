@@ -19,6 +19,8 @@ import { DataModule } from '../components/DataModule';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '../components/NotificationContext';
 import { useDebounce } from '../hooks/useDebounce';
+import { Z_INDEX } from '../constants/zIndex';
+import { STICKY_IN_CONTENT } from '../utils/sticky';
 
 export const TeaPowderTypesPage = () => {
   const PAGE_SIZE = 20;
@@ -238,7 +240,10 @@ export const TeaPowderTypesPage = () => {
 
         <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+            <thead
+              className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200"
+              style={STICKY_IN_CONTENT}
+            >
               <tr>
                 <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide w-20">
                   S.No
@@ -322,7 +327,10 @@ export const TeaPowderTypesPage = () => {
           </table>
         </div>
 
-        <div className="sticky bottom-0 z-[60] -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur">
+        <div
+          className="sticky bottom-0 -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur"
+          style={{ zIndex: Z_INDEX.sticky }}
+        >
           <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-center sm:justify-between sm:pr-24">
             <p className="text-[11px] font-medium text-slate-500">
             Showing {items.length ? serialStart + 1 : 0} to{' '}
@@ -693,7 +701,10 @@ export const SellersPage = () => {
 
         <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+            <thead
+              className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200"
+              style={STICKY_IN_CONTENT}
+            >
               <tr>
                 <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide w-20">
                   S.No
@@ -795,13 +806,13 @@ export const SellersPage = () => {
           </table>
         </div>
 
-        <div className="sticky bottom-0 z-[60] -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur">
-          <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-center sm:justify-between sm:pr-24">
+        <div className="mt-1 border-t border-slate-200 px-1 pt-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[11px] font-medium text-slate-500">
               Showing {items.length ? serialStart + 1 : 0} to{' '}
               {serialStart + items.length} of {totalRecords}
             </p>
-            <div className="mr-20 flex items-center gap-1.5 sm:mr-24">
+            <div className="flex items-center gap-1.5">
               <Button
                 type="button"
                 variant="secondary"
@@ -1175,7 +1186,10 @@ export const CustomersPage = () => {
 
         <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+            <thead
+              className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200"
+              style={STICKY_IN_CONTENT}
+            >
               <tr>
                 <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide w-20">
                   S.No
@@ -1257,7 +1271,10 @@ export const CustomersPage = () => {
           </table>
         </div>
 
-        <div className="sticky bottom-0 z-[60] -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur">
+        <div
+          className="sticky bottom-0 -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur"
+          style={{ zIndex: Z_INDEX.sticky }}
+        >
           <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-center sm:justify-between sm:pr-24">
             <p className="text-[11px] font-medium text-slate-500">
               Showing {items.length ? serialStart + 1 : 0} to{' '}

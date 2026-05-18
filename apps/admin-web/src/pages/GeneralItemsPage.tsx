@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Card, Field, Input } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
@@ -7,6 +8,10 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useNotification } from '../components/NotificationContext';
 import { Edit3, Eye, Plus, Printer, Trash2 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { Z_INDEX } from '../constants/zIndex';
+import { Portal } from '../components/ui/Portal';
+import { useTabsKeyboardNavigation } from '../hooks/useTabsKeyboardNavigation';
+import { STICKY_IN_CONTENT } from '../utils/sticky';
 
 type Unit = 'Kg' | 'Grams' | 'Pieces' | 'Boxes' | 'Packets' | 'Dozens' | 'Liters';
 
@@ -81,7 +86,10 @@ function SupplierAutocompleteInput({
         disabled={disabled}
       />
       {isOpen && filtered.length > 0 && !disabled ? (
-        <ul className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5">
+        <ul
+          className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
+          style={{ zIndex: Z_INDEX.dropdown }}
+        >
           {filtered.map((opt, i) => (
             <li
               key={`${opt}-${i}`}
@@ -98,6 +106,117 @@ function SupplierAutocompleteInput({
           ))}
         </ul>
       ) : null}
+    </div>
+  );
+}
+
+function ParticularsAutocompleteInput({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+  onFocus,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  placeholder: string;
+  disabled?: boolean;
+  onFocus?: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState(value);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  useEffect(() => {
+    setSearch(value);
+  }, [value]);
+
+  const trimmedSearch = search.trim().toLowerCase();
+  const filtered = trimmedSearch
+    ? options
+        .filter((opt) => opt.toLowerCase().includes(trimmedSearch))
+        .slice(0, 10)
+    : [];
+
+  useEffect(() => {
+    if (!isOpen || filtered.length === 0 || disabled) return;
+
+    const updatePosition = () => {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen, filtered.length, disabled]);
+
+  return (
+    <div className="relative w-full">
+      <Input
+        ref={inputRef}
+        value={search}
+        onFocus={onFocus}
+        onChange={(e) => {
+          const next = e.target.value;
+          setSearch(next);
+          onChange(next);
+          setIsOpen(next.trim().length > 0);
+        }}
+        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+        placeholder={placeholder}
+        disabled={disabled}
+      />
+      {isOpen &&
+      filtered.length > 0 &&
+      !disabled &&
+      typeof document !== 'undefined' &&
+      dropdownPosition
+        ? createPortal(
+            <ul
+              className="fixed max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
+              style={{
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                width: dropdownPosition.width,
+                zIndex: Z_INDEX.dropdown,
+              }}
+            >
+              {filtered.map((opt, i) => (
+                <li
+                  key={`${opt}-${i}`}
+                  className="cursor-pointer rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setSearch(opt);
+                    onChange(opt);
+                    setIsOpen(false);
+                  }}
+                >
+                  {opt}
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
@@ -256,6 +375,13 @@ function GeneralItemsForm({
       ),
     [masterItems],
   );
+  const activeMasterItemNames = useMemo(
+    () =>
+      masterItems
+        .filter((item) => item.isActive)
+        .map((item) => item.itemName),
+    [masterItems],
+  );
 
   const updateLine = (
     index: number,
@@ -381,8 +507,9 @@ function GeneralItemsForm({
         </Field>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-[860px] w-full text-sm">
+      <div className="rounded-lg border border-slate-200 overflow-visible">
+        <div className="overflow-x-auto overflow-y-visible">
+          <table className="min-w-[860px] w-full text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left">Particulars</th>
@@ -400,13 +527,11 @@ function GeneralItemsForm({
                 className={index === selectedRowIndex ? 'bg-emerald-50/40' : ''}
               >
                 <td className="px-3 py-2">
-                  <Input
-                    list="general-items-master"
+                  <ParticularsAutocompleteInput
                     value={item.particulars}
                     onFocus={() => setSelectedRowIndex(index)}
-                    onChange={(e) =>
-                      updateLine(index, { particulars: e.target.value }, true)
-                    }
+                    onChange={(value) => updateLine(index, { particulars: value }, true)}
+                    options={activeMasterItemNames}
                     placeholder="e.g. Tea Glass"
                     disabled={!canEdit}
                   />
@@ -489,19 +614,15 @@ function GeneralItemsForm({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
-
-      <datalist id="general-items-master">
-        {masterItems
-          .filter((item) => item.isActive)
-          .map((item) => (
-            <option key={item.id} value={item.itemName} />
-          ))}
-      </datalist>
 
       {rateComparison}
 
-      <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 pt-3 backdrop-blur">
+      <div
+        className="sticky bottom-0 border-t border-slate-200 bg-white/95 pt-3 backdrop-blur"
+        style={{ zIndex: Z_INDEX.sticky }}
+      >
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           {isEditing && (
             <Button type="button" variant="secondary" onClick={onCancel}>
@@ -564,7 +685,11 @@ function NewSupplierModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4">
+    <Portal>
+    <div
+      className="fixed inset-0 grid place-items-center bg-slate-900/50 p-4"
+      style={{ zIndex: Z_INDEX.modalBackdrop }}
+    >
       <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
           <h4 className="text-base font-bold text-slate-900">New Supplier</h4>
@@ -594,6 +719,7 @@ function NewSupplierModal({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 
@@ -707,7 +833,11 @@ function GeneralItemsViewDialog({
   onEdit: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4">
+    <Portal>
+    <div
+      className="fixed inset-0 grid place-items-center bg-slate-900/50 p-4"
+      style={{ zIndex: Z_INDEX.modalBackdrop }}
+    >
       <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div>
@@ -756,6 +886,7 @@ function GeneralItemsViewDialog({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 
@@ -845,6 +976,45 @@ function GeneralItemsMasterPage({
   const [defaultUnit, setDefaultUnit] = useState<Unit>('Pieces');
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
+
+  const filteredItems = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) return masterItems;
+    return masterItems.filter((item) =>
+      [item.itemName, item.defaultUnit, item.isActive ? 'active' : 'inactive']
+        .join(' ')
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [masterItems, searchQuery]);
+
+  const totalRecords = masterItems.length;
+  const totalFilteredRecords = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalFilteredRecords / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageStart = (safeCurrentPage - 1) * pageSize;
+  const pagedItems = filteredItems.slice(pageStart, pageStart + pageSize);
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (safeCurrentPage <= 3) return [1, 2, 3, 4, totalPages];
+    if (safeCurrentPage >= totalPages - 2) {
+      return [1, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, totalPages];
+  }, [safeCurrentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const submit = () => {
     if (!itemName.trim()) return;
@@ -929,11 +1099,30 @@ function GeneralItemsMasterPage({
         </div>
       </Card>
 
-      <Card className="grid gap-3 p-5">
-        <h4 className="text-base font-bold text-slate-900">General Items Master List</h4>
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <Card className="grid gap-3 p-4">
+        <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h4 className="text-base font-bold text-slate-900">General Items Master List</h4>
+          <div className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
+            Total Records: {totalRecords}
+          </div>
+        </div>
+        <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full sm:max-w-xs">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search items..."
+              className="h-9 text-xs"
+            />
+          </div>
+          <p className="text-[11px] font-medium text-slate-500">Page Size: {pageSize}</p>
+        </div>
+        <div className="max-h-[62vh] overflow-auto rounded-lg border border-slate-200">
           <table className="min-w-[640px] w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead
+              className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"
+              style={STICKY_IN_CONTENT}
+            >
               <tr>
                 <th className="px-3 py-2 text-left">Item Name</th>
                 <th className="px-3 py-2 text-left">Default Unit</th>
@@ -942,7 +1131,7 @@ function GeneralItemsMasterPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {masterItems.map((item) => (
+              {pagedItems.map((item) => (
                 <tr key={item.id}>
                   <td className="px-3 py-2">{item.itemName}</td>
                   <td className="px-3 py-2">{item.defaultUnit}</td>
@@ -963,15 +1152,80 @@ function GeneralItemsMasterPage({
                   </td>
                 </tr>
               ))}
-              {masterItems.length === 0 && (
+              {pagedItems.length === 0 && (
                 <tr>
                   <td className="px-3 py-4 text-center text-slate-500" colSpan={4}>
-                    No master items.
+                    {totalFilteredRecords === 0 ? 'No master items found.' : 'No records found on this page.'}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-1 border-t border-slate-200 px-1 pt-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] font-medium text-slate-500">
+              Showing {totalFilteredRecords ? pageStart + 1 : 0} to {Math.min(pageStart + pagedItems.length, totalFilteredRecords)} of {totalFilteredRecords}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage(1)}
+                disabled={safeCurrentPage <= 1}
+              >
+                {'<<'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage <= 1}
+              >
+                {'<'}
+              </Button>
+              {pageNumbers.map((pageNumber, idx) => {
+                const prev = pageNumbers[idx - 1];
+                const gapBefore = prev && pageNumber - prev > 1;
+                return (
+                  <div key={pageNumber} className="flex items-center gap-1.5">
+                    {gapBefore ? <span className="text-[10px] text-slate-400">...</span> : null}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(pageNumber)}
+                      className={`h-7 min-w-7 rounded-md border px-2 text-[11px] font-semibold ${
+                        safeCurrentPage === pageNumber
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  </div>
+                );
+              })}
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage >= totalPages}
+              >
+                {'>'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={safeCurrentPage >= totalPages}
+              >
+                {'>>'}
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
     </div>
@@ -1476,49 +1730,93 @@ export function GeneralItemsPage() {
     }
     setActiveTab(tab);
   };
+  const tabs = [
+    'purchase-entry',
+    'purchase-register',
+    'item-master',
+    'supplier-rate-history',
+    'stock-summary',
+    'reports',
+  ] as const;
+  const onTabsKeyDown = useTabsKeyboardNavigation(
+    tabs,
+    activeTab,
+    (tab) => {
+      void changeTab(tab);
+    },
+  );
+  const tabBtnClass =
+    'h-10 rounded-md border px-4 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99]';
+  const tabActiveClass =
+    '!bg-emerald-600 !text-white !border-emerald-600 shadow-sm hover:!bg-emerald-600 hover:!text-white focus-visible:!text-white';
+  const tabInactiveClass =
+    'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900';
 
   return (
     <div className="grid gap-6">
-      <Card className="p-2">
-        <div className="flex gap-2 overflow-x-auto pb-1">
+      <Card className="px-3 py-3">
+        <div
+          role="tablist"
+          aria-label="General items sections"
+          onKeyDown={onTabsKeyDown}
+          className="flex gap-2 overflow-x-auto pb-0.5"
+        >
           <Button
             type="button"
-            className={activeTab === 'purchase-entry' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}
+            role="tab"
+            aria-selected={activeTab === 'purchase-entry'}
+            tabIndex={activeTab === 'purchase-entry' ? 0 : -1}
+            className={`${tabBtnClass} ${activeTab === 'purchase-entry' ? tabActiveClass : tabInactiveClass}`}
             onClick={() => void changeTab('purchase-entry')}
           >
             Purchase Entry
           </Button>
           <Button
             type="button"
-            className={activeTab === 'purchase-register' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}
+            role="tab"
+            aria-selected={activeTab === 'purchase-register'}
+            tabIndex={activeTab === 'purchase-register' ? 0 : -1}
+            className={`${tabBtnClass} ${activeTab === 'purchase-register' ? tabActiveClass : tabInactiveClass}`}
             onClick={() => void changeTab('purchase-register')}
           >
             Purchase Register
           </Button>
           <Button
             type="button"
-            className={activeTab === 'item-master' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}
+            role="tab"
+            aria-selected={activeTab === 'item-master'}
+            tabIndex={activeTab === 'item-master' ? 0 : -1}
+            className={`${tabBtnClass} ${activeTab === 'item-master' ? tabActiveClass : tabInactiveClass}`}
             onClick={() => void changeTab('item-master')}
           >
             Item Master
           </Button>
           <Button
             type="button"
-            className={activeTab === 'supplier-rate-history' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}
+            role="tab"
+            aria-selected={activeTab === 'supplier-rate-history'}
+            tabIndex={activeTab === 'supplier-rate-history' ? 0 : -1}
+            className={`${tabBtnClass} ${activeTab === 'supplier-rate-history' ? tabActiveClass : tabInactiveClass}`}
             onClick={() => void changeTab('supplier-rate-history')}
           >
             Supplier Rate History
           </Button>
           <Button
             type="button"
-            className={activeTab === 'stock-summary' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}
+            role="tab"
+            aria-selected={activeTab === 'stock-summary'}
+            tabIndex={activeTab === 'stock-summary' ? 0 : -1}
+            className={`${tabBtnClass} ${activeTab === 'stock-summary' ? tabActiveClass : tabInactiveClass}`}
             onClick={() => void changeTab('stock-summary')}
           >
             Stock Summary
           </Button>
           <Button
             type="button"
-            className={activeTab === 'reports' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}
+            role="tab"
+            aria-selected={activeTab === 'reports'}
+            tabIndex={activeTab === 'reports' ? 0 : -1}
+            className={`${tabBtnClass} ${activeTab === 'reports' ? tabActiveClass : tabInactiveClass}`}
             onClick={() => void changeTab('reports')}
           >
             Reports

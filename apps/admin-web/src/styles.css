@@ -14,10 +14,17 @@
     sans-serif;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   background: #f8fafc;
   color: #0f172a;
+  overflow-x: hidden;
 }
 
 @media print {

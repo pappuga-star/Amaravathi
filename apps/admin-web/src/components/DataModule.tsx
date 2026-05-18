@@ -21,6 +21,8 @@ import {
 import { ViewDetailsModal, ViewField } from './ViewDetailsModal';
 import { useNotification } from './NotificationContext';
 import { useDebounce } from '../hooks/useDebounce';
+import { Z_INDEX } from '../constants/zIndex';
+import { STICKY_IN_CONTENT } from '../utils/sticky';
 
 export type FieldConfig = {
   key: string;
@@ -385,7 +387,10 @@ export function DataModule({
         </div>
         <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+            <thead
+              className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200"
+              style={STICKY_IN_CONTENT}
+            >
               {table.getHeaderGroups().map((group) => (
                 <tr key={group.id}>
                   {group.headers.map((header) => (
@@ -445,7 +450,10 @@ export function DataModule({
             </tbody>
           </table>
         </div>
-        <div className="sticky bottom-0 z-[60] -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur">
+        <div
+          className="sticky bottom-0 -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur"
+          style={{ zIndex: Z_INDEX.sticky }}
+        >
           <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-center sm:justify-between sm:pr-24">
             <p className="text-[11px] font-medium text-slate-500">
               Showing {rows.length ? serialStart + 1 : 0} to{' '}

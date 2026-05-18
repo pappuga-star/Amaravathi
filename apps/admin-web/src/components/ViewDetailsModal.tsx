@@ -1,6 +1,10 @@
 import React from 'react';
 import { X, Printer, Edit3 } from 'lucide-react';
 import { Button } from '@amaravathi/shared-ui';
+import { Portal } from './ui/Portal';
+import { Z_INDEX } from '../constants/zIndex';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export interface ViewField {
   label: string;
@@ -39,6 +43,9 @@ export function ViewDetailsModal({
   isFormula = false,
   onEdit,
 }: ViewDetailsModalProps) {
+  useBodyScrollLock(true);
+  useEscapeKey(true, onClose);
+
   const handlePrint = () => {
     window.print();
   };
@@ -61,7 +68,11 @@ export function ViewDetailsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 no-print-backdrop">
+    <Portal>
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 no-print-backdrop"
+      style={{ zIndex: Z_INDEX.modalBackdrop }}
+    >
       {/* Inject print-specific style rules inline to guarantee standard behavior across browsers */}
       <style>{`
         @media print {
@@ -98,6 +109,7 @@ export function ViewDetailsModal({
       <div
         id="printable-modal-container"
         className="bg-white rounded-xl shadow-xl border border-slate-100 w-full min-w-[320px] max-w-[560px] md:max-w-[560px] max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-150"
+        style={{ zIndex: Z_INDEX.modal }}
       >
         {/* Header */}
         <div className="bg-emerald-800 px-6 py-4 flex items-center justify-between text-white border-b border-emerald-900">
@@ -315,5 +327,6 @@ export function ViewDetailsModal({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

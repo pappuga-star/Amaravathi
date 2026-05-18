@@ -1,19 +1,60 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { getToken, api } from './lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { Layout } from './components/Layout';
-import { Dashboard } from './pages/Dashboard';
-import { Login } from './pages/Login';
-import { AddPurchaseBatchPage, UsersPage, SellersPage } from './pages/Modules';
-import { ReportsPage } from './pages/Reports';
-import { SettingsPage } from './pages/Settings';
-import { TasteCustomizationMasterPage } from './pages/TasteCustomizationMasterPage';
-import { CustomerFormulasPage } from './pages/CustomerFormulasPage';
-import { SalesQuotationPlannerPage } from './pages/SalesQuotationPlannerPage';
-import { GeneralItemsPage } from './pages/GeneralItemsPage';
-
 import { ErrorBoundary } from './components/ErrorBoundary';
+
+const Dashboard = lazy(() =>
+  import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })),
+);
+const Login = lazy(() =>
+  import('./pages/Login').then((m) => ({ default: m.Login })),
+);
+const AddPurchaseBatchPage = lazy(() =>
+  import('./pages/Modules').then((m) => ({ default: m.AddPurchaseBatchPage })),
+);
+const SellersPage = lazy(() =>
+  import('./pages/Modules').then((m) => ({ default: m.SellersPage })),
+);
+const UsersPage = lazy(() =>
+  import('./pages/Modules').then((m) => ({ default: m.UsersPage })),
+);
+const ReportsPage = lazy(() =>
+  import('./pages/Reports').then((m) => ({ default: m.ReportsPage })),
+);
+const SettingsPage = lazy(() =>
+  import('./pages/Settings').then((m) => ({ default: m.SettingsPage })),
+);
+const TasteCustomizationMasterPage = lazy(() =>
+  import('./pages/TasteCustomizationMasterPage').then((m) => ({
+    default: m.TasteCustomizationMasterPage,
+  })),
+);
+const CustomerFormulasPage = lazy(() =>
+  import('./pages/CustomerFormulasPage').then((m) => ({
+    default: m.CustomerFormulasPage,
+  })),
+);
+const SalesQuotationPlannerPage = lazy(() =>
+  import('./pages/SalesQuotationPlannerPage').then((m) => ({
+    default: m.SalesQuotationPlannerPage,
+  })),
+);
+const GeneralItemsPage = lazy(() =>
+  import('./pages/GeneralItemsPage').then((m) => ({ default: m.GeneralItemsPage })),
+);
+
+function RouteLoader() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-slate-50 p-4">
+      <div className="flex flex-col items-center gap-4">
+        <div className="size-12 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
+        <p className="text-sm font-medium text-slate-500">Loading page...</p>
+      </div>
+    </main>
+  );
+}
 
 function Protected() {
   const token = getToken();
@@ -86,58 +127,60 @@ export default function App() {
   }, []);
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route element={<Protected />}>
-        <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-        <Route path="purchase-batch" element={<ErrorBoundary><AddPurchaseBatchPage /></ErrorBoundary>} />
-        <Route path="general-items" element={<ErrorBoundary><GeneralItemsPage /></ErrorBoundary>} />
-        <Route path="sellers" element={<ErrorBoundary><SellersPage /></ErrorBoundary>} />
-        <Route
-          path="taste-customization"
-          element={<ErrorBoundary><TasteCustomizationMasterPage /></ErrorBoundary>}
-        />
-        <Route
-          path="customer-formulas/edit/:id"
-          element={<ErrorBoundary><CustomerFormulasPage /></ErrorBoundary>}
-        />
+    <Suspense fallback={<RouteLoader />}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<Protected />}>
+          <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+          <Route path="purchase-batch" element={<ErrorBoundary><AddPurchaseBatchPage /></ErrorBoundary>} />
+          <Route path="general-items" element={<ErrorBoundary><GeneralItemsPage /></ErrorBoundary>} />
+          <Route path="sellers" element={<ErrorBoundary><SellersPage /></ErrorBoundary>} />
+          <Route
+            path="taste-customization"
+            element={<ErrorBoundary><TasteCustomizationMasterPage /></ErrorBoundary>}
+          />
+          <Route
+            path="customer-formulas/edit/:id"
+            element={<ErrorBoundary><CustomerFormulasPage /></ErrorBoundary>}
+          />
 
-        {/* Legacy redirects */}
-        <Route
-          path="add-purchase-batch"
-          element={<Navigate to="/purchase-batch" replace />}
-        />
-        <Route
-          path="tea-powder-types"
-          element={<Navigate to="/purchase-batch?tab=types" replace />}
-        />
-        <Route
-          path="customers"
-          element={<Navigate to="/taste-customization" replace />}
-        />
-        <Route
-          path="leaf-categories"
-          element={<Navigate to="/taste-customization" replace />}
-        />
+          {/* Legacy redirects */}
+          <Route
+            path="add-purchase-batch"
+            element={<Navigate to="/purchase-batch" replace />}
+          />
+          <Route
+            path="tea-powder-types"
+            element={<Navigate to="/purchase-batch?tab=types" replace />}
+          />
+          <Route
+            path="customers"
+            element={<Navigate to="/taste-customization" replace />}
+          />
+          <Route
+            path="leaf-categories"
+            element={<Navigate to="/taste-customization" replace />}
+          />
 
-        <Route
-          path="taste-parameters"
-          element={<Navigate to="/taste-customization" replace />}
-        />
-        <Route
-          path="customer-tea-formulas"
-          element={<Navigate to="/taste-customization" replace />}
-        />
-        <Route
-          path="sales-quotations-planner"
-          element={<ErrorBoundary><SalesQuotationPlannerPage /></ErrorBoundary>}
-        />
-        <Route path="users" element={<ErrorBoundary><UsersPage /></ErrorBoundary>} />
+          <Route
+            path="taste-parameters"
+            element={<Navigate to="/taste-customization" replace />}
+          />
+          <Route
+            path="customer-tea-formulas"
+            element={<Navigate to="/taste-customization" replace />}
+          />
+          <Route
+            path="sales-quotations-planner"
+            element={<ErrorBoundary><SalesQuotationPlannerPage /></ErrorBoundary>}
+          />
+          <Route path="users" element={<ErrorBoundary><UsersPage /></ErrorBoundary>} />
 
-        <Route path="reports" element={<ErrorBoundary><ReportsPage /></ErrorBoundary>} />
-        <Route path="settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+          <Route path="reports" element={<ErrorBoundary><ReportsPage /></ErrorBoundary>} />
+          <Route path="settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </Suspense>
   );
 }

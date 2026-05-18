@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { forwardRef } from 'react';
 import type {
   ButtonHTMLAttributes,
   HTMLAttributes,
@@ -54,20 +55,22 @@ export function Card({
   );
 }
 
-export function Input({
-  className,
-  ...props
-}: InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      className={clsx(
-        'h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100',
-        className,
-      )}
-      {...props}
-    />
-  );
-}
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  ({ className, ...props }, ref) => {
+    return (
+      <input
+        ref={ref}
+        className={clsx(
+          'h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100',
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);
+
+Input.displayName = 'Input';
 
 export function Field({
   label,

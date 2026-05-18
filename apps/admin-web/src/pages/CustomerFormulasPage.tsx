@@ -303,37 +303,6 @@ export const CustomerFormulasPage = ({
     return duplicates;
   }, [lineItems]);
 
-  // Inline Validation: Quantities must not exceed available stock in grams
-  const stockErrors = useMemo(() => {
-    const errors: Record<number, string> = {};
-    lineItems.forEach((item, idx) => {
-      if (
-        item.purchaseBatchCode &&
-        item.ingredientName &&
-        item.quantityInGrams > 0
-      ) {
-        const selectedBatch = batches.find(
-          (b) => b.batchCode === item.purchaseBatchCode,
-        );
-        const batchItem = selectedBatch?.items.find(
-          (i) => i.teaPowderType === item.ingredientName,
-        );
-        if (batchItem) {
-          const stock =
-            batchItem.availableStockInGrams ??
-            selectedBatch!.numberOfBags * 50000;
-          if (item.quantityInGrams > stock) {
-            errors[idx] = t('customerFormulas.messages.stockAvailable').replace(
-              '{{stock}}',
-              String(stock),
-            );
-          }
-        }
-      }
-    });
-    return errors;
-  }, [lineItems, batches]);
-
   // Sticky Live Widget Calculations
   const liveTotals = useMemo(() => {
     let totalWeight = 0;
@@ -410,11 +379,6 @@ export const CustomerFormulasPage = ({
 
     if (duplicateKeys.size > 0) {
       showToast(t('customerFormulas.messages.duplicateFound'), 'error');
-      return;
-    }
-
-    if (Object.keys(stockErrors).length > 0) {
-      showToast(t('customerFormulas.messages.stockLimit'), 'error');
       return;
     }
 
@@ -615,8 +579,6 @@ export const CustomerFormulasPage = ({
                           `${item.purchaseBatchCode.toLowerCase()}:${item.ingredientName.toLowerCase()}`,
                         )
                       );
-                      const stockError = stockErrors[idx];
-
                       return (
                         <tr key={idx} className="hover:bg-slate-50/50">
                           {/* Batch Code Selection */}
@@ -693,7 +655,7 @@ export const CustomerFormulasPage = ({
                                   type="number"
                                   min="1"
                                   className={`w-full h-9 rounded-lg border px-2.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                                    stockError || isDuplicate
+                                    isDuplicate
                                       ? 'border-red-300 bg-red-50/20'
                                       : 'border-slate-200'
                                   }`}
@@ -709,11 +671,6 @@ export const CustomerFormulasPage = ({
                                   placeholder={t('customerFormulas.grams')}
                                   disabled={!item.ingredientName || !canEdit}
                                 />
-                                {stockError && (
-                                  <span className="text-[10px] font-bold text-red-500 block mt-0.5 whitespace-normal">
-                                    {stockError}
-                                  </span>
-                                )}
                               </>
                             )}
                           </td>
@@ -762,7 +719,6 @@ export const CustomerFormulasPage = ({
                                     !item.purchaseBatchCode ||
                                     !item.ingredientName ||
                                     item.quantityInGrams <= 0 ||
-                                    !!stockError ||
                                     isDuplicate
                                   }
                                   onClick={() => {

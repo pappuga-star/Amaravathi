@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -30,6 +31,9 @@ import type {
 } from '@amaravathi/shared-types';
 import { purchaseBatchSchema as purchaseBatchZodSchema } from '@amaravathi/shared-types';
 import { TeaPowderTypesPage } from './Modules';
+import { Z_INDEX } from '../constants/zIndex';
+import { useTabsKeyboardNavigation } from '../hooks/useTabsKeyboardNavigation';
+import { STICKY_IN_CONTENT } from '../utils/sticky';
 
 const initialFormState = {
   purchaseDate: new Date(),
@@ -69,6 +73,12 @@ function AutocompleteInput({
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState(value);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
   useEffect(() => {
     setSearch(value);
@@ -86,9 +96,32 @@ function AutocompleteInput({
     !hasExactMatch &&
     Boolean(onCreateNew);
 
+  useEffect(() => {
+    if (!isOpen || (filtered.length === 0 && !canShowCreateOption)) return;
+
+    const updatePosition = () => {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen, filtered.length, canShowCreateOption]);
+
   return (
     <div className="relative">
       <Input
+        ref={inputRef}
         className={`h-10 text-sm font-normal transition-colors ${className || ''} ${
           hasError
             ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50/10'
@@ -113,9 +146,19 @@ function AutocompleteInput({
         required={required}
       />
       {isOpen &&
-        (filtered.length > 0 ||
-          canShowCreateOption) && (
-          <ul className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5 focus:outline-none">
+        (filtered.length > 0 || canShowCreateOption) &&
+        typeof document !== 'undefined' &&
+        dropdownPosition &&
+        createPortal(
+          <ul
+            className="fixed max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5 focus:outline-none"
+            style={{
+              zIndex: Z_INDEX.dropdown,
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }}
+          >
             {filtered.map((opt, i) => (
               <li
                 key={i}
@@ -142,7 +185,8 @@ function AutocompleteInput({
                 Add "{search}" as new {createLabel || 'Tea Powder Type'}
               </li>
             )}
-          </ul>
+          </ul>,
+          document.body,
         )}
     </div>
   );
@@ -175,6 +219,8 @@ export function AddPurchaseBatchPage() {
     }
     setSearchParams(newParams);
   };
+  const batchTabs = ['batches', 'types'] as const;
+  const onBatchTabsKeyDown = useTabsKeyboardNavigation(batchTabs, activeTab, setActiveTab);
 
   useEffect(() => {
     const q = searchParams.get('q');
@@ -605,12 +651,20 @@ export function AddPurchaseBatchPage() {
   };
 
   // Pagination Math
-  const itemsPerPage = 10;
-  const totalPages = Math.ceil(batches.length / itemsPerPage);
+  const itemsPerPage = 20;
+  const totalPages = Math.max(1, Math.ceil(batches.length / itemsPerPage));
   const paginatedBatches = batches.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (currentPage <= 3) return [1, 2, 3, 4, totalPages];
+    if (currentPage >= totalPages - 2) {
+      return [1, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, currentPage - 1, currentPage, currentPage + 1, totalPages];
+  }, [currentPage, totalPages]);
 
   // Check if any row is currently in Edit Mode
   const hasAnyActiveEditRow = Object.values(editingRowIndices).some(
@@ -620,25 +674,39 @@ export function AddPurchaseBatchPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Sticky Tab Buttons Container */}
-      <div className="sticky top-16 z-30 -mx-1 rounded-xl bg-slate-50/95 px-1 py-1 backdrop-blur no-print">
-        <div className="flex flex-wrap rounded-xl border border-slate-200 p-1 bg-white shadow-sm font-semibold text-slate-600">
+      <div
+        className="-mx-1 mt-1 rounded-xl bg-slate-50/95 px-1 py-1 backdrop-blur no-print"
+        style={STICKY_IN_CONTENT}
+      >
+        <div
+          role="tablist"
+          aria-label="Purchase batch sections"
+          onKeyDown={onBatchTabsKeyDown}
+          className="flex flex-wrap rounded-xl border border-slate-200 p-1 bg-white shadow-sm font-semibold text-slate-600"
+        >
           <button
+            role="tab"
+            aria-selected={activeTab === 'batches'}
+            tabIndex={activeTab === 'batches' ? 0 : -1}
             onClick={() => setActiveTab('batches')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
               activeTab === 'batches'
                 ? 'bg-emerald-600 text-white shadow-md'
-                : 'hover:bg-slate-50 hover:text-slate-900'
+                : 'bg-white hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <ClipboardList size={16} />
             <span>{t('addPurchaseBatch.tabs.purchaseBatches')}</span>
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === 'types'}
+            tabIndex={activeTab === 'types' ? 0 : -1}
             onClick={() => setActiveTab('types')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
               activeTab === 'types'
                 ? 'bg-emerald-600 text-white shadow-md'
-                : 'hover:bg-slate-50 hover:text-slate-900'
+                : 'bg-white hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <Coffee size={16} />
@@ -819,7 +887,7 @@ export function AddPurchaseBatchPage() {
                       <Field label={t('addPurchaseBatch.form.sellerName')}>
                         <div className="relative">
                           <User
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                             size={18}
                           />
                           <AutocompleteInput
@@ -922,10 +990,10 @@ export function AddPurchaseBatchPage() {
                             key={index}
                             className={`grid grid-cols-1 sm:grid-cols-[44px_1fr_140px_160px_160px_136px] gap-4 items-center py-2.5 px-4 transition-all relative ${
                               isDuplicate
-                                ? 'bg-red-50/20 z-10'
+                                ? 'bg-red-50/20'
                                 : isEditingRow
                                   ? 'bg-slate-50/30 z-30'
-                                  : 'hover:bg-slate-50/20 z-10'
+                                  : 'hover:bg-slate-50/20'
                             }`}
                           >
                             {/* Index Column */}
@@ -1185,7 +1253,7 @@ export function AddPurchaseBatchPage() {
 
             {/* 5. Existing Purchase Batches Section */}
             {!showForm && (
-              <div className="border-t border-slate-200 pt-8 grid gap-6 animate-in fade-in duration-300">
+              <div className="border-t border-slate-200 pt-6 grid gap-5 animate-in fade-in duration-300">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-col gap-1">
                     <h3 className="text-xl font-semibold text-slate-900 tracking-tight">
@@ -1207,8 +1275,31 @@ export function AddPurchaseBatchPage() {
                     </Button>
                   )}
                 </div>
+                <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex w-full items-center gap-2 sm:max-w-xl">
+                    <div className="relative w-full sm:max-w-xs">
+                      <Search
+                        size={14}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <Input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search items..."
+                        className="h-9 pl-8 text-xs"
+                      />
+                    </div>
+                    <div className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800 border border-emerald-100 whitespace-nowrap">
+                      Total Records: {batches.length}
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-medium text-slate-500">
+                    Page Size: {itemsPerPage}
+                  </p>
+                </div>
 
                 {/* Dense Card List Layout */}
+                <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200 p-3">
                 <div className="flex flex-col gap-4">
                   {isLoading ? (
                     <p className="py-12 text-center text-slate-500 text-sm font-normal">
@@ -1225,16 +1316,16 @@ export function AddPurchaseBatchPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid gap-3.5">
+                <div className="grid gap-3">
                       {paginatedBatches.map((batch) => {
                         const isExpanded = !!expandedBatches[batch.id];
                         return (
                           <Card
                             key={batch.id}
-                            className="flex flex-col gap-4 p-4 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 animate-in fade-in"
+                            className="flex flex-col gap-3 p-3.5 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 animate-in fade-in"
                           >
                             {/* Compact main details row */}
-                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between lg:gap-6">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between lg:gap-5">
                               {/* Left: Badge + Batch code + details grid */}
                               <div className="flex flex-wrap items-center gap-3 md:flex-nowrap md:gap-4 flex-1">
                                 {/* Serial tag */}
@@ -1298,7 +1389,7 @@ export function AddPurchaseBatchPage() {
                               </div>
 
                               {/* Right: Actions */}
-                              <div className="flex items-center gap-2 justify-end shrink-0 border-t border-slate-100 pt-3 md:border-t-0 md:pt-0">
+                              <div className="flex items-center gap-2 justify-end shrink-0 border-t border-slate-100 pt-2.5 md:border-t-0 md:pt-0">
                                 <Button
                                   type="button"
                                   onClick={() => toggleExpand(batch.id)}
@@ -1375,95 +1466,72 @@ export function AddPurchaseBatchPage() {
                     </div>
                   )}
                 </div>
+                </div>
 
                 {/* 6. Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
-                    <div className="flex flex-1 justify-between sm:hidden">
+                <div className="mt-1 border-t border-slate-200 px-1 pt-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-slate-750 font-normal">
+                      Showing <span className="font-semibold">{batches.length ? (currentPage - 1) * itemsPerPage + 1 : 0}</span>{' '}
+                      to <span className="font-semibold">{Math.min(currentPage * itemsPerPage, batches.length)}</span>{' '}
+                      of <span className="font-semibold">{batches.length}</span>
+                    </p>
+                    <div className="flex items-center gap-1.5">
                       <Button
-                        onClick={() =>
-                          setCurrentPage((prev) => Math.max(prev - 1, 1))
-                        }
+                        onClick={() => setCurrentPage(1)}
                         disabled={currentPage === 1}
                         variant="secondary"
-                        className="h-9 px-3 text-xs"
+                        className="h-8 px-2 text-xs"
                       >
-                        {t('addPurchaseBatch.pagination.previous')}
+                        {'<<'}
                       </Button>
                       <Button
-                        onClick={() =>
-                          setCurrentPage((prev) =>
-                            Math.min(prev + 1, totalPages),
-                          )
-                        }
-                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
                         variant="secondary"
-                        className="h-9 px-3 text-xs"
+                        className="h-8 px-2 text-xs"
                       >
-                        {t('addPurchaseBatch.pagination.next')}
+                        {'<'}
+                      </Button>
+                      {pageNumbers.map((page: number, idx: number) => {
+                        const prev = pageNumbers[idx - 1];
+                        const gapBefore = prev && page - prev > 1;
+                        return (
+                          <div key={page} className="flex items-center gap-1.5">
+                            {gapBefore ? <span className="text-[10px] text-slate-400">...</span> : null}
+                            <button
+                              type="button"
+                              onClick={() => setCurrentPage(page)}
+                              className={`h-8 min-w-8 rounded-md border px-2 text-xs font-semibold ${
+                                currentPage === page
+                                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <Button
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        variant="secondary"
+                        className="h-8 px-2 text-xs"
+                      >
+                        {'>'}
+                      </Button>
+                      <Button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        variant="secondary"
+                        className="h-8 px-2 text-xs"
+                      >
+                        {'>>'}
                       </Button>
                     </div>
-                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-xs text-slate-750 font-normal">
-                          {t('addPurchaseBatch.pagination.showing')}{' '}
-                          <span className="font-semibold">
-                            {(currentPage - 1) * itemsPerPage + 1}
-                          </span>{' '}
-                          {t('addPurchaseBatch.pagination.to')}{' '}
-                          <span className="font-semibold">
-                            {Math.min(
-                              currentPage * itemsPerPage,
-                              batches.length,
-                            )}
-                          </span>{' '}
-                          {t('addPurchaseBatch.pagination.of')}{' '}
-                          <span className="font-semibold">
-                            {batches.length}
-                          </span>{' '}
-                          {t('addPurchaseBatch.pagination.results')}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          onClick={() =>
-                            setCurrentPage((prev) => Math.max(prev - 1, 1))
-                          }
-                          disabled={currentPage === 1}
-                          variant="secondary"
-                          className="h-8 w-8 p-0 text-xs"
-                        >
-                          &lt;
-                        </Button>
-                        {Array.from(
-                          { length: totalPages },
-                          (_, i) => i + 1,
-                        ).map((page) => (
-                          <Button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            variant={currentPage === page ? 'add' : 'secondary'}
-                            className="h-8 w-8 p-0 text-xs"
-                          >
-                            {page}
-                          </Button>
-                        ))}
-                        <Button
-                          onClick={() =>
-                            setCurrentPage((prev) =>
-                              Math.min(prev + 1, totalPages),
-                            )
-                          }
-                          disabled={currentPage === totalPages}
-                          variant="secondary"
-                          className="h-8 w-8 p-0 text-xs"
-                        >
-                          &gt;
-                        </Button>
-                      </div>
-                    </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>

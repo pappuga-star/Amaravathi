@@ -19,6 +19,7 @@ import { Button, Card, Input } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { useNotification } from '../components/NotificationContext';
 import { useTranslation } from 'react-i18next';
+import { useTabsKeyboardNavigation } from '../hooks/useTabsKeyboardNavigation';
 
 type CustomerTeaFormula = {
   id: string;
@@ -41,6 +42,12 @@ export const SalesQuotationPlannerPage = () => {
   const [activeTab, setActiveTab] = useState<'sales' | 'quote' | 'planner'>(
     'sales',
   );
+  const plannerTabs: Array<'sales' | 'quote' | 'planner'> = [
+    'sales',
+    'quote',
+    'planner',
+  ];
+  const onPlannerTabsKeyDown = useTabsKeyboardNavigation(plannerTabs, activeTab, setActiveTab);
 
   // Core Data Queries
   const { data: customersData } = useQuery({
@@ -266,10 +273,18 @@ export const SalesQuotationPlannerPage = () => {
   return (
     <div className="flex flex-col gap-6">
       {/* Tab Navigation header */}
-      <div className="flex rounded-xl border border-slate-200 p-1 bg-white shadow-sm font-semibold text-slate-600 no-print">
+      <div
+        className="flex overflow-x-auto rounded-xl border border-slate-200 p-1 bg-white shadow-sm font-semibold text-slate-600 no-print"
+        role="tablist"
+        aria-label="Sales quotation planner tabs"
+        onKeyDown={onPlannerTabsKeyDown}
+      >
         <button
           onClick={() => setActiveTab('sales')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all ${
+          role="tab"
+          aria-selected={activeTab === 'sales'}
+          tabIndex={activeTab === 'sales' ? 0 : -1}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
             activeTab === 'sales'
               ? 'bg-emerald-600 text-white shadow-md'
               : 'hover:bg-slate-50 hover:text-slate-900'
@@ -280,7 +295,10 @@ export const SalesQuotationPlannerPage = () => {
         </button>
         <button
           onClick={() => setActiveTab('quote')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all ${
+          role="tab"
+          aria-selected={activeTab === 'quote'}
+          tabIndex={activeTab === 'quote' ? 0 : -1}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
             activeTab === 'quote'
               ? 'bg-emerald-600 text-white shadow-md'
               : 'hover:bg-slate-50 hover:text-slate-900'
@@ -291,7 +309,10 @@ export const SalesQuotationPlannerPage = () => {
         </button>
         <button
           onClick={() => setActiveTab('planner')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all ${
+          role="tab"
+          aria-selected={activeTab === 'planner'}
+          tabIndex={activeTab === 'planner' ? 0 : -1}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
             activeTab === 'planner'
               ? 'bg-emerald-600 text-white shadow-md'
               : 'hover:bg-slate-50 hover:text-slate-900'

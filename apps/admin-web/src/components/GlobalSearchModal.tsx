@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Loader2, History, X, CornerDownLeft } from 'lucide-react';
 import { GroupedSearchResults, SearchResultItem } from '../lib/globalSearchApi';
 import { SearchResultList } from './SearchResultList';
+import { Portal } from './ui/Portal';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useClickOutside } from '../hooks/useClickOutside';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { Z_INDEX } from '../constants/zIndex';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -47,19 +52,16 @@ export const GlobalSearchModal = ({
     ];
   }, [results]);
 
+  useBodyScrollLock(isOpen);
+  useEscapeKey(isOpen, onClose);
+
   // Focus input when modal opens
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, [isOpen]);
 
   // Reset selectedIndex when results list changes
@@ -67,20 +69,7 @@ export const GlobalSearchModal = ({
     setSelectedIndex(0);
   }, [results]);
 
-  // Click outside listener
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onClose]);
+  useClickOutside(modalRef, isOpen, onClose);
 
   // Keyboard navigation inside modal: Up, Down, Enter
   useEffect(() => {
@@ -116,7 +105,11 @@ export const GlobalSearchModal = ({
   const hasResults = flatResults.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 md:pt-28 px-4 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+    <Portal>
+    <div
+      className="fixed inset-0 flex items-start justify-center pt-16 md:pt-28 px-4 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+      style={{ zIndex: Z_INDEX.commandPalette }}
+    >
       <div
         ref={modalRef}
         className="w-full max-w-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl flex flex-col max-h-[75vh] md:max-h-[60vh] overflow-hidden backdrop-blur-md animate-in zoom-in-95 duration-150"
@@ -240,5 +233,6 @@ export const GlobalSearchModal = ({
         </div>
       </div>
     </div>
+    </Portal>
   );
 };

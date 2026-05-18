@@ -28,6 +28,8 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { GlobalSearchFab } from './GlobalSearchFab';
 import { GlobalSearchModal } from './GlobalSearchModal';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
+import { Z_INDEX } from '../constants/zIndex';
+import { HEADER_HEIGHT } from '../constants/layout';
 
 const nav = [
   { to: '/', label: 'Dashboard', key: 'dashboard', icon: LayoutDashboard },
@@ -90,9 +92,10 @@ export function Layout() {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 border-r border-slate-200 bg-white transition lg:static lg:w-auto ${
+        className={`fixed left-0 bottom-0 w-72 overflow-y-auto border-r border-slate-200 bg-white transition lg:static lg:top-auto lg:bottom-auto lg:w-auto lg:overflow-visible ${
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
+        style={{ top: HEADER_HEIGHT, zIndex: Z_INDEX.drawer }}
       >
         <div className="flex h-16 items-center justify-between border-b px-5">
           <div>
@@ -127,8 +130,11 @@ export function Layout() {
           ))}
         </nav>
       </aside>
-      <div className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white/95 px-4 backdrop-blur lg:px-8">
+      <div className="min-w-0 pt-16">
+        <header
+          className="fixed top-0 right-0 left-0 flex h-16 items-center justify-between border-b bg-white/95 px-4 backdrop-blur lg:left-[280px] lg:px-8"
+          style={{ zIndex: Z_INDEX.sticky, height: HEADER_HEIGHT }}
+        >
           <div className="flex items-center gap-3">
             <button
               className="lg:hidden"

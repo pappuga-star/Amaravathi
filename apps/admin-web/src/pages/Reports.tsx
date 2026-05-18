@@ -5,6 +5,7 @@ import { api, endpoints } from '../lib/api';
 import { Search, User, TrendingUp, ClipboardList, Printer } from 'lucide-react';
 import { formatCurrency } from '@amaravathi/shared-utils';
 import type { PurchaseBatch } from '@amaravathi/shared-types';
+import { useTabsKeyboardNavigation } from '../hooks/useTabsKeyboardNavigation';
 
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<
@@ -12,6 +13,8 @@ export function ReportsPage() {
   >('trends');
   const [sellerSearch, setSellerSearch] = useState('');
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
+  const reportTabs = ['trends', 'list', 'detail', 'seller'] as const;
+  const onReportTabsKeyDown = useTabsKeyboardNavigation(reportTabs, activeTab, setActiveTab);
 
   // Fetch all purchase batches for Batch List and Selector
   const batchesQuery = useQuery({
@@ -51,43 +54,60 @@ export function ReportsPage() {
             View latest pricing trends, supplier history, and purchase batches.
           </p>
         </div>
-        <div className="flex rounded-xl bg-slate-100 p-1 font-semibold text-slate-600 ring-1 ring-slate-200">
+        <div
+          role="tablist"
+          aria-label="Reports sections"
+          onKeyDown={onReportTabsKeyDown}
+          className="flex rounded-xl bg-slate-100 p-1 font-semibold text-slate-600 ring-1 ring-slate-200"
+        >
           <button
+            role="tab"
+            aria-selected={activeTab === 'trends'}
+            tabIndex={activeTab === 'trends' ? 0 : -1}
             onClick={() => setActiveTab('trends')}
-            className={`rounded-lg px-4 py-2 text-xs transition-all ${
+            className={`rounded-lg px-4 py-2 text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
               activeTab === 'trends'
                 ? 'bg-white text-emerald-800 shadow'
-                : 'hover:text-slate-950'
+                : 'hover:bg-slate-50 hover:text-slate-950'
             }`}
           >
             Latest Prices
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === 'list'}
+            tabIndex={activeTab === 'list' ? 0 : -1}
             onClick={() => setActiveTab('list')}
-            className={`rounded-lg px-4 py-2 text-xs transition-all ${
+            className={`rounded-lg px-4 py-2 text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
               activeTab === 'list'
                 ? 'bg-white text-emerald-800 shadow'
-                : 'hover:text-slate-950'
+                : 'hover:bg-slate-50 hover:text-slate-950'
             }`}
           >
             Batch List
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === 'detail'}
+            tabIndex={activeTab === 'detail' ? 0 : -1}
             onClick={() => setActiveTab('detail')}
-            className={`rounded-lg px-4 py-2 text-xs transition-all ${
+            className={`rounded-lg px-4 py-2 text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
               activeTab === 'detail'
                 ? 'bg-white text-emerald-800 shadow'
-                : 'hover:text-slate-950'
+                : 'hover:bg-slate-50 hover:text-slate-950'
             }`}
           >
             Batch Details
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === 'seller'}
+            tabIndex={activeTab === 'seller' ? 0 : -1}
             onClick={() => setActiveTab('seller')}
-            className={`rounded-lg px-4 py-2 text-xs transition-all ${
+            className={`rounded-lg px-4 py-2 text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
               activeTab === 'seller'
                 ? 'bg-white text-emerald-800 shadow'
-                : 'hover:text-slate-950'
+                : 'hover:bg-slate-50 hover:text-slate-950'
             }`}
           >
             Seller History

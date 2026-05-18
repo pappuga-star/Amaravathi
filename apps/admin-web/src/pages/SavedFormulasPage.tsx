@@ -241,7 +241,7 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
       </div>
 
       {/* Table Panel */}
-      <Card className="p-5 border border-slate-200 bg-white rounded-xl shadow-sm flex flex-col gap-4">
+      <Card className="p-4 border border-slate-200 bg-white rounded-xl shadow-sm flex flex-col gap-3">
         {/* Filters Bar */}
         <div className="flex flex-wrap gap-3 items-center justify-between">
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
@@ -292,23 +292,23 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left text-sm whitespace-nowrap min-w-[900px]">
-            <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full min-w-[900px] text-left text-sm whitespace-nowrap">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 text-xs uppercase tracking-wide">
+                <th className="px-3 py-2">
                   {t('savedFormulas.columns.customer')}
                 </th>
-                <th className="px-4 py-3 text-xs uppercase tracking-wide">
+                <th className="px-3 py-2">
                   {t('savedFormulas.columns.totalWeight')}
                 </th>
-                <th className="px-4 py-3 text-xs uppercase tracking-wide">
+                <th className="px-3 py-2">
                   {t('savedFormulas.columns.costPerKg')}
                 </th>
-                <th className="px-4 py-3 text-xs uppercase tracking-wide">
+                <th className="px-3 py-2">
                   {t('savedFormulas.columns.status')}
                 </th>
-                <th className="px-4 py-3 text-xs uppercase tracking-wide text-right">
+                <th className="px-3 py-2 text-right">
                   {t('savedFormulas.columns.actions')}
                 </th>
               </tr>
@@ -345,7 +345,7 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                       key={item.id}
                       className={`hover:bg-slate-50 transition-colors ${isDeleted ? 'opacity-60 bg-red-50/20' : ''}`}
                     >
-                      <td className="px-4 py-3 font-medium text-slate-700">
+                      <td className="px-3 py-2.5 font-medium text-slate-700">
                         <div className="flex items-center gap-1.5">
                           <span>{customerName}</span>
                           {item.isDefault && (
@@ -356,10 +356,10 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-slate-600 text-xs">
+                      <td className="px-3 py-2.5 text-slate-600 text-xs">
                         {item.totalWeight}g
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <span className="font-bold text-emerald-700">
                           ₹{(item.costPerKg || 0).toFixed(2)}
                         </span>
@@ -367,7 +367,7 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                           ₹{(item.costPer100Grams || 0).toFixed(2)} / 100g
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <span
                           className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${
                             isDeleted
@@ -384,7 +384,7 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                               : item.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Button
                             variant="secondary"

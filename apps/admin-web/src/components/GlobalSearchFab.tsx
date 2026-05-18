@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Z_INDEX } from '../constants/zIndex';
 
 interface GlobalSearchFabProps {
   onClick: () => void;
@@ -11,7 +12,10 @@ export const GlobalSearchFab = ({ onClick }: GlobalSearchFabProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 group no-print">
+    <div
+      className="fixed bottom-6 right-6 flex items-center gap-2 group no-print"
+      style={{ zIndex: Z_INDEX.notificationCenter }}
+    >
       {/* Tooltip */}
       <span
         className={`bg-slate-900/90 text-white text-[11px] font-semibold tracking-wide py-1.5 px-3 rounded-lg shadow-xl backdrop-blur-sm transition-all duration-200 select-none ${
