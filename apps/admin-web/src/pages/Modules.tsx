@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, Search, Edit3, Trash2, Eye, X } from 'lucide-react';
 import { Button, Card, Input } from '@amaravathi/shared-ui';
@@ -6,13 +7,21 @@ import { api, endpoints } from '../lib/api';
 import { DataModule } from '../components/DataModule';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '../components/NotificationContext';
+import { useDebounce } from '../hooks/useDebounce';
 
 export const TeaPowderTypesPage = () => {
   const queryClient = useQueryClient();
   const { showError, confirm } = useNotification();
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const qParam = searchParams.get('q') || '';
+  const [searchQuery, setSearchQuery] = useState(qParam);
+
+  useEffect(() => {
+    setSearchQuery(qParam);
+  }, [qParam]);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [viewingType, setViewingType] = useState<{
     id: string;
     name: string;
@@ -29,10 +38,10 @@ export const TeaPowderTypesPage = () => {
 
   // Fetch list
   const { data } = useQuery({
-    queryKey: [endpoints.teaPowderTypes, searchQuery],
+    queryKey: [endpoints.teaPowderTypes, debouncedSearchQuery],
     queryFn: () =>
       api<{ items: { id: string; name: string }[] }>(
-        `${endpoints.teaPowderTypes}?q=${encodeURIComponent(searchQuery)}`,
+        `${endpoints.teaPowderTypes}?q=${encodeURIComponent(debouncedSearchQuery)}`,
       ),
   });
   const items = data?.items ?? [];
@@ -158,18 +167,6 @@ export const TeaPowderTypesPage = () => {
           <h3 className="text-lg font-bold text-slate-800">
             Tea Powder Type Records
           </h3>
-          <div className="relative w-full sm:max-w-xs flex items-center">
-            <Search
-              className="absolute left-3 text-slate-400 pointer-events-none"
-              size={16}
-            />
-            <Input
-              className="pl-9 h-10 text-sm font-normal"
-              placeholder="Search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
         </div>
 
         <div className="overflow-auto rounded-xl border border-slate-200">
@@ -282,7 +279,14 @@ export const SellersPage = () => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const qParam = searchParams.get('q') || '';
+  const [searchQuery, setSearchQuery] = useState(qParam);
+
+  useEffect(() => {
+    setSearchQuery(qParam);
+  }, [qParam]);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [viewingSeller, setViewingSeller] = useState<{
     id: string;
     name: string;
@@ -302,7 +306,7 @@ export const SellersPage = () => {
 
   // Fetch list
   const { data } = useQuery({
-    queryKey: [endpoints.sellers, searchQuery],
+    queryKey: [endpoints.sellers, debouncedSearchQuery],
     queryFn: () =>
       api<{
         items: {
@@ -312,7 +316,7 @@ export const SellersPage = () => {
           phone?: string;
           email?: string;
         }[];
-      }>(`${endpoints.sellers}?q=${encodeURIComponent(searchQuery)}`),
+      }>(`${endpoints.sellers}?q=${encodeURIComponent(debouncedSearchQuery)}`),
   });
   const items = data?.items ?? [];
 
@@ -490,18 +494,6 @@ export const SellersPage = () => {
       <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-bold text-slate-800">Seller Records</h3>
-          <div className="relative w-full sm:max-w-xs flex items-center">
-            <Search
-              className="absolute left-3 text-slate-400 pointer-events-none"
-              size={16}
-            />
-            <Input
-              className="pl-9 h-10 text-sm font-normal"
-              placeholder="Search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
         </div>
 
         <div className="overflow-auto rounded-xl border border-slate-200">
@@ -640,9 +632,20 @@ export const UsersPage = () => (
     endpoint={endpoints.users}
     fields={[
       { key: 'name', label: 'Name' },
-      { key: 'email', label: 'Email' },
-      { key: 'password', label: 'Password' },
-      { key: 'role', label: 'Role admin/pricing_manager/viewer/operator' },
+      { key: 'email', label: 'Email', type: 'text' },
+      { key: 'password', label: 'Password', type: 'text' },
+      {
+        key: 'role',
+        label: 'Role',
+        type: 'select',
+        defaultValue: 'viewer',
+        options: [
+          { label: 'Admin', value: 'admin' },
+          { label: 'Pricing Manager', value: 'pricing_manager' },
+          { label: 'Viewer', value: 'viewer' },
+          { label: 'Operator', value: 'operator' },
+        ],
+      },
     ]}
   />
 );
@@ -654,7 +657,14 @@ export const CustomersPage = () => {
   const [address, setAddress] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const qParam = searchParams.get('q') || '';
+  const [searchQuery, setSearchQuery] = useState(qParam);
+
+  useEffect(() => {
+    setSearchQuery(qParam);
+  }, [qParam]);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [viewingCustomer, setViewingCustomer] = useState<{
     id: string;
     name: string;
@@ -666,7 +676,7 @@ export const CustomersPage = () => {
     queryKey: ['customer-formulas', viewingCustomer?.id],
     queryFn: () =>
       viewingCustomer
-        ? api<{ items: any[] }>(
+         ? api<{ items: any[] }>(
             `${endpoints.customerTeaFormulas}?customerId=${viewingCustomer.id}`,
           )
         : Promise.resolve({ items: [] }),
@@ -683,7 +693,7 @@ export const CustomersPage = () => {
   const canEdit = me?.role === 'admin' || me?.role === 'pricing_manager';
 
   const { data } = useQuery({
-    queryKey: [endpoints.customers, searchQuery],
+    queryKey: [endpoints.customers, debouncedSearchQuery],
     queryFn: () =>
       api<{
         items: {
@@ -692,7 +702,7 @@ export const CustomersPage = () => {
           address?: string;
           mobileNumber?: string;
         }[];
-      }>(`${endpoints.customers}?q=${encodeURIComponent(searchQuery)}`),
+      }>(`${endpoints.customers}?q=${encodeURIComponent(debouncedSearchQuery)}`),
   });
   const items = data?.items ?? [];
 
@@ -840,18 +850,6 @@ export const CustomersPage = () => {
       <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-bold text-slate-800">Customer Records</h3>
-          <div className="relative w-full sm:max-w-xs flex items-center">
-            <Search
-              className="absolute left-3 text-slate-400 pointer-events-none"
-              size={16}
-            />
-            <Input
-              className="pl-9 h-10 text-sm font-normal"
-              placeholder="Search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
         </div>
 
         <div className="overflow-auto rounded-xl border border-slate-200">
@@ -986,13 +984,13 @@ export const CustomersPage = () => {
                             </span>
                           </div>
                           <span className="text-lg font-black text-emerald-800">
-                            ₹{(finalPriceDisplay ?? 0).toFixed(2)}/kg
+                            ₹{(Number(finalPriceDisplay) || 0).toFixed(2)}/kg
                           </span>
                         </div>
 
                         {!isNewFormula ? (
                           <>
-                            <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div className="grid grid-cols-1 gap-4 text-xs">
                               <div>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                                   Leaf Category
@@ -1000,16 +998,6 @@ export const CustomersPage = () => {
                                 <span className="font-semibold text-slate-700">
                                   {typeof formula.leafCategoryId === 'object'
                                     ? formula.leafCategoryId.name
-                                    : '-'}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                                  Cutting Type
-                                </span>
-                                <span className="font-semibold text-slate-700">
-                                  {typeof formula.cuttingTypeId === 'object'
-                                    ? formula.cuttingTypeId.name
                                     : '-'}
                                 </span>
                               </div>

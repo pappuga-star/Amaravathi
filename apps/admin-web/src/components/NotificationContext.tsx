@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Info, XCircle, X } from 'lucide-react';
 import { Button } from '@amaravathi/shared-ui';
 
@@ -45,6 +45,10 @@ export function NotificationProvider({
   children: React.ReactNode;
 }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  useEffect(() => {
+    console.log('NotificationProvider mounted');
+  }, []);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     options: ConfirmOptions;
@@ -210,21 +214,16 @@ export function NotificationProvider({
               >
                 {confirmDialog.options.cancelLabel}
               </Button>
-              <Button
-                variant={
-                  confirmDialog.options.variant === 'danger'
-                    ? 'delete'
-                    : 'default'
-                }
+              <button
                 onClick={() => confirmDialog.resolve(true)}
-                className={`h-9 px-4 text-xs font-semibold ${
+                className={`inline-flex items-center justify-center h-9 px-4 rounded-md border text-xs font-semibold shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                   confirmDialog.options.variant === 'danger'
-                    ? 'bg-rose-600 text-white hover:bg-rose-700 border-transparent shadow-sm'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700 border-transparent shadow-sm'
+                    ? 'bg-rose-600 text-white hover:bg-rose-700 border-transparent focus:ring-rose-500'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700 border-transparent focus:ring-emerald-500'
                 }`}
               >
                 {confirmDialog.options.confirmLabel}
-              </Button>
+              </button>
             </div>
           </div>
         </div>

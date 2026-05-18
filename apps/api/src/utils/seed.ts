@@ -7,7 +7,6 @@ import {
   Seller,
   Customer,
   LeafCategory,
-  CuttingType,
   CustomerTeaFormula,
 } from '../models/index.js';
 import { normalizeName } from '@amaravathi/shared-utils';
@@ -130,53 +129,6 @@ export async function seedDatabase(exitOnComplete = false) {
   );
   console.log('✅ Seeded leaf categories: Assam Gold, Darjeeling Classic');
 
-  // 5. Seed Cutting Types
-  const bopCutting = await CuttingType.findOneAndUpdate(
-    { name: 'BOP', leafCategoryId: assamGold?._id },
-    {
-      $set: {
-        name: 'BOP',
-        nameKey: normalizeName('BOP'),
-        basePrice: 180,
-        leafCategoryId: assamGold?._id,
-        description: 'Broken Orange Pekoe',
-        active: true,
-      },
-    },
-    { upsert: true, new: true, runValidators: true },
-  );
-
-  await CuttingType.findOneAndUpdate(
-    { name: 'BP', leafCategoryId: assamGold?._id },
-    {
-      $set: {
-        name: 'BP',
-        nameKey: normalizeName('BP'),
-        basePrice: 200,
-        leafCategoryId: assamGold?._id,
-        description: 'Broken Pekoe',
-        active: true,
-      },
-    },
-    { upsert: true, new: true, runValidators: true },
-  );
-
-  await CuttingType.findOneAndUpdate(
-    { name: 'OF', leafCategoryId: darjeelingClassic?._id },
-    {
-      $set: {
-        name: 'OF',
-        nameKey: normalizeName('OF'),
-        basePrice: 220,
-        leafCategoryId: darjeelingClassic?._id,
-        description: 'Orange Fannings',
-        active: true,
-      },
-    },
-    { upsert: true, new: true, runValidators: true },
-  );
-  console.log('✅ Seeded cutting types: BOP, BP, OF');
-
   // 6. Seed Customers
   const ramaCustomer = await Customer.findOneAndUpdate(
     { name: 'Sri Rama Tea Stall' },
@@ -206,7 +158,7 @@ export async function seedDatabase(exitOnComplete = false) {
   console.log('✅ Seeded customers: Sri Rama Tea Stall, Krishna Cafe');
 
   // 7. Seed Customer Tea Formulas
-  if (ramaCustomer && assamGold && bopCutting) {
+  if (ramaCustomer && assamGold) {
     const formulasCount = await CustomerTeaFormula.countDocuments({
       customerId: ramaCustomer._id,
     });
@@ -214,7 +166,6 @@ export async function seedDatabase(exitOnComplete = false) {
       await CustomerTeaFormula.create({
         customerId: ramaCustomer._id,
         leafCategoryId: assamGold._id,
-        cuttingTypeId: bopCutting._id,
         totalWeight: 160,
         totalFormulaCost: 201.5,
         costPerKg: 1259.37,

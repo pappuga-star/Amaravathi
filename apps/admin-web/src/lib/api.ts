@@ -59,6 +59,5 @@ export const endpoints = {
   sellers: '/sellers',
   customers: '/customers',
   leafCategories: '/leaf-categories',
-  cuttingTypes: '/cutting-types',
   customerTeaFormulas: '/customer-tea-formulas',
 };

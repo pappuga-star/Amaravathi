@@ -23,6 +23,7 @@ import {
   CustomerTeaFormula,
   CustomerTeaFormulaLineItem,
   PurchaseBatch,
+  customerTeaFormulaSchema,
 } from '@amaravathi/shared-types';
 
 interface CustomerFormulasPageProps {
@@ -120,6 +121,10 @@ export const CustomerFormulasPage = ({
       e.stopPropagation();
     }
     if (!quickAddName.trim()) return;
+    if (quickAddMobile.trim() && !/^\d{10}$/.test(quickAddMobile.trim())) {
+      showToast('Mobile number must be exactly 10 digits', 'error');
+      return;
+    }
     try {
       const res = await api<{ id: string; name: string }>(endpoints.customers, {
         method: 'POST',
@@ -256,14 +261,16 @@ export const CustomerFormulasPage = ({
       );
       if (batchItem) {
         current.pricePerGram =
-          batchItem.pricePerGram ?? batchItem.ratePerKg / 1000;
+          batchItem.pricePerGram ?? (batchItem.ratePerKg ?? 0) / 1000;
         current.purchaseBatchLineItemId =
-          (batchItem as any)._id?.toString() || '';
+          (batchItem as any)._id?.toString() ||
+          (batchItem as any).id?.toString() ||
+          '';
         current.ingredientCategory =
           batchItem.ingredientCategory ||
-          (batchItem.teaPowderType.toLowerCase().includes('dust') ||
-          batchItem.teaPowderType.toLowerCase().includes('color') ||
-          batchItem.teaPowderType.toLowerCase().includes('lumsa')
+          ((batchItem.teaPowderType ?? '').toLowerCase().includes('dust') ||
+          (batchItem.teaPowderType ?? '').toLowerCase().includes('color') ||
+          (batchItem.teaPowderType ?? '').toLowerCase().includes('lumsa')
             ? 'Add-On'
             : 'Leaf');
       } else {
@@ -274,7 +281,7 @@ export const CustomerFormulasPage = ({
     }
 
     current.rowCost = Number(
-      (current.quantityInGrams * current.pricePerGram).toFixed(4),
+      (current.quantityInGrams * current.pricePerGram).toFixed(2),
     );
     updated[index] = current;
     setLineItems(updated);
@@ -431,10 +438,18 @@ export const CustomerFormulasPage = ({
       costPer100Grams: liveTotals.costPer100Grams,
     };
 
-    console.log('Submitting Customer Tea Formula Payload:');
-    console.log(JSON.stringify(payload, null, 2));
+    const parsed = customerTeaFormulaSchema.safeParse(payload);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      const field = issue?.path?.join('.') || 'root';
+      setFormErrors({
+        customerId: field === 'customerId',
+      });
+      showToast(issue?.message || 'Validation failed', 'error');
+      return;
+    }
 
-    saveMutation.mutate(payload);
+    saveMutation.mutate(parsed.data);
   };
 
   if (id && isFetchingFormula) {

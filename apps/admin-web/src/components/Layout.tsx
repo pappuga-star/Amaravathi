@@ -23,9 +23,11 @@ import { useState } from 'react';
 import { Button } from '@amaravathi/shared-ui';
 import { clearToken, api } from '../lib/api';
 import { useQuery } from '@tanstack/react-query';
-import { GlobalSearch } from './GlobalSearch';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { GlobalSearchFab } from './GlobalSearchFab';
+import { GlobalSearchModal } from './GlobalSearchModal';
+import { useGlobalSearch } from '../hooks/useGlobalSearch';
 
 const nav = [
   { to: '/', label: 'Dashboard', key: 'dashboard', icon: LayoutDashboard },
@@ -57,6 +59,7 @@ export function Layout() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const searchState = useGlobalSearch();
 
   const { data: me } = useQuery({
     queryKey: ['me'],
@@ -134,7 +137,6 @@ export function Layout() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <GlobalSearch />
             <LanguageSwitcher />
             <div className="flex items-center gap-2">
               <Button
@@ -165,6 +167,21 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Floating System-wide Search Elements */}
+      <GlobalSearchFab onClick={searchState.open} />
+      <GlobalSearchModal
+        isOpen={searchState.isOpen}
+        onClose={searchState.close}
+        query={searchState.query}
+        setQuery={searchState.setQuery}
+        results={searchState.results}
+        totalResults={searchState.totalResults}
+        isLoading={searchState.isLoading}
+        recentSearches={searchState.recentSearches}
+        addRecentSearch={searchState.addRecentSearch}
+        clearRecentSearches={searchState.clearRecentSearches}
+      />
     </div>
   );
 }

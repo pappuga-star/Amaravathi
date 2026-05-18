@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import mongoose, { Schema } from 'mongoose';
-import type { Role } from '@amaravathi/shared-types';
+import { roles, type Role } from '@amaravathi/shared-types';
 
 export type UserDocument = mongoose.Document & {
   name: string;
@@ -24,7 +24,8 @@ const userSchema = new Schema<UserDocument>(
     passwordHash: { type: String, required: true, select: false },
     role: {
       type: String,
-      enum: ['admin', 'pricing_manager', 'viewer', 'operator'],
+      enum: roles,
+      default: 'viewer',
       required: true,
     },
     active: { type: Boolean, default: true },
@@ -37,5 +38,8 @@ userSchema.methods.comparePassword = function comparePassword(
 ) {
   return bcrypt.compare(password, this.passwordHash);
 };
+
+userSchema.index({ name: 1 });
+userSchema.index({ active: 1 });
 
 export const User = mongoose.model<UserDocument>('User', userSchema);

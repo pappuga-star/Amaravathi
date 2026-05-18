@@ -18,4 +18,7 @@ sellerSchema.pre('validate', function setNameKey(next) {
   next();
 });
 
+sellerSchema.index({ name: 1 });
+sellerSchema.index({ active: 1 });
+
 export const Seller = mongoose.model('Seller', sellerSchema);

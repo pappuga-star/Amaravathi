@@ -17,4 +17,7 @@ leafCategorySchema.pre('validate', function setNameKey(next) {
   next();
 });
 
+leafCategorySchema.index({ name: 1 });
+leafCategorySchema.index({ active: 1, deletedAt: 1 });
+
 export const LeafCategory = mongoose.model('LeafCategory', leafCategorySchema);

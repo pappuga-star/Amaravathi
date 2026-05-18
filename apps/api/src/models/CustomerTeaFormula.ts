@@ -41,15 +41,6 @@ const customerTeaFormulaSchema = new Schema(
     },
     /**
      * @deprecated Legacy field maintained for backwards compatibility with old records.
-     * Use lineItems for Cutting types instead.
-     */
-    cuttingTypeId: {
-      type: Schema.Types.ObjectId,
-      ref: 'CuttingType',
-      required: false,
-    },
-    /**
-     * @deprecated Legacy field maintained for backwards compatibility with old records.
      * Use lineItems for Add-ons instead.
      */
     addons: [
@@ -77,6 +68,13 @@ const customerTeaFormulaSchema = new Schema(
 );
 
 customerTeaFormulaSchema.index({ customerId: 1 });
+customerTeaFormulaSchema.index({ status: 1 });
+customerTeaFormulaSchema.index({ deletedAt: 1 });
+customerTeaFormulaSchema.index({ status: 1, deletedAt: 1 });
+customerTeaFormulaSchema.index({ isDefault: 1 });
+customerTeaFormulaSchema.index({ createdAt: -1 });
+customerTeaFormulaSchema.index({ customerId: 1, deletedAt: 1, status: 1, createdAt: -1 });
+
 
 // Auto-generate human-readable Formula Code e.g. FORM-20260517-0001
 customerTeaFormulaSchema.pre(

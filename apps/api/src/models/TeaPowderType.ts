@@ -16,6 +16,9 @@ teaPowderTypeSchema.pre('validate', function setNameKey(next) {
   next();
 });
 
+teaPowderTypeSchema.index({ name: 1 });
+teaPowderTypeSchema.index({ active: 1 });
+
 export const TeaPowderType = mongoose.model(
   'TeaPowderType',
   teaPowderTypeSchema,

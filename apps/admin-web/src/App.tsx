@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { getToken, api } from './lib/api';
 import { useQuery } from '@tanstack/react-query';
@@ -10,6 +11,8 @@ import { SettingsPage } from './pages/Settings';
 import { TasteCustomizationMasterPage } from './pages/TasteCustomizationMasterPage';
 import { CustomerFormulasPage } from './pages/CustomerFormulasPage';
 import { SalesQuotationPlannerPage } from './pages/SalesQuotationPlannerPage';
+
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function Protected() {
   const token = getToken();
@@ -54,20 +57,43 @@ function Protected() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[App focus] Window visibility state changed to visible. Validating token integrity...');
+        }
+        const token = getToken();
+        if (!token) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[App focus] Token absent or expired upon page restore. Navigating safely to login.');
+          }
+          // Safely force window reload to clear caches and trigger routing logic
+          window.location.href = '/login';
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<Protected />}>
-        <Route index element={<Dashboard />} />
-        <Route path="purchase-batch" element={<AddPurchaseBatchPage />} />
-        <Route path="sellers" element={<SellersPage />} />
+        <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+        <Route path="purchase-batch" element={<ErrorBoundary><AddPurchaseBatchPage /></ErrorBoundary>} />
+        <Route path="sellers" element={<ErrorBoundary><SellersPage /></ErrorBoundary>} />
         <Route
           path="taste-customization"
-          element={<TasteCustomizationMasterPage />}
+          element={<ErrorBoundary><TasteCustomizationMasterPage /></ErrorBoundary>}
         />
         <Route
           path="customer-formulas/edit/:id"
-          element={<CustomerFormulasPage />}
+          element={<ErrorBoundary><CustomerFormulasPage /></ErrorBoundary>}
         />
 
         {/* Legacy redirects */}
@@ -87,10 +113,7 @@ export default function App() {
           path="leaf-categories"
           element={<Navigate to="/taste-customization" replace />}
         />
-        <Route
-          path="cutting-types"
-          element={<Navigate to="/taste-customization" replace />}
-        />
+
         <Route
           path="taste-parameters"
           element={<Navigate to="/taste-customization" replace />}
@@ -101,12 +124,12 @@ export default function App() {
         />
         <Route
           path="sales-quotations-planner"
-          element={<SalesQuotationPlannerPage />}
+          element={<ErrorBoundary><SalesQuotationPlannerPage /></ErrorBoundary>}
         />
-        <Route path="users" element={<UsersPage />} />
+        <Route path="users" element={<ErrorBoundary><UsersPage /></ErrorBoundary>} />
 
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route path="reports" element={<ErrorBoundary><ReportsPage /></ErrorBoundary>} />
+        <Route path="settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

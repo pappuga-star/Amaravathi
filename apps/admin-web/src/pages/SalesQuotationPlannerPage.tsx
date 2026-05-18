@@ -25,7 +25,6 @@ type CustomerTeaFormula = {
   customerId: { id: string; name: string } | string;
   formulaCode: string;
   leafCategoryId: { id: string; name: string; basePrice: number } | string;
-  cuttingTypeId: { id: string; name: string; priceAdjustment: number } | string;
   addons: { name: string; price: number; gramsPerKg: number }[];
   finalPrice: number;
   marginPercent: number;
@@ -104,13 +103,6 @@ export const SalesQuotationPlannerPage = () => {
     return typeof selectedSalesFormula.leafCategoryId === 'object'
       ? selectedSalesFormula.leafCategoryId
       : { name: 'Leaf Category', basePrice: 0 };
-  }, [selectedSalesFormula]);
-
-  const salesCutting = useMemo(() => {
-    if (!selectedSalesFormula) return null;
-    return typeof selectedSalesFormula.cuttingTypeId === 'object'
-      ? selectedSalesFormula.cuttingTypeId
-      : { name: 'Cutting Type', priceAdjustment: 0 };
   }, [selectedSalesFormula]);
 
   const salesRatePerKg = selectedSalesFormula?.finalPrice ?? 0;
@@ -230,13 +222,6 @@ export const SalesQuotationPlannerPage = () => {
       : { name: 'Leaf Category', basePrice: 0 };
   }, [selectedQuoteFormula]);
 
-  const quoteCutting = useMemo(() => {
-    if (!selectedQuoteFormula) return null;
-    return typeof selectedQuoteFormula.cuttingTypeId === 'object'
-      ? selectedQuoteFormula.cuttingTypeId
-      : { name: 'Cutting Type', priceAdjustment: 0 };
-  }, [selectedQuoteFormula]);
-
   const quoteBaseRate = selectedQuoteFormula?.finalPrice ?? 0;
   const quoteFinalRate = quoteBaseRate + (quoteBaseRate * quoteMarkup) / 100;
   const quoteTotalValue = quoteQuantity * quoteFinalRate;
@@ -246,10 +231,6 @@ export const SalesQuotationPlannerPage = () => {
     const categories: Record<
       string,
       { name: string; totalKg: number; basePrice: number }
-    > = {};
-    const cuttings: Record<
-      string,
-      { name: string; totalKg: number; adjustment: number }
     > = {};
     let totalAssignedFormulas = 0;
 
@@ -274,27 +255,10 @@ export const SalesQuotationPlannerPage = () => {
           targetCategory.totalKg += multiplier;
         }
       }
-
-      // Cutting allocation
-      if (typeof formula.cuttingTypeId === 'object') {
-        const cutting = formula.cuttingTypeId;
-        if (!cuttings[cutting.id]) {
-          cuttings[cutting.id] = {
-            name: cutting.name,
-            totalKg: 0,
-            adjustment: cutting.priceAdjustment,
-          };
-        }
-        const targetCutting = cuttings[cutting.id];
-        if (targetCutting) {
-          targetCutting.totalKg += multiplier;
-        }
-      }
     });
 
     return {
       categories: Object.values(categories),
-      cuttings: Object.values(cuttings),
       totalAssigned: totalAssignedFormulas,
     };
   }, [activeFormulas]);
@@ -517,20 +481,7 @@ export const SalesQuotationPlannerPage = () => {
                     ₹{salesLeaf?.basePrice.toFixed(2)}/kg
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>
-                    {t('salesQuotationPlanner.sales.cuttingPrice').replace(
-                      '{{name}}',
-                      salesCutting?.name || '',
-                    )}
-                  </span>
-                  <span className="font-semibold text-slate-800">
-                    {salesCutting && salesCutting.priceAdjustment >= 0
-                      ? `+ ₹${salesCutting.priceAdjustment.toFixed(2)}`
-                      : `- ₹${Math.abs(salesCutting?.priceAdjustment ?? 0).toFixed(2)}`}
-                    /kg
-                  </span>
-                </div>
+
                 <div className="flex justify-between">
                   <span>{t('salesQuotationPlanner.sales.customAddons')}</span>
                   <span className="font-semibold text-slate-800">
@@ -741,24 +692,6 @@ export const SalesQuotationPlannerPage = () => {
                         </td>
                         <td className="px-4 py-3 text-right font-semibold">
                           ₹{quoteLeaf?.basePrice.toFixed(2)}/kg
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-4 py-3 font-semibold">
-                          {t(
-                            'salesQuotationPlanner.quote.cuttingTypeAdj',
-                          ).replace('{{name}}', quoteCutting?.name || '')}
-                        </td>
-                        <td className="px-4 py-3 text-slate-400 italic text-right text-xs">
-                          {t(
-                            'salesQuotationPlanner.quote.premiumMachineCutting',
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold">
-                          {quoteCutting && quoteCutting.priceAdjustment >= 0
-                            ? `+₹${quoteCutting.priceAdjustment.toFixed(2)}`
-                            : `-₹${Math.abs(quoteCutting?.priceAdjustment ?? 0).toFixed(2)}`}
-                          /kg
                         </td>
                       </tr>
                       {selectedQuoteFormula.addons?.map((addon, idx) => (
@@ -976,64 +909,7 @@ export const SalesQuotationPlannerPage = () => {
               </div>
             </Card>
 
-            {/* Cutting Types Demand Sheet */}
-            <Card className="p-5 border border-slate-200 bg-white rounded-xl shadow-sm flex flex-col gap-4">
-              <div>
-                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                  <Activity size={16} className="text-slate-600" />
-                  {t('salesQuotationPlanner.planner.cuttingTypeProcessing')}
-                </h3>
-              </div>
-              <div className="overflow-auto rounded-lg border border-slate-100">
-                <table className="w-full text-left text-xs whitespace-nowrap">
-                  <thead className="bg-slate-50 border-b font-bold text-slate-500 uppercase tracking-wider">
-                    <tr>
-                      <th className="px-4 py-2.5">
-                        {t('salesQuotationPlanner.planner.cuttingProfile')}
-                      </th>
-                      <th className="px-4 py-2.5 text-center">
-                        {t('salesQuotationPlanner.planner.priceAdjustment')}
-                      </th>
-                      <th className="px-4 py-2.5 text-right">
-                        {t('salesQuotationPlanner.planner.machineCapDemand')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                    {planningSummary.cuttings.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-4 py-6 text-center text-slate-400 italic"
-                        >
-                          {t(
-                            'salesQuotationPlanner.planner.noActiveDefaultCuttings',
-                          )}
-                        </td>
-                      </tr>
-                    ) : (
-                      planningSummary.cuttings.map((c, i) => (
-                        <tr key={i} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3 font-semibold text-slate-800">
-                            {c.name}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {c.adjustment >= 0
-                              ? `+₹${c.adjustment.toFixed(2)}`
-                              : `-₹${Math.abs(c.adjustment).toFixed(2)}`}
-                            /{t('salesQuotationPlanner.planner.kg')}
-                          </td>
-                          <td className="px-4 py-3 text-right text-blue-700 font-bold">
-                            {c.totalKg.toLocaleString('en-IN')}{' '}
-                            {t('salesQuotationPlanner.planner.kg')}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+
           </div>
         </div>
       )}

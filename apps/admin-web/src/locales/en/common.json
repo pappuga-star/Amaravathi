@@ -192,11 +192,15 @@
       "selectSeller": "Select or type seller name...",
       "batchCode": "Batch Code (Read-only)",
       "batchCodePreview": "Waiting for bags/date...",
-      "lineItemsTitle": "Tea Powder Line Items"
+      "lineItemsTitle": "Tea Powder Line Items",
+      "totalQuantityKg": "Total Quantity (KG)",
+      "totalBatchAmount": "Total Batch Amount (₹)"
     },
     "table": {
       "teaPowderType": "Tea Powder Type",
+      "quantityKg": "Quantity (KG)",
       "pricePerKg": "Price per Kg (₹)",
+      "totalAmount": "Total Amount (₹)",
       "actions": "Actions",
       "selectGrade": "Select grade or category...",
       "emptyType": "Empty Type",
@@ -222,6 +226,7 @@
     },
     "messages": {
       "savedSuccess": "Purchase batch successfully saved!",
+      "updatedSuccess": "Purchase batch updated successfully.",
       "deletedSuccess": "Purchase batch successfully deleted.",
       "newTypeCreated": "New Tea Powder Type created.",
       "supplierAdded": "Supplier \"{{name}}\" added successfully.",
@@ -231,6 +236,7 @@
       "atLeastOneItem": "At least one tea powder item is required.",
       "duplicateNotAllowed": "Duplicate tea powder types are not allowed. Please remove duplicates: \"{{duplicate}}\".",
       "typeRequired": "Tea powder type is required for all line items.",
+      "quantityGreaterThanZero": "Quantity (KG) must be greater than 0.",
       "priceGreaterThanZero": "Price per Kg must be greater than 0.",
       "priceLimit": "Price per Kg cannot exceed ₹1,00,000."
     },

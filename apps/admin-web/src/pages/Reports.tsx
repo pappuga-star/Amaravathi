@@ -342,7 +342,7 @@ export function ReportsPage() {
                             {item.teaPowderType}
                           </td>
                           <td className="px-4 py-3 text-right font-black text-emerald-700">
-                            {formatCurrency(item.ratePerKg)}
+                            {formatCurrency(item.ratePerKg ?? item.pricePerKg)}
                           </td>
                         </tr>
                       ))}

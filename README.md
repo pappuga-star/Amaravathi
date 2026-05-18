@@ -50,6 +50,10 @@ As part of the system hardening and visual polish audit, we systematically repla
 - `packages/shared-utils` - Shared utilities, including batch code generation.
 - `packages/shared-ui` - Shared Tailwind UI primitives.
 
+## Engineering Policy
+
+- Repository policy and PR quality gates: [docs/repo-policy.md](./docs/repo-policy.md)
+
 ## Quick Start
 
 ```bash

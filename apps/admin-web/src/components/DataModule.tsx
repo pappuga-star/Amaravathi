@@ -10,12 +10,15 @@ import { api } from '../lib/api';
 import { Save, Edit3, Trash2, Eye } from 'lucide-react';
 import { ViewDetailsModal, ViewField } from './ViewDetailsModal';
 import { useNotification } from './NotificationContext';
+import { useDebounce } from '../hooks/useDebounce';
 
 export type FieldConfig = {
   key: string;
   label: string;
-  type?: 'text' | 'number' | 'date' | 'textarea' | 'json';
+  type?: 'text' | 'number' | 'date' | 'textarea' | 'json' | 'select';
   placeholder?: string;
+  options?: { label: string; value: string }[];
+  defaultValue?: string;
 };
 
 export function DataModule({
@@ -29,8 +32,20 @@ export function DataModule({
 }) {
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
-  const [form, setForm] = useState<Record<string, string>>({});
+
+  const defaultFormValues = useMemo(() => {
+    const defaults: Record<string, string> = {};
+    fields.forEach((field) => {
+      if (field.defaultValue !== undefined) {
+        defaults[field.key] = field.defaultValue;
+      }
+    });
+    return defaults;
+  }, [fields]);
+
+  const [form, setForm] = useState<Record<string, string>>(defaultFormValues);
   const [q, setQ] = useState('');
+  const debouncedQ = useDebounce(q, 300);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewingRow, setViewingRow] = useState<Record<string, unknown> | null>(
     null,
@@ -46,10 +61,10 @@ export function DataModule({
   const canEdit = me?.role === 'admin' || me?.role === 'pricing_manager';
 
   const { data } = useQuery({
-    queryKey: [endpoint, q],
+    queryKey: [endpoint, debouncedQ],
     queryFn: () =>
       api<{ items: Record<string, unknown>[] }>(
-        `${endpoint}?q=${encodeURIComponent(q)}`,
+        `${endpoint}?q=${encodeURIComponent(debouncedQ)}`,
       ),
   });
   const rows = data?.items ?? [];
@@ -69,7 +84,7 @@ export function DataModule({
 
   const handleCancel = () => {
     setEditingId(null);
-    setForm({});
+    setForm(defaultFormValues);
   };
 
   const deleteMutation = useMutation({
@@ -180,7 +195,7 @@ export function DataModule({
       });
     },
     onSuccess: () => {
-      setForm({});
+      setForm(defaultFormValues);
       setEditingId(null);
       queryClient.invalidateQueries({ queryKey: [endpoint] });
       showToast(`${title} successfully saved!`, 'success');
@@ -224,7 +239,26 @@ export function DataModule({
               className="grid gap-1.5 text-sm font-medium text-slate-700"
             >
               <span>{field.label}</span>
-              {field.type === 'textarea' || field.type === 'json' ? (
+              {field.type === 'select' ? (
+                <select
+                  className="h-10 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-white disabled:bg-slate-50 disabled:text-slate-500"
+                  value={form[field.key] ?? ''}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      [field.key]: event.target.value,
+                    }))
+                  }
+                  disabled={!canEdit}
+                >
+                  <option value="" disabled>Select {field.label}</option>
+                  {field.options?.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === 'textarea' || field.type === 'json' ? (
                 <textarea
                   className="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                   placeholder={field.placeholder}

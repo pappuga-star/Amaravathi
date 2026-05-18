@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Search,
   Star,
   Copy,
   Trash2,
@@ -17,6 +16,7 @@ import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '../components/NotificationContext';
 import { useTranslation } from 'react-i18next';
 import { CustomerTeaFormula } from '@amaravathi/shared-types';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface SavedFormulasPageProps {
   onEdit?: (formula: CustomerTeaFormula) => void;
@@ -25,9 +25,16 @@ interface SavedFormulasPageProps {
 export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const qParam = searchParams.get('q') || '';
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(qParam);
+
+  useEffect(() => {
+    setSearchQuery(qParam);
+  }, [qParam]);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [customerFilter, setCustomerFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<
     'All' | 'Active' | 'Inactive' | 'Deleted'
@@ -49,17 +56,24 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
   const { data: formulasData, isLoading } = useQuery({
     queryKey: [
       endpoints.customerTeaFormulas,
-      searchQuery,
+      debouncedSearchQuery,
       customerFilter,
-      statusFilter,
     ],
     queryFn: () => {
-      let url = `${endpoints.customerTeaFormulas}?q=${encodeURIComponent(searchQuery)}&status=${statusFilter}&limit=100`;
+      let url = `${endpoints.customerTeaFormulas}?q=${encodeURIComponent(debouncedSearchQuery)}&status=all&limit=250`;
       if (customerFilter) url += `&customerId=${customerFilter}`;
       return api<{ items: CustomerTeaFormula[] }>(url);
     },
   });
-  const formulas = formulasData?.items ?? [];
+  const allFormulas = formulasData?.items ?? [];
+
+  const formulas = allFormulas.filter((item) => {
+    if (statusFilter === 'All') return !item.deletedAt;
+    if (statusFilter === 'Active') return item.status === 'Active' && !item.deletedAt;
+    if (statusFilter === 'Inactive') return item.status === 'Inactive' && !item.deletedAt;
+    if (statusFilter === 'Deleted') return !!item.deletedAt;
+    return true;
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
@@ -154,10 +168,9 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
   };
 
   const stats = {
-    total: formulas.length,
-    active: formulas.filter((f) => f.status === 'Active' && !f.deletedAt)
-      .length,
-    defaults: formulas.filter((f) => f.isDefault && !f.deletedAt).length,
+    total: allFormulas.filter((f) => !f.deletedAt).length,
+    active: allFormulas.filter((f) => f.status === 'Active' && !f.deletedAt).length,
+    defaults: allFormulas.filter((f) => f.isDefault && !f.deletedAt).length,
   };
 
   return (
@@ -261,22 +274,6 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
               ))}
             </select>
 
-            <div className="relative">
-              <Search
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-                size={15}
-              />
-              <Input
-                type="text"
-                placeholder={t('savedFormulas.searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setSearchQuery(e.target.value)
-                }
-                className="pl-8 h-9 text-xs w-44"
-              />
-            </div>
-
             <Button
               onClick={exportToCSV}
               variant="secondary"
@@ -300,9 +297,6 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
             <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
               <tr>
                 <th className="px-4 py-3 text-xs uppercase tracking-wide">
-                  {t('savedFormulas.columns.formulaId')}
-                </th>
-                <th className="px-4 py-3 text-xs uppercase tracking-wide">
                   {t('savedFormulas.columns.customer')}
                 </th>
                 <th className="px-4 py-3 text-xs uppercase tracking-wide">
@@ -323,7 +317,7 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={5}
                     className="text-center py-10 text-slate-400 text-sm italic"
                   >
                     {t('savedFormulas.loading')}
@@ -332,7 +326,7 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
               ) : formulas.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={5}
                     className="text-center py-10 text-slate-400 text-sm italic"
                   >
                     {t('savedFormulas.noFormulas')}
@@ -351,21 +345,16 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                       key={item.id}
                       className={`hover:bg-slate-50 transition-colors ${isDeleted ? 'opacity-60 bg-red-50/20' : ''}`}
                     >
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-800 flex items-center gap-1.5 font-mono text-xs">
-                            {item.formulaCode}
-                            {item.isDefault && (
-                              <Star
-                                size={11}
-                                className="text-amber-500 fill-amber-500"
-                              />
-                            )}
-                          </span>
-                        </div>
-                      </td>
                       <td className="px-4 py-3 font-medium text-slate-700">
-                        {customerName}
+                        <div className="flex items-center gap-1.5">
+                          <span>{customerName}</span>
+                          {item.isDefault && (
+                            <Star
+                              size={12}
+                              className="text-amber-500 fill-amber-500 flex-shrink-0"
+                            />
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-slate-600 text-xs">
                         {item.totalWeight}g
@@ -407,42 +396,46 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                           </Button>
                           {!isDeleted && (
                             <>
-                              <Button
-                                variant="secondary"
-                                onClick={() =>
-                                  navigate(`/customer-formulas/edit/${item.id}`)
-                                }
-                                className="h-8 w-8 p-0 bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50"
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onEdit) {
+                                    onEdit(item);
+                                  } else {
+                                    navigate(`/customer-formulas/edit/${item.id}`);
+                                  }
+                                }}
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-emerald-100 text-emerald-600 hover:bg-emerald-50 active:scale-95 transition-all focus:outline-none"
                                 title={t('savedFormulas.actions.edit')}
                               >
                                 <Edit3 size={13} />
-                              </Button>
-                              <Button
-                                variant="secondary"
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() =>
                                   duplicateMutation.mutate(item.id)
                                 }
                                 disabled={duplicateMutation.isPending}
-                                className="h-8 w-8 p-0 bg-white"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-slate-200 text-blue-600 hover:bg-blue-50 active:scale-95 transition-all focus:outline-none disabled:opacity-40"
                                 title={t('savedFormulas.actions.duplicate')}
                               >
                                 <Copy size={13} />
-                              </Button>
+                              </button>
                               {!item.isDefault && (
-                                <Button
-                                  variant="secondary"
+                                <button
+                                  type="button"
                                   onClick={() =>
                                     setDefaultMutation.mutate(item.id)
                                   }
                                   disabled={setDefaultMutation.isPending}
-                                  className="h-8 w-8 p-0 bg-white"
+                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:bg-slate-50 active:scale-95 transition-all focus:outline-none disabled:opacity-40"
                                   title={t('savedFormulas.actions.setDefault')}
                                 >
                                   <Star size={13} className="text-slate-400" />
-                                </Button>
+                                </button>
                               )}
-                              <Button
-                                variant="secondary"
+                              <button
+                                type="button"
                                 onClick={async () => {
                                   const confirmed = await confirm({
                                     title: t(
@@ -458,11 +451,11 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                                   }
                                 }}
                                 disabled={deleteMutation.isPending}
-                                className="h-8 w-8 p-0 bg-white text-red-500 hover:bg-red-50 hover:border-red-200"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 active:scale-95 transition-all focus:outline-none disabled:opacity-40"
                                 title={t('savedFormulas.actions.delete')}
                               >
                                 <Trash2 size={13} />
-                              </Button>
+                              </button>
                             </>
                           )}
                         </div>
@@ -486,37 +479,36 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
               : viewingFormula.customerId
           }`}
           onClose={() => setViewingFormula(null)}
+          onEdit={() => {
+            const formulaId = viewingFormula.id;
+            setViewingFormula(null);
+            if (onEdit) {
+              onEdit(viewingFormula);
+            } else {
+              navigate(`/customer-formulas/edit/${formulaId}`);
+            }
+          }}
+          isFormula={true}
           fields={[
             {
               label: t('savedFormulas.modal.totalWeight'),
-              value: `${viewingFormula.totalWeight}g`,
+              value: viewingFormula.totalWeight,
             },
             {
               label: t('savedFormulas.modal.totalCost'),
-              value: `₹${(viewingFormula.totalFormulaCost || 0).toFixed(2)}`,
+              value: viewingFormula.totalFormulaCost || 0,
+            },
+            {
+              label: 'Cost Per Gram',
+              value: viewingFormula.totalWeight > 0 ? (viewingFormula.totalFormulaCost / viewingFormula.totalWeight) : 0,
             },
             {
               label: t('savedFormulas.modal.costPerKg'),
-              value: `₹${(viewingFormula.costPerKg || 0).toFixed(2)}`,
-              highlighted: true,
-            },
-            {
-              label: t('savedFormulas.modal.costPer100g'),
-              value: `₹${(viewingFormula.costPer100Grams || 0).toFixed(2)}`,
+              value: viewingFormula.costPerKg || 0,
             },
             {
               label: t('savedFormulas.modal.notes'),
               value: viewingFormula.notes || '—',
-            },
-            {
-              label: t('savedFormulas.modal.status'),
-              value:
-                viewingFormula.status === 'Active'
-                  ? t('savedFormulas.active')
-                  : viewingFormula.status,
-              type: 'badge',
-              badgeColor:
-                viewingFormula.status === 'Active' ? 'green' : 'slate',
             },
           ]}
           customBody={

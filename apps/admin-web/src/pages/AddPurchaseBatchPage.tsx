@@ -22,19 +22,22 @@ import { formatCurrency, generateBatchCode } from '@amaravathi/shared-utils';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '../components/NotificationContext';
 import { useTranslation } from 'react-i18next';
+import { useDebounce } from '../hooks/useDebounce';
 import type {
   PurchaseBatch,
   PurchaseBatchInput,
   PurchaseBatchItemInput,
 } from '@amaravathi/shared-types';
+import { purchaseBatchSchema as purchaseBatchZodSchema } from '@amaravathi/shared-types';
 import { TeaPowderTypesPage } from './Modules';
 
 const initialFormState = {
   purchaseDate: new Date(),
   numberOfBags: 30,
   billNumber: '',
+  sellerId: '',
   sellerName: '',
-  items: [{ teaPowderType: '', ratePerKg: 0 }],
+  lineItems: [{ teaPowderTypeId: '', teaPowderTypeName: '', quantityKg: 0, pricePerKg: 0, totalAmount: 0 }],
 };
 
 interface AutocompleteInputProps {
@@ -46,6 +49,7 @@ interface AutocompleteInputProps {
   onCreateNew?: (val: string) => void;
   createLabel?: string;
   className?: string;
+  required?: boolean;
 }
 
 function AutocompleteInput({
@@ -57,6 +61,7 @@ function AutocompleteInput({
   onCreateNew,
   createLabel,
   className,
+  required,
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState(value);
@@ -93,7 +98,7 @@ function AutocompleteInput({
           setTimeout(() => setIsOpen(false), 200);
         }}
         placeholder={placeholder}
-        required
+        required={required}
       />
       {isOpen &&
         (filtered.length > 0 ||
@@ -139,6 +144,7 @@ export function AddPurchaseBatchPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const activeTab = searchParams.get('tab') === 'types' ? 'types' : 'batches';
   const setActiveTab = (tab: 'batches' | 'types') => {
@@ -181,10 +187,10 @@ export function AddPurchaseBatchPage() {
 
   // Fetch batches query
   const { data: batches = [], isLoading } = useQuery({
-    queryKey: ['batches', searchQuery],
+    queryKey: ['batches', debouncedSearchQuery],
     queryFn: () =>
       api<{ items: PurchaseBatch[] }>(
-        `${endpoints.batches}?q=${encodeURIComponent(searchQuery)}`,
+        `${endpoints.batches}?q=${encodeURIComponent(debouncedSearchQuery)}`,
       ).then((res) => res.items),
   });
 
@@ -192,7 +198,7 @@ export function AddPurchaseBatchPage() {
   const { data: teaPowderTypes = [] } = useQuery({
     queryKey: ['teaPowderTypes'],
     queryFn: () =>
-      api<{ items: { name: string }[] }>(endpoints.teaPowderTypes).then(
+      api<{ items: { id: string; name: string }[] }>(endpoints.teaPowderTypes).then(
         (res) => res.items ?? [],
       ),
   });
@@ -201,6 +207,9 @@ export function AddPurchaseBatchPage() {
   const autocompleteOptions = Array.from(
     new Set(teaPowderTypes.map((c) => c.name.trim())),
   ).filter(Boolean);
+  const teaPowderTypeByName = new Map(
+    teaPowderTypes.map((item) => [item.name.trim().toLowerCase(), item.name]),
+  );
 
   // Create or Update Mutation
   const saveMutation = useMutation({
@@ -217,12 +226,18 @@ export function AddPurchaseBatchPage() {
       });
     },
     onSuccess: () => {
+      const wasEditing = Boolean(editingId);
       setFormData(initialFormState);
       setEditingId(null);
       setShowForm(false);
       setEditingRowIndices({ 0: true });
       queryClient.invalidateQueries({ queryKey: ['batches'] });
-      showToast(t('addPurchaseBatch.messages.savedSuccess'), 'success');
+      showToast(
+        wasEditing
+          ? t('addPurchaseBatch.messages.updatedSuccess')
+          : t('addPurchaseBatch.messages.savedSuccess'),
+        'success',
+      );
     },
     onError: (err: any) => {
       showError(err);
@@ -267,6 +282,9 @@ export function AddPurchaseBatchPage() {
       ),
   });
   const sellerOptions = (sellersData ?? []).map((s) => s.name);
+  const sellerByName = new Map(
+    (sellersData ?? []).map((s) => [s.name.trim().toLowerCase(), s]),
+  );
 
   // Inline Master Creation Mutation for brand new Sellers
   const createSellerMutation = useMutation({
@@ -276,7 +294,11 @@ export function AddPurchaseBatchPage() {
         body: JSON.stringify({ name }),
       }),
     onSuccess: (newSeller) => {
-      setFormData((prev) => ({ ...prev, sellerName: newSeller.name }));
+      setFormData((prev) => ({
+        ...prev,
+        sellerId: newSeller.id,
+        sellerName: newSeller.name,
+      }));
       queryClient.invalidateQueries({ queryKey: ['all-sellers-list'] });
       showToast(
         t('addPurchaseBatch.messages.supplierAdded').replace(
@@ -316,14 +338,18 @@ export function AddPurchaseBatchPage() {
       numberOfBags: batch.numberOfBags,
       billNumber: batch.billNumber,
       sellerName: batch.sellerName,
-      items: batch.items.map((item) => ({
-        teaPowderType: item.teaPowderType,
-        ratePerKg: item.ratePerKg,
+      sellerId: batch.sellerId,
+      lineItems: batch.lineItems.map((item) => ({
+        teaPowderTypeId: item.teaPowderTypeId,
+        teaPowderTypeName: item.teaPowderTypeName,
+        quantityKg: item.quantityKg,
+        pricePerKg: item.pricePerKg,
+        totalAmount: item.totalAmount,
       })),
     });
     // Set all loaded items to view mode by default
     const rowStates: Record<number, boolean> = {};
-    batch.items.forEach((_, index) => {
+    batch.lineItems.forEach((_, index) => {
       rowStates[index] = false;
     });
     setEditingRowIndices(rowStates);
@@ -375,7 +401,6 @@ export function AddPurchaseBatchPage() {
     if (!formData.numberOfBags || formData.numberOfBags <= 0)
       errors.numberOfBags = true;
     if (!formData.billNumber?.trim()) errors.billNumber = true;
-    if (!formData.sellerName?.trim()) errors.sellerName = true;
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -395,14 +420,14 @@ export function AddPurchaseBatchPage() {
     }
     setFormErrors({});
 
-    if (!formData.items || formData.items.length === 0) {
+    if (!formData.lineItems || formData.lineItems.length === 0) {
       showToast(t('addPurchaseBatch.messages.atLeastOneItem'), 'error');
       return;
     }
 
     // Verify unique tea powder types
-    const itemNames = formData.items.map((item) =>
-      item.teaPowderType.trim().toLowerCase(),
+    const itemNames = formData.lineItems.map((item) =>
+      item.teaPowderTypeId.trim().toLowerCase(),
     );
     const duplicates = itemNames.filter(
       (name, i) => itemNames.indexOf(name) !== i && name !== '',
@@ -418,30 +443,76 @@ export function AddPurchaseBatchPage() {
       return;
     }
 
-    for (const item of formData.items) {
-      if (!item.teaPowderType?.trim()) {
+    for (const item of formData.lineItems) {
+      if (!item.teaPowderTypeId?.trim() || !item.teaPowderTypeName?.trim()) {
         showToast(t('addPurchaseBatch.messages.typeRequired'), 'error');
         return;
       }
-      if (item.ratePerKg === undefined || item.ratePerKg <= 0) {
+      if (item.quantityKg === undefined || item.quantityKg <= 0) {
+        showToast(t('addPurchaseBatch.messages.quantityGreaterThanZero'), 'error');
+        return;
+      }
+      if (item.pricePerKg === undefined || item.pricePerKg <= 0) {
         showToast(t('addPurchaseBatch.messages.priceGreaterThanZero'), 'error');
         return;
       }
-      if (item.ratePerKg > 100000) {
+      if (item.pricePerKg > 100000) {
         showToast(t('addPurchaseBatch.messages.priceLimit'), 'error');
         return;
       }
     }
 
-    saveMutation.mutate(formData as PurchaseBatchInput);
+    const payload: PurchaseBatchInput = {
+      purchaseDate: formData.purchaseDate as Date,
+      numberOfBags: Number(formData.numberOfBags),
+      billNumber: String(formData.billNumber ?? '').trim(),
+      sellerId: String(formData.sellerId ?? '').trim() || undefined,
+      sellerName: String(formData.sellerName ?? '').trim() || undefined,
+      batchCode: batchCodePreview,
+      lineItems: formData.lineItems.map((item) => ({
+        teaPowderTypeId: item.teaPowderTypeId,
+        teaPowderTypeName: item.teaPowderTypeName,
+        quantityKg: Number(item.quantityKg),
+        pricePerKg: Number(item.pricePerKg),
+        totalAmount: Number((Number(item.quantityKg) * Number(item.pricePerKg)).toFixed(2)),
+      })),
+      totalQuantityKg: Number(
+        formData.lineItems
+          .reduce((sum, item) => sum + Number(item.quantityKg || 0), 0)
+          .toFixed(3),
+      ),
+      totalBatchAmount: Number(
+        formData.lineItems
+          .reduce((sum, item) => sum + Number(item.quantityKg || 0) * Number(item.pricePerKg || 0), 0)
+          .toFixed(2),
+      ),
+    };
+
+    const parsed = purchaseBatchZodSchema.safeParse(payload);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      const key = issue?.path?.[0];
+      setFormErrors({
+        purchaseDate: key === 'purchaseDate',
+        numberOfBags: key === 'numberOfBags',
+        billNumber: key === 'billNumber',
+      });
+      showToast(issue?.message || 'Validation failed', 'error');
+      return;
+    }
+
+    saveMutation.mutate(parsed.data);
   };
 
   // Dynamic Item handlers
   const addItem = () => {
-    const newIndex = formData.items!.length;
+    const newIndex = formData.lineItems!.length;
     setFormData((prev) => ({
       ...prev,
-      items: [...(prev.items || []), { teaPowderType: '', ratePerKg: 0 }],
+      lineItems: [
+        ...(prev.lineItems || []),
+        { teaPowderTypeId: '', teaPowderTypeName: '', quantityKg: 0, pricePerKg: 0, totalAmount: 0 },
+      ],
     }));
     setEditingRowIndices((prev) => ({ ...prev, [newIndex]: true }));
   };
@@ -449,7 +520,7 @@ export function AddPurchaseBatchPage() {
   const removeItem = (index: number) => {
     setFormData((prev) => ({
       ...prev,
-      items: (prev.items || []).filter((_, i) => i !== index),
+      lineItems: (prev.lineItems || []).filter((_, i) => i !== index),
     }));
     // Shift index entries in row editing state
     setEditingRowIndices((prev) => {
@@ -471,12 +542,23 @@ export function AddPurchaseBatchPage() {
   const updateItem = (
     index: number,
     field: keyof PurchaseBatchItemInput,
-    value: any,
+    value: string | number,
   ) => {
     setFormData((prev) => ({
       ...prev,
-      items: (prev.items || []).map((item, i) =>
-        i === index ? { ...item, [field]: value } : item,
+      lineItems: (prev.lineItems || []).map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              [field]: value,
+              totalAmount: Number(
+                (
+                  (field === 'quantityKg' ? Number(value) : Number(item.quantityKg || 0)) *
+                  (field === 'pricePerKg' ? Number(value) : Number(item.pricePerKg || 0))
+                ).toFixed(2),
+              ),
+            }
+          : item,
       ),
     }));
   };
@@ -704,9 +786,16 @@ export function AddPurchaseBatchPage() {
                           <AutocompleteInput
                             className="pl-10"
                             value={formData.sellerName || ''}
-                            onChange={(val) =>
-                              setFormData({ ...formData, sellerName: val })
-                            }
+                            onChange={(val) => {
+                              const seller = sellerByName.get(
+                                val.trim().toLowerCase(),
+                              );
+                              setFormData({
+                                ...formData,
+                                sellerName: val,
+                                sellerId: seller?.id ?? '',
+                              });
+                            }}
                             options={sellerOptions}
                             placeholder={t(
                               'addPurchaseBatch.form.selectSeller',
@@ -715,7 +804,8 @@ export function AddPurchaseBatchPage() {
                               createSellerMutation.mutate(val)
                             }
                             createLabel="Seller"
-                            hasError={!!formErrors.sellerName}
+                            hasError={false}
+                            required={false}
                           />
                         </div>
                       </Field>
@@ -748,10 +838,12 @@ export function AddPurchaseBatchPage() {
 
                   <div className="p-6 flex flex-col gap-4">
                     {/* Header row for desktop - perfect tabular alignment, hidden on mobile */}
-                    <div className="hidden sm:grid grid-cols-[44px_1fr_200px_136px] gap-4 px-4 pb-2 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                    <div className="hidden sm:grid grid-cols-[44px_1fr_140px_160px_160px_136px] gap-4 px-4 pb-2 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide">
                       <div className="text-center">#</div>
                       <div>{t('addPurchaseBatch.table.teaPowderType')}</div>
+                      <div>{t('addPurchaseBatch.table.quantityKg')}</div>
                       <div>{t('addPurchaseBatch.table.pricePerKg')}</div>
+                      <div>{t('addPurchaseBatch.table.totalAmount')}</div>
                       <div className="text-center">
                         {t('addPurchaseBatch.table.actions')}
                       </div>
@@ -759,35 +851,37 @@ export function AddPurchaseBatchPage() {
 
                     {/* Simple unified table rows with minimal padding and standard fonts. Removed overflow-hidden to prevent clipping dropdowns */}
                     <div className="grid divide-y divide-slate-100 border border-slate-200/60 rounded-xl bg-white relative z-20">
-                      {formData.items?.map((item, index) => {
-                        const isDuplicate = formData.items!.some(
+                      {formData.lineItems?.map((item, index) => {
+                        const isDuplicate = formData.lineItems!.some(
                           (other, i) =>
                             i !== index &&
-                            other.teaPowderType.trim().toLowerCase() ===
-                              item.teaPowderType.trim().toLowerCase() &&
-                            item.teaPowderType.trim() !== '',
+                            other.teaPowderTypeId.trim().toLowerCase() ===
+                              item.teaPowderTypeId.trim().toLowerCase() &&
+                            item.teaPowderTypeId.trim() !== '',
                         );
 
                         // Row-level Edit mode check
                         const isEditingRow = !!editingRowIndices[index];
 
-                        // Row is valid only when type is filled, rate is > 0, and there are no duplicates
+                        // Row is valid only when all required fields are filled and there are no duplicates
                         const isRowValid =
-                          item.teaPowderType?.trim() !== '' &&
-                          item.ratePerKg !== undefined &&
-                          item.ratePerKg > 0 &&
+                          item.teaPowderTypeId?.trim() !== '' &&
+                          item.quantityKg !== undefined &&
+                          item.quantityKg > 0 &&
+                          item.pricePerKg !== undefined &&
+                          item.pricePerKg > 0 &&
                           !isDuplicate;
 
                         // ➕ Add button appears ONLY on the very last view-mode row of the saved line items, and only if there's no editing row anywhere
                         const showAddButton =
-                          index === formData.items!.length - 1 &&
+                          index === formData.lineItems!.length - 1 &&
                           !isEditingRow &&
                           !hasAnyActiveEditRow;
 
                         return (
                           <div
                             key={index}
-                            className={`grid grid-cols-1 sm:grid-cols-[44px_1fr_200px_136px] gap-4 items-center py-2.5 px-4 transition-all relative ${
+                            className={`grid grid-cols-1 sm:grid-cols-[44px_1fr_140px_160px_160px_136px] gap-4 items-center py-2.5 px-4 transition-all relative ${
                               isDuplicate
                                 ? 'bg-red-50/20 z-10'
                                 : isEditingRow
@@ -807,10 +901,21 @@ export function AddPurchaseBatchPage() {
                               </span>
                               {isEditingRow ? (
                                 <AutocompleteInput
-                                  value={item.teaPowderType}
-                                  onChange={(val) =>
-                                    updateItem(index, 'teaPowderType', val)
-                                  }
+                                  value={item.teaPowderTypeName}
+                                  onChange={(val) => {
+                                    const normalized = val.trim().toLowerCase();
+                                    const matched = teaPowderTypes.find(
+                                      (type) =>
+                                        type.name.trim().toLowerCase() ===
+                                        normalized,
+                                    );
+                                    updateItem(index, 'teaPowderTypeName', val);
+                                    updateItem(
+                                      index,
+                                      'teaPowderTypeId',
+                                      matched?.id ?? '',
+                                    );
+                                  }}
                                   options={autocompleteOptions}
                                   placeholder={t(
                                     'addPurchaseBatch.table.selectGrade',
@@ -819,18 +924,15 @@ export function AddPurchaseBatchPage() {
                                   onCreateNew={(newVal) => {
                                     createPowderTypeMutation.mutate(newVal, {
                                       onSuccess: (newType) => {
-                                        updateItem(
-                                          index,
-                                          'teaPowderType',
-                                          newType.name,
-                                        );
+                                        updateItem(index, 'teaPowderTypeName', newType.name);
+                                        updateItem(index, 'teaPowderTypeId', newType.id);
                                       },
                                     });
                                   }}
                                 />
                               ) : (
                                 <div className="text-sm font-normal text-slate-700 select-none truncate">
-                                  {item.teaPowderType || (
+                                  {item.teaPowderTypeName || (
                                     <span className="text-slate-400 italic">
                                       {t('addPurchaseBatch.table.emptyType')}
                                     </span>
@@ -841,6 +943,33 @@ export function AddPurchaseBatchPage() {
                                 <span className="text-[10px] font-medium text-red-600 mt-0.5 block">
                                   {t('addPurchaseBatch.table.duplicateType')}
                                 </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                {t('addPurchaseBatch.table.quantityKg')}
+                              </span>
+                              {isEditingRow ? (
+                                <Input
+                                  className="h-10 text-sm font-normal"
+                                  type="number"
+                                  min="0.001"
+                                  step="0.001"
+                                  value={item.quantityKg || ''}
+                                  onChange={(e) =>
+                                    updateItem(
+                                      index,
+                                      'quantityKg',
+                                      e.target.value === '' ? 0 : Number(e.target.value),
+                                    )
+                                  }
+                                  required
+                                />
+                              ) : (
+                                <div className="text-sm font-normal text-slate-700 select-none">
+                                  {Number(item.quantityKg || 0).toFixed(3)}
+                                </div>
                               )}
                             </div>
 
@@ -856,23 +985,31 @@ export function AddPurchaseBatchPage() {
                                   min="0.01"
                                   max="100000"
                                   step="0.01"
-                                  value={item.ratePerKg || ''}
+                                  value={item.pricePerKg || ''}
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     const numVal = val === '' ? 0 : Number(val);
                                     if (numVal <= 100000) {
-                                      updateItem(index, 'ratePerKg', numVal);
+                                      updateItem(index, 'pricePerKg', numVal);
                                     } else {
-                                      updateItem(index, 'ratePerKg', 100000);
+                                      updateItem(index, 'pricePerKg', 100000);
                                     }
                                   }}
                                   required
                                 />
                               ) : (
                                 <div className="text-sm font-normal text-slate-700 select-none">
-                                  {formatCurrency(item.ratePerKg)}
+                                  {formatCurrency(item.pricePerKg)}
                                 </div>
                               )}
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className="sm:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                {t('addPurchaseBatch.table.totalAmount')}
+                              </span>
+                              <div className="text-sm font-semibold text-slate-700 select-none">
+                                {formatCurrency(item.totalAmount || 0)}
+                              </div>
                             </div>
 
                             {/* Row Actions */}
@@ -921,7 +1058,7 @@ export function AddPurchaseBatchPage() {
                                   type="button"
                                   onClick={() => removeItem(index)}
                                   className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                                  disabled={formData.items!.length <= 1}
+                                  disabled={formData.lineItems!.length <= 1}
                                   title={t('addPurchaseBatch.table.deleteItem')}
                                 >
                                   <Trash2 className="h-3.5 w-3.5 text-current" />
@@ -1007,21 +1144,6 @@ export function AddPurchaseBatchPage() {
                   )}
                 </div>
 
-                {/* Search Box */}
-                <Card className="flex items-center gap-3 px-4 py-2 ring-1 ring-slate-200 rounded-xl bg-white shadow-sm border border-slate-200">
-                  <Search className="text-slate-400 shrink-0" size={20} />
-                  <input
-                    type="text"
-                    className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-slate-400 font-semibold text-slate-700"
-                    placeholder={t('addPurchaseBatch.list.searchPlaceholder')}
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  />
-                </Card>
-
                 {/* Dense Card List Layout */}
                 <div className="flex flex-col gap-4">
                   {isLoading ? (
@@ -1103,8 +1225,8 @@ export function AddPurchaseBatchPage() {
 
                                   {/* Items count */}
                                   <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/10 shrink-0">
-                                    {batch.items.length}{' '}
-                                    {batch.items.length === 1
+                                    {batch.lineItems.length}{' '}
+                                    {batch.lineItems.length === 1
                                       ? t('addPurchaseBatch.card.item')
                                       : t('addPurchaseBatch.card.items')}
                                   </span>
@@ -1163,20 +1285,20 @@ export function AddPurchaseBatchPage() {
                             {isExpanded && (
                               <div className="border-t border-slate-100 pt-3 animate-in slide-in-from-top duration-200">
                                 <div className="flex flex-wrap gap-2">
-                                  {batch.items.map((item) => (
+                                  {batch.lineItems.map((item, itemIndex) => (
                                     <div
-                                      key={item.subSerialNumber}
+                                      key={item.id ?? `${batch.id}-${itemIndex}`}
                                       className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs ring-1 ring-slate-200 shadow-sm font-medium text-slate-700"
                                     >
                                       <span className="grid size-4 place-items-center rounded bg-slate-200/80 text-[10px] font-black text-slate-600">
-                                        {item.subSerialNumber}
+                                        {itemIndex + 1}
                                       </span>
                                       <span className="font-semibold text-slate-900">
-                                        {item.teaPowderType}
+                                        {item.teaPowderTypeName}
                                       </span>
                                       <span className="text-slate-300">|</span>
                                       <span className="font-semibold text-emerald-700">
-                                        {formatCurrency(item.ratePerKg)}
+                                        {formatCurrency(item.pricePerKg)}
                                       </span>
                                     </div>
                                   ))}
@@ -1325,21 +1447,21 @@ export function AddPurchaseBatchPage() {
                   {t('addPurchaseBatch.modal.lineItemsTitle')}
                 </span>
                 <div className="flex flex-col gap-2">
-                  {viewingBatch.items.map((item: any) => (
+                  {viewingBatch.lineItems.map((item: any, index: number) => (
                     <div
-                      key={item.subSerialNumber}
+                      key={item.id ?? index}
                       className="flex justify-between items-center border border-slate-200 rounded-xl p-3 bg-slate-50/50"
                     >
                       <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
                         <span className="grid size-5 place-items-center rounded bg-slate-200 text-[10px] font-black text-slate-600">
-                          {item.subSerialNumber}
+                          {index + 1}
                         </span>
                         <span className="font-bold text-slate-800">
-                          {item.teaPowderType}
+                          {item.teaPowderTypeName}
                         </span>
                       </div>
                       <span className="text-sm font-bold text-emerald-800">
-                        ₹{Number(item.ratePerKg || 0).toFixed(2)}/kg
+                        ₹{Number(item.pricePerKg || 0).toFixed(2)}/kg
                       </span>
                     </div>
                   ))}
