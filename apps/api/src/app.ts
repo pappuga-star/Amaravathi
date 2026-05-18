@@ -9,9 +9,22 @@ import routes from './routes/index.js';
 
 export function createApp() {
   const app = express();
+  const corsOptions: cors.CorsOptions = {
+    origin(origin, callback) {
+      // Allow requests without Origin header (health checks, curl, Postman)
+      if (!origin) return callback(null, true);
+      if (env.allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  };
+
   app.use(compression());
   app.use(helmet());
-  app.use(cors({ origin: env.corsOrigin, credentials: true }));
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
   app.use(express.json({ limit: '1mb' }));
   app.use(morgan('dev'));
   app.get('/', (_req, res) => {
