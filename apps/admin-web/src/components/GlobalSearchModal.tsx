@@ -39,6 +39,7 @@ export const GlobalSearchModal = ({
       ...(results.customers || []),
       ...(results.savedBlends || []),
       ...(results.purchaseBatches || []),
+      ...(results.generalItems || []),
       ...(results.teaPowderTypes || []),
       ...(results.suppliers || []),
       ...(results.batchIngredients || []),
@@ -126,7 +127,7 @@ export const GlobalSearchModal = ({
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search customers, formulas, purchase batches, sellers, ingredients..."
+            placeholder="Search customers, formulas, purchase batches, general items, sellers, ingredients..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full h-full text-base bg-transparent outline-none text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
@@ -183,7 +184,7 @@ export const GlobalSearchModal = ({
                     Search Everywhere across Amaravathi Tea Management
                   </p>
                   <p className="text-xs mt-1.5 max-w-sm mx-auto">
-                    Press <kbd className="bg-slate-100 dark:bg-slate-800 border px-1 rounded font-mono text-[10px]">Ctrl + K</kbd> to activate. Search for customers, formulas, purchase bills, suppliers, or tea powders instantly.
+                    Press <kbd className="bg-slate-100 dark:bg-slate-800 border px-1 rounded font-mono text-[10px]">Ctrl + K</kbd> to activate. Search for customers, formulas, purchase bills, general items, suppliers, or tea powders instantly.
                   </p>
                 </div>
               )}

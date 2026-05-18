@@ -1,6 +1,7 @@
 import { Customer } from '../models/Customer.js';
 import { CustomerTeaFormula } from '../models/CustomerTeaFormula.js';
 import { AddPurchaseBatch } from '../models/AddPurchaseBatch.js';
+import { GeneralItemPurchase } from '../models/GeneralItemPurchase.js';
 import { Seller } from '../models/Seller.js';
 import { TeaPowderType } from '../models/TeaPowderType.js';
 
@@ -17,6 +18,7 @@ export interface GroupedSearchResults {
   savedBlends: SearchResultItem[];
   customerTeaBlends: SearchResultItem[];
   purchaseBatches: SearchResultItem[];
+  generalItems: SearchResultItem[];
   batchIngredients: SearchResultItem[];
   teaPowderTypes: SearchResultItem[];
   suppliers: SearchResultItem[];
@@ -29,7 +31,7 @@ export const globalSearchService = {
   async search(query: string, userRole: string): Promise<GroupedSearchResults> {
     const trimmedQuery = query.trim();
     if (trimmedQuery.length < 2) {
-      return { customers: [], savedBlends: [], customerTeaBlends: [], purchaseBatches: [], batchIngredients: [], suppliers: [], teaPowderTypes: [] };
+      return { customers: [], savedBlends: [], customerTeaBlends: [], purchaseBatches: [], generalItems: [], batchIngredients: [], suppliers: [], teaPowderTypes: [] };
     }
 
     const cacheKey = `${userRole}:${trimmedQuery.toLowerCase()}`;
@@ -47,6 +49,7 @@ export const globalSearchService = {
     const [
       formulasData,
       batchesData,
+      generalItemsData,
       customersData,
       sellersData,
       inventoryData
@@ -73,6 +76,18 @@ export const globalSearchService = {
         ],
       })
         .select('_id batchCode sellerName billNumber numberOfBags lineItems')
+        .limit(10)
+        .lean(),
+
+      GeneralItemPurchase.find({
+        deletedAt: null,
+        $or: [
+          { supplierName: regex },
+          { billNumber: regex },
+          { 'lineItems.particulars': containsRegex },
+        ],
+      })
+        .select('_id purchaseDate supplierName billNumber lineItems')
         .limit(10)
         .lean(),
 
@@ -136,6 +151,17 @@ export const globalSearchService = {
       route: `/purchase-batch?q=${encodeURIComponent(b.batchCode)}`,
     }));
 
+    const generalItems = generalItemsData.map((g: any) => {
+      const firstItem = g.lineItems?.[0];
+      return {
+        _id: g._id.toString(),
+        label: firstItem?.particulars || 'General Item Purchase',
+        type: 'generalItemPurchase',
+        subtitle: `Supplier: ${g.supplierName} • Bill: ${g.billNumber || 'N/A'}`,
+        route: `/general-items?q=${encodeURIComponent(firstItem?.particulars || g.supplierName)}`,
+      };
+    });
+
     const batchIngredients: SearchResultItem[] = [];
     batchesData.forEach((b: any) => {
       b.lineItems?.forEach((item: any) => {
@@ -182,6 +208,7 @@ export const globalSearchService = {
       savedBlends,
       customerTeaBlends,
       purchaseBatches,
+      generalItems,
       batchIngredients: batchIngredients.slice(0, 10),
       suppliers,
       teaPowderTypes

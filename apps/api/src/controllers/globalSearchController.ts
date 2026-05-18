@@ -15,6 +15,7 @@ export const globalSearchController = {
               savedBlends: [],
               customerTeaBlends: [],
               purchaseBatches: [],
+              generalItems: [],
               batchIngredients: [],
               teaPowderTypes: [],
               suppliers: [],

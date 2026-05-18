@@ -66,7 +66,7 @@ export function useGlobalSearch() {
     query,
     setQuery,
     debouncedQuery,
-    results: data?.results || { customers: [], savedBlends: [], customerTeaBlends: [], purchaseBatches: [], batchIngredients: [], suppliers: [], teaPowderTypes: [] },
+    results: data?.results || { customers: [], savedBlends: [], customerTeaBlends: [], purchaseBatches: [], generalItems: [], batchIngredients: [], suppliers: [], teaPowderTypes: [] },
     totalResults: data?.totalResults || 0,
     isLoading: isFetching,
     error,

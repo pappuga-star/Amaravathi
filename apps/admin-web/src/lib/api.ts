@@ -55,6 +55,8 @@ export async function api<T>(
 export const endpoints = {
   teaPowderTypes: '/tea-powder-types',
   batches: '/add-purchase-batch',
+  generalItems: '/general-items',
+  generalItemsMaster: '/general-items-master',
   users: '/users',
   sellers: '/sellers',
   customers: '/customers',

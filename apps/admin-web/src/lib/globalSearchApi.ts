@@ -13,6 +13,7 @@ export interface GroupedSearchResults {
   savedBlends: SearchResultItem[];
   customerTeaBlends: SearchResultItem[];
   purchaseBatches: SearchResultItem[];
+  generalItems: SearchResultItem[];
   batchIngredients: SearchResultItem[];
   teaPowderTypes: SearchResultItem[];
   suppliers: SearchResultItem[];
@@ -29,7 +30,7 @@ export const globalSearchApi = {
     if (!query || query.trim().length < 2) {
       return { 
         query, 
-        results: { customers: [], savedBlends: [], customerTeaBlends: [], purchaseBatches: [], batchIngredients: [], suppliers: [], teaPowderTypes: [] },
+        results: { customers: [], savedBlends: [], customerTeaBlends: [], purchaseBatches: [], generalItems: [], batchIngredients: [], suppliers: [], teaPowderTypes: [] },
         totalResults: 0 
       };
     }

@@ -24,6 +24,7 @@ interface ViewDetailsModalProps {
   fields: ViewField[];
   onClose: () => void;
   customBody?: React.ReactNode;
+  headerMeta?: React.ReactNode;
   isFormula?: boolean;
   onEdit?: () => void;
 }
@@ -34,6 +35,7 @@ export function ViewDetailsModal({
   fields,
   onClose,
   customBody,
+  headerMeta,
   isFormula = false,
   onEdit,
 }: ViewDetailsModalProps) {
@@ -126,13 +128,16 @@ export function ViewDetailsModal({
               </>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-emerald-200 hover:bg-emerald-700/50 hover:text-white transition-colors no-print"
-            aria-label="Close"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            {headerMeta && <div className="hidden sm:flex items-center gap-2 no-print">{headerMeta}</div>}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-emerald-200 hover:bg-emerald-700/50 hover:text-white transition-colors no-print"
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Content Body with Single-Column Label/Value rows */}
@@ -274,7 +279,7 @@ export function ViewDetailsModal({
           )}
 
           {customBody && (
-            <div className="border-t border-slate-100 pt-4 flex flex-col gap-3">
+            <div className={`${fields.length > 0 ? 'border-t border-slate-100 pt-4' : ''} flex flex-col gap-3`}>
               {customBody}
             </div>
           )}
