@@ -37,6 +37,12 @@ const nav = [
     key: 'purchaseBatches',
     icon: ClipboardList,
   },
+  {
+    to: '/general-items',
+    label: 'General Items',
+    key: 'generalItems',
+    icon: Package,
+  },
   { to: '/sellers', label: 'Sellers (Suppliers)', key: 'sellers', icon: Truck },
   {
     to: '/taste-customization',
@@ -69,7 +75,7 @@ export function Layout() {
 
   const allowedNav = nav.filter((item) => {
     if (role === 'viewer') {
-      return ['/taste-customization', '/purchase-batch'].includes(item.to);
+      return ['/taste-customization', '/purchase-batch', '/general-items'].includes(item.to);
     }
     return true;
   });

@@ -37,6 +37,7 @@
   "dashboard": {
     "teaPowderTypes": "Tea powder types",
     "purchaseBatches": "Purchase batches",
+    "generalItems": "General items",
     "customers": "Customers",
     "users": "Users",
     "workflow": "Purchase verification workflow",
@@ -368,6 +369,7 @@
     "leafCategories": "Leaf Categories",
     "cuttingTypes": "Cutting Types",
     "purchaseBatches": "Purchase Batch",
+    "generalItems": "General Items",
     "sellers": "Sellers (Suppliers)",
     "customerCustomization": "Customer Customization",
     "salesQuotation": "Sales & Planner",

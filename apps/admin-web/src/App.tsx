@@ -11,6 +11,7 @@ import { SettingsPage } from './pages/Settings';
 import { TasteCustomizationMasterPage } from './pages/TasteCustomizationMasterPage';
 import { CustomerFormulasPage } from './pages/CustomerFormulasPage';
 import { SalesQuotationPlannerPage } from './pages/SalesQuotationPlannerPage';
+import { GeneralItemsPage } from './pages/GeneralItemsPage';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -45,7 +46,11 @@ function Protected() {
   const role = me?.role;
 
   if (role === 'viewer') {
-    const allowedViewerPaths = ['/taste-customization', '/purchase-batch'];
+    const allowedViewerPaths = [
+      '/taste-customization',
+      '/purchase-batch',
+      '/general-items',
+    ];
     const currentPath = location.pathname;
 
     if (!allowedViewerPaths.includes(currentPath)) {
@@ -86,6 +91,7 @@ export default function App() {
       <Route element={<Protected />}>
         <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
         <Route path="purchase-batch" element={<ErrorBoundary><AddPurchaseBatchPage /></ErrorBoundary>} />
+        <Route path="general-items" element={<ErrorBoundary><GeneralItemsPage /></ErrorBoundary>} />
         <Route path="sellers" element={<ErrorBoundary><SellersPage /></ErrorBoundary>} />
         <Route
           path="taste-customization"

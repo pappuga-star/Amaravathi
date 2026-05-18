@@ -50,6 +50,8 @@ interface AutocompleteInputProps {
   createLabel?: string;
   className?: string;
   required?: boolean;
+  minCharsForCreate?: number;
+  onSearchTermChange?: (val: string) => void;
 }
 
 function AutocompleteInput({
@@ -62,6 +64,8 @@ function AutocompleteInput({
   createLabel,
   className,
   required,
+  minCharsForCreate = 3,
+  onSearchTermChange,
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState(value);
@@ -77,6 +81,10 @@ function AutocompleteInput({
   const hasExactMatch = options.some(
     (opt) => opt.toLowerCase() === search.trim().toLowerCase(),
   );
+  const canShowCreateOption =
+    search.trim().length >= minCharsForCreate &&
+    !hasExactMatch &&
+    Boolean(onCreateNew);
 
   return (
     <div className="relative">
@@ -91,9 +99,13 @@ function AutocompleteInput({
           const val = e.target.value;
           setSearch(val);
           onChange(val);
+          onSearchTermChange?.(val);
           setIsOpen(true);
         }}
-        onFocus={() => setIsOpen(true)}
+        onFocus={() => {
+          onSearchTermChange?.(search);
+          setIsOpen(true);
+        }}
         onBlur={() => {
           setTimeout(() => setIsOpen(false), 200);
         }}
@@ -102,7 +114,7 @@ function AutocompleteInput({
       />
       {isOpen &&
         (filtered.length > 0 ||
-          (search.trim() !== '' && !hasExactMatch && onCreateNew)) && (
+          canShowCreateOption) && (
           <ul className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5 focus:outline-none">
             {filtered.map((opt, i) => (
               <li
@@ -117,10 +129,12 @@ function AutocompleteInput({
                 {opt}
               </li>
             ))}
-            {search.trim() !== '' && !hasExactMatch && onCreateNew && (
+            {canShowCreateOption && (
               <li
                 onMouseDown={() => {
-                  onCreateNew(search.trim());
+                  if (onCreateNew) {
+                    onCreateNew(search.trim());
+                  }
                   setIsOpen(false);
                 }}
                 className="relative cursor-pointer select-none rounded-md px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 hover:text-emerald-800 transition-colors border-t border-slate-100"
@@ -145,6 +159,11 @@ export function AddPurchaseBatchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [teaPowderTypeSearchTerm, setTeaPowderTypeSearchTerm] = useState('');
+  const debouncedTeaPowderTypeSearchTerm = useDebounce(
+    teaPowderTypeSearchTerm,
+    300,
+  );
 
   const activeTab = searchParams.get('tab') === 'types' ? 'types' : 'batches';
   const setActiveTab = (tab: 'batches' | 'types') => {
@@ -198,17 +217,35 @@ export function AddPurchaseBatchPage() {
   const { data: teaPowderTypes = [] } = useQuery({
     queryKey: ['teaPowderTypes'],
     queryFn: () =>
-      api<{ items: { id: string; name: string }[] }>(endpoints.teaPowderTypes).then(
-        (res) => res.items ?? [],
-      ),
+      api<{ items: { id: string; name: string }[] }>(
+        `${endpoints.teaPowderTypes}?page=1&limit=1000`,
+      ).then((res) => res.items ?? []),
   });
+  const { data: teaPowderTypeSearchResults = [] } = useQuery({
+    queryKey: ['teaPowderTypes-search', debouncedTeaPowderTypeSearchTerm],
+    enabled: debouncedTeaPowderTypeSearchTerm.trim().length >= 2,
+    queryFn: () =>
+      api<{ items: { id: string; name: string }[] }>(
+        `${endpoints.teaPowderTypes}?q=${encodeURIComponent(
+          debouncedTeaPowderTypeSearchTerm.trim(),
+        )}&page=1&limit=50`,
+      ).then((res) => res.items ?? []),
+  });
+  const allTeaPowderTypes = Array.from(
+    new Map(
+      [...teaPowderTypes, ...teaPowderTypeSearchResults].map((item) => [
+        item.id,
+        item,
+      ]),
+    ).values(),
+  );
 
   // Unique merged list of active tea powder grade/category taxonomies
   const autocompleteOptions = Array.from(
-    new Set(teaPowderTypes.map((c) => c.name.trim())),
+    new Set(allTeaPowderTypes.map((c) => c.name.trim())),
   ).filter(Boolean);
   const teaPowderTypeByName = new Map(
-    teaPowderTypes.map((item) => [item.name.trim().toLowerCase(), item.name]),
+    allTeaPowderTypes.map((item) => [item.name.trim().toLowerCase(), item]),
   );
 
   // Create or Update Mutation
@@ -582,30 +619,32 @@ export function AddPurchaseBatchPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Tab Buttons Container */}
-      <div className="flex flex-wrap rounded-xl border border-slate-200 p-1 bg-white shadow-sm font-semibold text-slate-600 no-print">
-        <button
-          onClick={() => setActiveTab('batches')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
-            activeTab === 'batches'
-              ? 'bg-emerald-600 text-white shadow-md'
-              : 'hover:bg-slate-50 hover:text-slate-900'
-          }`}
-        >
-          <ClipboardList size={16} />
-          <span>{t('addPurchaseBatch.tabs.purchaseBatches')}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('types')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
-            activeTab === 'types'
-              ? 'bg-emerald-600 text-white shadow-md'
-              : 'hover:bg-slate-50 hover:text-slate-900'
-          }`}
-        >
-          <Coffee size={16} />
-          <span>{t('addPurchaseBatch.tabs.teaPowderTypes')}</span>
-        </button>
+      {/* Sticky Tab Buttons Container */}
+      <div className="sticky top-16 z-30 -mx-1 rounded-xl bg-slate-50/95 px-1 py-1 backdrop-blur no-print">
+        <div className="flex flex-wrap rounded-xl border border-slate-200 p-1 bg-white shadow-sm font-semibold text-slate-600">
+          <button
+            onClick={() => setActiveTab('batches')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
+              activeTab === 'batches'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <ClipboardList size={16} />
+            <span>{t('addPurchaseBatch.tabs.purchaseBatches')}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('types')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
+              activeTab === 'types'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Coffee size={16} />
+            <span>{t('addPurchaseBatch.tabs.teaPowderTypes')}</span>
+          </button>
+        </div>
       </div>
 
       <div className="min-w-0">
@@ -904,11 +943,8 @@ export function AddPurchaseBatchPage() {
                                   value={item.teaPowderTypeName}
                                   onChange={(val) => {
                                     const normalized = val.trim().toLowerCase();
-                                    const matched = teaPowderTypes.find(
-                                      (type) =>
-                                        type.name.trim().toLowerCase() ===
-                                        normalized,
-                                    );
+                                    const matched =
+                                      teaPowderTypeByName.get(normalized);
                                     updateItem(index, 'teaPowderTypeName', val);
                                     updateItem(
                                       index,
@@ -916,19 +952,47 @@ export function AddPurchaseBatchPage() {
                                       matched?.id ?? '',
                                     );
                                   }}
+                                  onSearchTermChange={setTeaPowderTypeSearchTerm}
                                   options={autocompleteOptions}
                                   placeholder={t(
                                     'addPurchaseBatch.table.selectGrade',
                                   )}
                                   hasError={isDuplicate}
                                   onCreateNew={(newVal) => {
+                                    const normalized = newVal
+                                      .trim()
+                                      .toLowerCase();
+                                    const existing =
+                                      teaPowderTypeByName.get(normalized);
+                                    if (existing) {
+                                      updateItem(
+                                        index,
+                                        'teaPowderTypeName',
+                                        existing.name,
+                                      );
+                                      updateItem(
+                                        index,
+                                        'teaPowderTypeId',
+                                        existing.id,
+                                      );
+                                      return;
+                                    }
                                     createPowderTypeMutation.mutate(newVal, {
                                       onSuccess: (newType) => {
-                                        updateItem(index, 'teaPowderTypeName', newType.name);
-                                        updateItem(index, 'teaPowderTypeId', newType.id);
+                                        updateItem(
+                                          index,
+                                          'teaPowderTypeName',
+                                          newType.name,
+                                        );
+                                        updateItem(
+                                          index,
+                                          'teaPowderTypeId',
+                                          newType.id,
+                                        );
                                       },
                                     });
                                   }}
+                                  minCharsForCreate={3}
                                 />
                               ) : (
                                 <div className="text-sm font-normal text-slate-700 select-none truncate">
@@ -1412,55 +1476,78 @@ export function AddPurchaseBatchPage() {
             }
             subtitle={t('addPurchaseBatch.modal.subtitle')}
             onClose={() => setViewingBatch(null)}
-            fields={[
-              {
-                label: t('addPurchaseBatch.modal.batchCode'),
-                value: viewingBatch.batchCode || '—',
-              },
-              {
-                label: t('addPurchaseBatch.modal.purchaseDate'),
-                value: new Date(viewingBatch.purchaseDate).toLocaleDateString(
-                  'en-IN',
-                  {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  },
-                ),
-              },
-              {
-                label: t('addPurchaseBatch.modal.seller'),
-                value: viewingBatch.sellerName || '—',
-              },
-              {
-                label: t('addPurchaseBatch.modal.billNumber'),
-                value: viewingBatch.billNumber || '—',
-              },
-              {
-                label: t('addPurchaseBatch.modal.bagsCount'),
-                value: `${viewingBatch.numberOfBags || 0} ${t('addPurchaseBatch.card.bags')}`,
-              },
-            ]}
+            headerMeta={(
+              <>
+                <span className="inline-flex items-center rounded-md border border-emerald-500/60 bg-emerald-700/60 px-2 py-1 text-[11px] font-semibold text-emerald-100">
+                  {viewingBatch.numberOfBags || 0} {t('addPurchaseBatch.card.bags')}
+                </span>
+                <span className="inline-flex items-center rounded-md border border-emerald-500/60 bg-emerald-700/60 px-2 py-1 text-[11px] font-semibold text-emerald-100">
+                  {viewingBatch.lineItems.length} {t('addPurchaseBatch.card.items')}
+                </span>
+              </>
+            )}
+            fields={[]}
             customBody={
               <div className="flex flex-col gap-4">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-3">
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    {t('addPurchaseBatch.modal.seller')}
+                  </div>
+                  <div className="mt-1 text-base font-bold text-slate-800">
+                    {viewingBatch.sellerName || '—'}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    {
+                      label: t('addPurchaseBatch.modal.purchaseDate'),
+                      value: new Date(viewingBatch.purchaseDate).toLocaleDateString(
+                        'en-IN',
+                        {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        },
+                      ),
+                    },
+                    {
+                      label: t('addPurchaseBatch.modal.billNumber'),
+                      value: viewingBatch.billNumber || '—',
+                    },
+                  ].map((detail, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-3"
+                    >
+                      <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        {detail.label}
+                      </div>
+                      <div className="mt-1 text-base font-bold text-slate-800">
+                        {detail.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block border-t border-slate-100 pt-4">
                   {t('addPurchaseBatch.modal.lineItemsTitle')}
                 </span>
                 <div className="flex flex-col gap-2">
                   {viewingBatch.lineItems.map((item: any, index: number) => (
                     <div
                       key={item.id ?? index}
-                      className="flex justify-between items-center border border-slate-200 rounded-xl p-3 bg-slate-50/50"
+                      className="flex justify-between items-center border border-slate-200 rounded-xl p-3 bg-white shadow-[0_1px_0_rgba(15,23,42,0.03)]"
                     >
-                      <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                        <span className="grid size-5 place-items-center rounded bg-slate-200 text-[10px] font-black text-slate-600">
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                        <span className="grid size-5 place-items-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200">
                           {index + 1}
                         </span>
-                        <span className="font-bold text-slate-800">
+                        <span className="font-semibold text-slate-800 text-[13px]">
                           {item.teaPowderTypeName}
                         </span>
                       </div>
-                      <span className="text-sm font-bold text-emerald-800">
+                      <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-0.5">
                         ₹{Number(item.pricePerKg || 0).toFixed(2)}/kg
                       </span>
                     </div>

@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Save, Search, Edit3, Trash2, Eye, X } from 'lucide-react';
+import {
+  Save,
+  Search,
+  Edit3,
+  Trash2,
+  Eye,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-react';
 import { Button, Card, Input } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { DataModule } from '../components/DataModule';
@@ -10,10 +21,12 @@ import { useNotification } from '../components/NotificationContext';
 import { useDebounce } from '../hooks/useDebounce';
 
 export const TeaPowderTypesPage = () => {
+  const PAGE_SIZE = 20;
   const queryClient = useQueryClient();
   const { showError, confirm } = useNotification();
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchParams] = useSearchParams();
   const qParam = searchParams.get('q') || '';
   const [searchQuery, setSearchQuery] = useState(qParam);
@@ -21,7 +34,12 @@ export const TeaPowderTypesPage = () => {
   useEffect(() => {
     setSearchQuery(qParam);
   }, [qParam]);
+
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery]);
   const [viewingType, setViewingType] = useState<{
     id: string;
     name: string;
@@ -38,13 +56,41 @@ export const TeaPowderTypesPage = () => {
 
   // Fetch list
   const { data } = useQuery({
-    queryKey: [endpoints.teaPowderTypes, debouncedSearchQuery],
+    queryKey: [
+      endpoints.teaPowderTypes,
+      debouncedSearchQuery,
+      currentPage,
+      PAGE_SIZE,
+    ],
     queryFn: () =>
-      api<{ items: { id: string; name: string }[] }>(
-        `${endpoints.teaPowderTypes}?q=${encodeURIComponent(debouncedSearchQuery)}`,
+      api<{
+        items: { id: string; name: string }[];
+        total: number;
+        page: number;
+        limit: number;
+      }>(
+        `${endpoints.teaPowderTypes}?q=${encodeURIComponent(
+          debouncedSearchQuery,
+        )}&page=${currentPage}&limit=${PAGE_SIZE}`,
       ),
   });
   const items = data?.items ?? [];
+  const totalRecords = data?.total ?? 0;
+  const pageSize = data?.limit ?? PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const serialStart = (currentPage - 1) * pageSize;
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+    (pageNumber) =>
+      pageNumber === 1 ||
+      pageNumber === totalPages ||
+      Math.abs(pageNumber - currentPage) <= 1,
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Create or Update Mutation
   const saveMutation = useMutation({
@@ -164,19 +210,43 @@ export const TeaPowderTypesPage = () => {
       {/* Right Table: Searchable records */}
       <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-bold text-slate-800">
+          <h3 className="text-base font-bold text-slate-800">
             Tea Powder Type Records
           </h3>
+          <div className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
+            Total Records: {totalRecords}
+          </div>
         </div>
 
-        <div className="overflow-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+        <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tea powder types..."
+              className="h-9 pl-8 text-xs"
+            />
+          </div>
+          <p className="text-[11px] font-medium text-slate-500">
+            Page Size: {pageSize}
+          </p>
+        </div>
+
+        <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide w-20">
+                  S.No
+                </th>
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
                   Tea Powder Type Name
                 </th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">
+                <th className="sticky right-0 bg-slate-50 px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide text-center">
                   Actions
                 </th>
               </tr>
@@ -185,36 +255,39 @@ export const TeaPowderTypesPage = () => {
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={2}
+                    colSpan={3}
                     className="px-4 py-8 text-center text-slate-400 italic text-sm"
                   >
                     No tea powder types found.
                   </td>
                 </tr>
               ) : (
-                items.map((item) => (
+                items.map((item, index) => (
                   <tr
                     key={item.id}
                     className="hover:bg-slate-50/50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm font-normal text-slate-700">
+                    <td className="px-4 py-2.5 text-base font-semibold text-slate-500">
+                      {serialStart + index + 1}
+                    </td>
+                    <td className="px-4 py-2.5 text-sm font-medium text-slate-700">
                       {item.name}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="sticky right-0 bg-white px-4 py-2.5 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
                           onClick={() => setViewingType(item)}
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all duration-200 active:scale-95 focus:outline-none"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all duration-200 active:scale-95 focus:outline-none"
                           title="View Details"
                         >
-                          <Eye size={14} />
+                          <Eye size={13} />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleEdit(item)}
                           disabled={!canEdit}
-                          className={`inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 transition-all duration-200 ${
+                          className={`inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 transition-all duration-200 ${
                             canEdit
                               ? 'hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 active:scale-95'
                               : 'opacity-40 cursor-not-allowed'
@@ -225,20 +298,20 @@ export const TeaPowderTypesPage = () => {
                               : 'Only admins or pricing managers can edit'
                           }
                         >
-                          <Edit3 size={14} />
+                          <Edit3 size={13} />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
                           disabled={!isAdmin}
-                          className={`inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 transition-all duration-200 ${
+                          className={`inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 transition-all duration-200 ${
                             isAdmin
                               ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-300 active:scale-95'
                               : 'opacity-40 cursor-not-allowed'
                           } focus:outline-none`}
                           title={isAdmin ? 'Delete' : 'Only admins can delete'}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>
@@ -247,6 +320,79 @@ export const TeaPowderTypesPage = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="sticky bottom-0 z-[60] -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur">
+          <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-center sm:justify-between sm:pr-24">
+            <p className="text-[11px] font-medium text-slate-500">
+            Showing {items.length ? serialStart + 1 : 0} to{' '}
+            {serialStart + items.length} of {totalRecords}
+            </p>
+            <div className="mr-20 flex items-center gap-1.5 sm:mr-24">
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage <= 1}
+              >
+                <ChevronsLeft size={13} />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft size={13} />
+              </Button>
+
+              {pageNumbers.map((pageNumber, idx) => {
+                const prev = pageNumbers[idx - 1];
+                const gapBefore = prev && pageNumber - prev > 1;
+                return (
+                  <div key={pageNumber} className="flex items-center gap-1.5">
+                    {gapBefore ? (
+                      <span className="text-[10px] text-slate-400">...</span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(pageNumber)}
+                      className={`h-7 min-w-7 rounded-md border px-2 text-[11px] font-semibold ${
+                        currentPage === pageNumber
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  </div>
+                );
+              })}
+
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight size={13} />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronsRight size={13} />
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -272,6 +418,7 @@ export const TeaPowderTypesPage = () => {
 };
 
 export const SellersPage = () => {
+  const PAGE_SIZE = 20;
   const queryClient = useQueryClient();
   const { showError, confirm } = useNotification();
   const [name, setName] = useState('');
@@ -279,6 +426,7 @@ export const SellersPage = () => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchParams] = useSearchParams();
   const qParam = searchParams.get('q') || '';
   const [searchQuery, setSearchQuery] = useState(qParam);
@@ -287,6 +435,9 @@ export const SellersPage = () => {
     setSearchQuery(qParam);
   }, [qParam]);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery]);
   const [viewingSeller, setViewingSeller] = useState<{
     id: string;
     name: string;
@@ -306,7 +457,7 @@ export const SellersPage = () => {
 
   // Fetch list
   const { data } = useQuery({
-    queryKey: [endpoints.sellers, debouncedSearchQuery],
+    queryKey: [endpoints.sellers, debouncedSearchQuery, currentPage, PAGE_SIZE],
     queryFn: () =>
       api<{
         items: {
@@ -316,9 +467,32 @@ export const SellersPage = () => {
           phone?: string;
           email?: string;
         }[];
-      }>(`${endpoints.sellers}?q=${encodeURIComponent(debouncedSearchQuery)}`),
+        total: number;
+        page: number;
+        limit: number;
+      }>(
+        `${endpoints.sellers}?q=${encodeURIComponent(
+          debouncedSearchQuery,
+        )}&page=${currentPage}&limit=${PAGE_SIZE}`,
+      ),
   });
   const items = data?.items ?? [];
+  const totalRecords = data?.total ?? 0;
+  const pageSize = data?.limit ?? PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const serialStart = (currentPage - 1) * pageSize;
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+    (pageNumber) =>
+      pageNumber === 1 ||
+      pageNumber === totalPages ||
+      Math.abs(pageNumber - currentPage) <= 1,
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Create or Update Mutation
   const saveMutation = useMutation({
@@ -493,26 +667,50 @@ export const SellersPage = () => {
       {/* Right Table: Searchable records */}
       <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Seller Records</h3>
+          <h3 className="text-base font-bold text-slate-800">Seller Records</h3>
+          <div className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
+            Total Records: {totalRecords}
+          </div>
         </div>
 
-        <div className="overflow-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+        <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sellers..."
+              className="h-9 pl-8 text-xs"
+            />
+          </div>
+          <p className="text-[11px] font-medium text-slate-500">
+            Page Size: {pageSize}
+          </p>
+        </div>
+
+        <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide w-20">
+                  S.No
+                </th>
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
                   Seller Name
                 </th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
                   Contact Person
                 </th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
                   Phone
                 </th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
                   Email
                 </th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">
+                <th className="sticky right-0 bg-slate-50 px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide text-center">
                   Actions
                 </th>
               </tr>
@@ -521,45 +719,48 @@ export const SellersPage = () => {
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-8 text-center text-slate-400 italic text-sm"
                   >
                     No sellers (suppliers) found.
                   </td>
                 </tr>
               ) : (
-                items.map((item) => (
+                items.map((item, index) => (
                   <tr
                     key={item.id}
                     className="hover:bg-slate-50/50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm font-normal text-slate-700">
+                    <td className="px-4 py-2.5 text-base font-semibold text-slate-500">
+                      {serialStart + index + 1}
+                    </td>
+                    <td className="px-4 py-2.5 text-sm font-medium text-slate-700">
                       {item.name}
                     </td>
-                    <td className="px-4 py-3 text-sm font-normal text-slate-600">
+                    <td className="px-4 py-2.5 text-xs font-normal text-slate-600">
                       {item.contactPerson || '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm font-normal text-slate-500">
+                    <td className="px-4 py-2.5 text-xs font-normal text-slate-500">
                       {item.phone || '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm font-normal text-slate-500">
+                    <td className="px-4 py-2.5 text-xs font-normal text-slate-500">
                       {item.email || '-'}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="sticky right-0 bg-white px-4 py-2.5 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
                           onClick={() => setViewingSeller(item)}
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all duration-200 active:scale-95 focus:outline-none"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all duration-200 active:scale-95 focus:outline-none"
                           title="View Details"
                         >
-                          <Eye size={14} />
+                          <Eye size={13} />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleEdit(item)}
                           disabled={!canEdit}
-                          className={`inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 transition-all duration-200 ${
+                          className={`inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 transition-all duration-200 ${
                             canEdit
                               ? 'hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 active:scale-95'
                               : 'opacity-40 cursor-not-allowed'
@@ -570,20 +771,20 @@ export const SellersPage = () => {
                               : 'Only admins or pricing managers can edit'
                           }
                         >
-                          <Edit3 size={14} />
+                          <Edit3 size={13} />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
                           disabled={!isAdmin}
-                          className={`inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 transition-all duration-200 ${
+                          className={`inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 transition-all duration-200 ${
                             isAdmin
                               ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-300 active:scale-95'
                               : 'opacity-40 cursor-not-allowed'
                           } focus:outline-none`}
                           title={isAdmin ? 'Delete' : 'Only admins can delete'}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>
@@ -592,6 +793,77 @@ export const SellersPage = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="sticky bottom-0 z-[60] -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur">
+          <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-center sm:justify-between sm:pr-24">
+            <p className="text-[11px] font-medium text-slate-500">
+              Showing {items.length ? serialStart + 1 : 0} to{' '}
+              {serialStart + items.length} of {totalRecords}
+            </p>
+            <div className="mr-20 flex items-center gap-1.5 sm:mr-24">
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage <= 1}
+              >
+                <ChevronsLeft size={13} />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft size={13} />
+              </Button>
+              {pageNumbers.map((pageNumber, idx) => {
+                const prev = pageNumbers[idx - 1];
+                const gapBefore = prev && pageNumber - prev > 1;
+                return (
+                  <div key={pageNumber} className="flex items-center gap-1.5">
+                    {gapBefore ? (
+                      <span className="text-[10px] text-slate-400">...</span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(pageNumber)}
+                      className={`h-7 min-w-7 rounded-md border px-2 text-[11px] font-semibold ${
+                        currentPage === pageNumber
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  </div>
+                );
+              })}
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight size={13} />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronsRight size={13} />
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -651,12 +923,14 @@ export const UsersPage = () => (
 );
 
 export const CustomersPage = () => {
+  const PAGE_SIZE = 20;
   const queryClient = useQueryClient();
   const { showError, confirm } = useNotification();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchParams] = useSearchParams();
   const qParam = searchParams.get('q') || '';
   const [searchQuery, setSearchQuery] = useState(qParam);
@@ -665,6 +939,9 @@ export const CustomersPage = () => {
     setSearchQuery(qParam);
   }, [qParam]);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery]);
   const [viewingCustomer, setViewingCustomer] = useState<{
     id: string;
     name: string;
@@ -693,7 +970,7 @@ export const CustomersPage = () => {
   const canEdit = me?.role === 'admin' || me?.role === 'pricing_manager';
 
   const { data } = useQuery({
-    queryKey: [endpoints.customers, debouncedSearchQuery],
+    queryKey: [endpoints.customers, debouncedSearchQuery, currentPage, PAGE_SIZE],
     queryFn: () =>
       api<{
         items: {
@@ -702,9 +979,32 @@ export const CustomersPage = () => {
           address?: string;
           mobileNumber?: string;
         }[];
-      }>(`${endpoints.customers}?q=${encodeURIComponent(debouncedSearchQuery)}`),
+        total: number;
+        page: number;
+        limit: number;
+      }>(
+        `${endpoints.customers}?q=${encodeURIComponent(
+          debouncedSearchQuery,
+        )}&page=${currentPage}&limit=${PAGE_SIZE}`,
+      ),
   });
   const items = data?.items ?? [];
+  const totalRecords = data?.total ?? 0;
+  const pageSize = data?.limit ?? PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const serialStart = (currentPage - 1) * pageSize;
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+    (pageNumber) =>
+      pageNumber === 1 ||
+      pageNumber === totalPages ||
+      Math.abs(pageNumber - currentPage) <= 1,
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: {
@@ -849,23 +1149,47 @@ export const CustomersPage = () => {
 
       <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Customer Records</h3>
+          <h3 className="text-base font-bold text-slate-800">Customer Records</h3>
+          <div className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
+            Total Records: {totalRecords}
+          </div>
         </div>
 
-        <div className="overflow-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+        <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search customers..."
+              className="h-9 pl-8 text-xs"
+            />
+          </div>
+          <p className="text-[11px] font-medium text-slate-500">
+            Page Size: {pageSize}
+          </p>
+        </div>
+
+        <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide w-20">
+                  S.No
+                </th>
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
                   Name
                 </th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
                   Address
                 </th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
                   Mobile Number
                 </th>
-                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide text-center">
+                <th className="sticky right-0 bg-slate-50 px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide text-center">
                   Actions
                 </th>
               </tr>
@@ -874,52 +1198,55 @@ export const CustomersPage = () => {
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-4 py-8 text-center text-slate-400 italic text-sm"
                   >
                     No customers found.
                   </td>
                 </tr>
               ) : (
-                items.map((item) => (
+                items.map((item, index) => (
                   <tr
                     key={item.id}
                     className="hover:bg-slate-50/50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm font-normal text-slate-700">
+                    <td className="px-4 py-2.5 text-base font-semibold text-slate-500">
+                      {serialStart + index + 1}
+                    </td>
+                    <td className="px-4 py-2.5 text-sm font-medium text-slate-700">
                       {item.name}
                     </td>
-                    <td className="px-4 py-3 text-sm font-normal text-slate-600">
+                    <td className="px-4 py-2.5 text-xs font-normal text-slate-600">
                       {item.address || '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm font-normal text-slate-500">
+                    <td className="px-4 py-2.5 text-xs font-normal text-slate-500">
                       {item.mobileNumber || '-'}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="sticky right-0 bg-white px-4 py-2.5 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
                           onClick={() => setViewingCustomer(item)}
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
                           title="View Customized Formulas"
                         >
-                          <Eye size={14} />
+                          <Eye size={13} />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleEdit(item)}
                           disabled={!canEdit}
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                         >
-                          <Edit3 size={14} />
+                          <Edit3 size={13} />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
                           disabled={!isAdmin}
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>
@@ -928,6 +1255,77 @@ export const CustomersPage = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="sticky bottom-0 z-[60] -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur">
+          <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-center sm:justify-between sm:pr-24">
+            <p className="text-[11px] font-medium text-slate-500">
+              Showing {items.length ? serialStart + 1 : 0} to{' '}
+              {serialStart + items.length} of {totalRecords}
+            </p>
+            <div className="mr-20 flex items-center gap-1.5 sm:mr-24">
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage <= 1}
+              >
+                <ChevronsLeft size={13} />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft size={13} />
+              </Button>
+              {pageNumbers.map((pageNumber, idx) => {
+                const prev = pageNumbers[idx - 1];
+                const gapBefore = prev && pageNumber - prev > 1;
+                return (
+                  <div key={pageNumber} className="flex items-center gap-1.5">
+                    {gapBefore ? (
+                      <span className="text-[10px] text-slate-400">...</span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(pageNumber)}
+                      className={`h-7 min-w-7 rounded-md border px-2 text-[11px] font-semibold ${
+                        currentPage === pageNumber
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  </div>
+                );
+              })}
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight size={13} />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronsRight size={13} />
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
 

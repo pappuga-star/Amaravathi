@@ -37,6 +37,7 @@
   "dashboard": {
     "teaPowderTypes": "టీ పౌడర్ రకాలు",
     "purchaseBatches": "కొనుగోలు బ్యాచ్‌లు",
+    "generalItems": "సాధారణ అంశాలు",
     "customers": "కస్టమర్లు",
     "users": "వినియోగదారులు",
     "workflow": "కొనుగోలు ధృవీకరణ వర్క్‌ఫ్లో",
@@ -362,6 +363,7 @@
     "leafCategories": "ఆకు వర్గాలు",
     "cuttingTypes": "కట్టింగ్ రకాలు",
     "purchaseBatches": "కొనుగోలు బ్యాచ్",
+    "generalItems": "సాధారణ అంశాలు",
     "sellers": "అమ్మకందారులు (సరఫరాదారులు)",
     "customerCustomization": "కస్టమర్ అనుకూలీకరణ",
     "salesQuotation": "అమ్మకాలు & ప్లానర్",
