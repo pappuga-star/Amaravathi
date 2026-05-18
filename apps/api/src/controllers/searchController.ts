@@ -3,7 +3,7 @@ import { CustomerTeaFormula } from '../models/CustomerTeaFormula.js';
 import { AddPurchaseBatch } from '../models/AddPurchaseBatch.js';
 import { Customer } from '../models/Customer.js';
 import { LeafCategory } from '../models/LeafCategory.js';
-import { CuttingType } from '../models/CuttingType.js';
+import { isSearchQueryPresent } from '@amaravathi/shared-utils';
 
 function escapeRegex(text: string): string {
   return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
@@ -11,8 +11,8 @@ function escapeRegex(text: string): string {
 
 export async function globalSearch(req: Request, res: Response) {
   try {
-    const q = ((req.query.q as string) || '').trim();
-    if (!q) {
+    const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
+    if (!isSearchQueryPresent(rawQ)) {
       return res.json({
         success: true,
         data: {
@@ -22,6 +22,8 @@ export async function globalSearch(req: Request, res: Response) {
         },
       });
     }
+
+    const q = String(rawQ).trim();
 
     const regexQuery = new RegExp(escapeRegex(q), 'i');
     const userRole = req.user?.role;
@@ -37,17 +39,15 @@ export async function globalSearch(req: Request, res: Response) {
     };
 
     // 1. Search Customer Customizations (Allowed for everyone: admin, pricing_manager, operator, viewer)
-    // Find matching Customers, Leaf Categories, and Cutting Types first to resolve reference joins
-    const [matchingCustomers, matchingLeaves, matchingCuttings] =
+    // Find matching Customers and Leaf Categories first to resolve reference joins
+    const [matchingCustomers, matchingLeaves] =
       await Promise.all([
-        Customer.find({ name: regexQuery, deletedAt: null }).select('_id'),
-        LeafCategory.find({ name: regexQuery, deletedAt: null }).select('_id'),
-        CuttingType.find({ name: regexQuery, deletedAt: null }).select('_id'),
+        Customer.find({ name: regexQuery, deletedAt: null }).select('_id').lean(),
+        LeafCategory.find({ name: regexQuery, deletedAt: null }).select('_id').lean(),
       ]);
 
     const customerIds = matchingCustomers.map((c) => c._id);
     const leafIds = matchingLeaves.map((l) => l._id);
-    const cuttingIds = matchingCuttings.map((c) => c._id);
 
     const numericVal = Number(q);
     const numericFilter: any[] = [];
@@ -62,21 +62,20 @@ export async function globalSearch(req: Request, res: Response) {
         { notes: regexQuery },
         { customerId: { $in: customerIds } },
         { leafCategoryId: { $in: leafIds } },
-        { cuttingTypeId: { $in: cuttingIds } },
         ...numericFilter,
       ],
     })
-      .populate('customerId')
-      .populate('leafCategoryId')
-      .populate('cuttingTypeId')
-      .limit(10);
+      .select('formulaCode customerId leafCategoryId finalPrice status')
+      .populate('customerId', 'name')
+      .populate('leafCategoryId', 'name')
+      .limit(10)
+      .lean();
 
     results.tasteCustomizations = formulas.map((f: any) => ({
-      id: f._id,
+      id: f._id.toString(),
       formulaCode: f.formulaCode,
       customerName: f.customerId?.name || 'Unknown',
       leafCategoryName: f.leafCategoryId?.name || 'Unknown',
-      cuttingTypeName: f.cuttingTypeId?.name || 'Unknown',
       finalPrice: f.finalPrice,
       status: f.status,
     }));
@@ -92,13 +91,16 @@ export async function globalSearch(req: Request, res: Response) {
         { batchCode: regexQuery },
         { billNumber: regexQuery },
         { sellerName: regexQuery },
-        { 'items.teaPowderType': regexQuery },
+        { 'lineItems.teaPowderTypeName': regexQuery },
         ...batchNumericFilters,
       ],
-    }).limit(10);
+    })
+      .select('serialNumber batchCode billNumber sellerName purchaseDate numberOfBags')
+      .limit(10)
+      .lean();
 
     results.purchaseBatches = batches.map((b: any) => ({
-      id: b._id,
+      id: b._id.toString(),
       serialNumber: b.serialNumber,
       batchCode: b.batchCode,
       billNumber: b.billNumber,
@@ -116,10 +118,13 @@ export async function globalSearch(req: Request, res: Response) {
           { mobileNumber: regexQuery },
           { address: regexQuery },
         ],
-      }).limit(10);
+      })
+        .select('name mobileNumber address active')
+        .limit(10)
+        .lean();
 
       results.customers = dbCustomers.map((c: any) => ({
-        id: c._id,
+        id: c._id.toString(),
         name: c.name,
         mobileNumber: c.mobileNumber || 'N/A',
         address: c.address || 'N/A',
