@@ -767,7 +767,7 @@ function GeneralItemsTable({
   onEdit,
   onDelete,
 }: {
-  rows: FlatRow[];
+  rows: GeneralItemPurchase[];
   canEdit: boolean;
   isAdmin: boolean;
   onView: (purchaseId: string) => void;
@@ -778,40 +778,34 @@ function GeneralItemsTable({
     <Card className="grid gap-3">
       <h4 className="text-sm font-bold text-slate-800">General Items Purchase Register</h4>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-[1080px] w-full text-sm">
+        <table className="min-w-[920px] w-full text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left">Purchase Date</th>
               <th className="px-3 py-2 text-left">Bill Number</th>
               <th className="px-3 py-2 text-left">Supplier Name</th>
-              <th className="px-3 py-2 text-left">Particulars</th>
-              <th className="px-3 py-2 text-left">Quantity</th>
-              <th className="px-3 py-2 text-left">Unit</th>
-              <th className="px-3 py-2 text-left">Rate Per Unit</th>
-              <th className="px-3 py-2 text-left">Amount</th>
+              <th className="px-3 py-2 text-left">Items</th>
+              <th className="px-3 py-2 text-left">Total Amount</th>
               <th className="px-3 py-2 text-left">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.map((row, index) => (
-              <tr key={`${row.purchaseId}-${index}`}>
+            {rows.map((row) => (
+              <tr key={row.id}>
                 <td className="px-3 py-2">{new Date(row.purchaseDate).toLocaleDateString('en-IN')}</td>
                 <td className="px-3 py-2">{row.billNumber || 'N/A'}</td>
                 <td className="px-3 py-2">{row.supplierName}</td>
-                <td className="px-3 py-2">{row.particulars}</td>
-                <td className="px-3 py-2">{row.quantity}</td>
-                <td className="px-3 py-2">{row.unit}</td>
-                <td className="px-3 py-2">{row.ratePerUnit}</td>
-                <td className="px-3 py-2">{formatCurrency(row.amount)}</td>
+                <td className="px-3 py-2">{row.lineItems.length}</td>
+                <td className="px-3 py-2">{formatCurrency(row.totalAmount)}</td>
                 <td className="px-3 py-2">
                   <div className="flex gap-2">
-                    <Button className="h-8 px-2" onClick={() => onView(row.purchaseId)}>
+                    <Button className="h-8 px-2" onClick={() => onView(row.id)}>
                       <Eye size={14} />
                     </Button>
-                    <Button className="h-8 px-2" disabled={!canEdit} onClick={() => onEdit(row.purchaseId)}>
+                    <Button className="h-8 px-2" disabled={!canEdit} onClick={() => onEdit(row.id)}>
                       <Edit3 size={14} />
                     </Button>
-                    <Button className="h-8 px-2" disabled={!isAdmin} onClick={() => onDelete(row.purchaseId)}>
+                    <Button className="h-8 px-2" disabled={!isAdmin} onClick={() => onDelete(row.id)}>
                       <Trash2 size={14} />
                     </Button>
                   </div>
@@ -820,7 +814,7 @@ function GeneralItemsTable({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="px-3 py-4 text-center text-slate-500" colSpan={9}>
+                <td className="px-3 py-4 text-center text-slate-500" colSpan={6}>
                   No records found.
                 </td>
               </tr>
@@ -1341,7 +1335,7 @@ export function GeneralItemsPage() {
     );
   }, [historySort, itemRateHistoryQuery.data?.history]);
 
-  const handleSavePurchase = () => {
+  const handleSavePurchase = async () => {
     const payload = {
       purchaseDate: form.purchaseDate,
       billNumber: form.billNumber.trim(),
@@ -1372,6 +1366,50 @@ export function GeneralItemsPage() {
     if (invalidLine) {
       showToast('Particulars, Quantity, Unit, and Rate Per Unit are required for each line item.', 'error');
       return;
+    }
+
+    const existingMasterSet = new Set(
+      masterItems.map((item) => item.itemName.trim().toLowerCase()),
+    );
+    const newMasterCandidates = payload.lineItems
+      .map((lineItem) => ({
+        itemName: lineItem.particulars.trim(),
+        defaultUnit: lineItem.unit,
+        isActive: true,
+      }))
+      .filter(
+        (candidate, index, arr) =>
+          candidate.itemName &&
+          !existingMasterSet.has(candidate.itemName.toLowerCase()) &&
+          arr.findIndex(
+            (x) => x.itemName.toLowerCase() === candidate.itemName.toLowerCase(),
+          ) === index,
+      );
+
+    if (newMasterCandidates.length) {
+      const creationResults = await Promise.allSettled(
+        newMasterCandidates.map((candidate) =>
+          api(endpoints.generalItemsMaster, {
+            method: 'POST',
+            body: JSON.stringify(candidate),
+          }),
+        ),
+      );
+
+      const hardFailure = creationResults.find(
+        (result) =>
+          result.status === 'rejected' &&
+          !String((result as PromiseRejectedResult).reason?.message ?? '').includes(
+            'Item already exists in master',
+          ),
+      );
+
+      if (hardFailure && hardFailure.status === 'rejected') {
+        showError(hardFailure.reason);
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['general-items-master'] });
     }
 
     saveMutation.mutate(payload);
@@ -1587,7 +1625,7 @@ export function GeneralItemsPage() {
           </Card>
 
           <GeneralItemsTable
-            rows={flatRows}
+            rows={purchases}
             canEdit={canEdit}
             isAdmin={isAdmin}
             onView={(purchaseId) => {
