@@ -41,12 +41,14 @@ function SupplierAutocompleteInput({
   options,
   placeholder,
   disabled,
+  onSearchTermChange,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: string[];
   placeholder: string;
   disabled?: boolean;
+  onSearchTermChange?: (value: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState(value);
@@ -67,9 +69,13 @@ function SupplierAutocompleteInput({
           const next = e.target.value;
           setSearch(next);
           onChange(next);
+          onSearchTermChange?.(next);
           setIsOpen(true);
         }}
-        onFocus={() => setIsOpen(true)}
+        onFocus={() => {
+          onSearchTermChange?.(search);
+          setIsOpen(true);
+        }}
         onBlur={() => setTimeout(() => setIsOpen(false), 200)}
         placeholder={placeholder}
         disabled={disabled}
@@ -208,6 +214,7 @@ function GeneralItemsForm({
   canEdit,
   supplierOptions,
   onOpenSupplierModal,
+  onSupplierSearchTermChange,
   masterItems,
   rateComparison,
   selectedRowIndex,
@@ -236,6 +243,7 @@ function GeneralItemsForm({
   canEdit: boolean;
   supplierOptions: string[];
   onOpenSupplierModal: () => void;
+  onSupplierSearchTermChange: (value: string) => void;
   masterItems: GeneralItemsMasterItem[];
   rateComparison: React.ReactNode;
   selectedRowIndex: number;
@@ -346,6 +354,7 @@ function GeneralItemsForm({
               onChange={(value) =>
                 setForm((prev) => ({ ...prev, supplierName: value }))
               }
+              onSearchTermChange={onSupplierSearchTermChange}
               options={supplierOptions}
               placeholder="Select or type supplier"
               disabled={!canEdit}
@@ -536,25 +545,19 @@ function NewSupplierModal({
   onClose: () => void;
   onSave: (payload: {
     name: string;
-    contactPerson?: string;
     phone?: string;
     address?: string;
-    notes?: string;
   }) => void;
 }) {
   const [name, setName] = useState('');
-  const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [notes, setNotes] = useState('');
 
   useEffect(() => {
     if (!open) {
       setName('');
-      setContactPerson('');
       setPhone('');
       setAddress('');
-      setNotes('');
     }
   }, [open]);
 
@@ -571,33 +574,19 @@ function NewSupplierModal({
           <Field label="Supplier Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} />
           </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Contact Person">
-              <Input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} disabled={!canEdit} />
-            </Field>
-            <Field label="Mobile Number">
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!canEdit} />
-            </Field>
-          </div>
+          <Field label="Mobile Number">
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!canEdit} />
+          </Field>
           <Field label="Address">
             <Input value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} />
           </Field>
-          <Field label="Notes">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={!canEdit}
-              rows={2}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-            />
-          </Field>
-          <p className="text-xs text-slate-500">Address and notes are collected for workflow context and are not persisted in current supplier schema.</p>
+          <p className="text-xs text-slate-500">Address is collected for workflow context and is not persisted in current supplier schema.</p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             <Button
               variant="add"
               disabled={!canEdit || isSaving || !name.trim()}
-              onClick={() => onSave({ name: name.trim(), contactPerson: contactPerson.trim(), phone: phone.trim(), address: address.trim(), notes: notes.trim() })}
+              onClick={() => onSave({ name: name.trim(), phone: phone.trim(), address: address.trim() })}
             >
               {isSaving ? 'Saving...' : 'Create Supplier'}
             </Button>
@@ -1015,6 +1004,7 @@ export function GeneralItemsPage() {
   const [filterParticulars, setFilterParticulars] = useState('');
   const [filterBillNumber, setFilterBillNumber] = useState('');
   const [historySort, setHistorySort] = useState<'latest' | 'lowest' | 'highest'>('latest');
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
 
   const [form, setForm] = useState({
     purchaseDate: toDateInputValue(new Date()),
@@ -1030,6 +1020,7 @@ export function GeneralItemsPage() {
   const debouncedBillNumber = useDebounce(filterBillNumber, 300);
   const debouncedFromDate = useDebounce(fromDate, 300);
   const debouncedToDate = useDebounce(toDate, 300);
+  const debouncedSupplierSearchTerm = useDebounce(supplierSearchTerm, 250);
 
   useEffect(() => {
     setSearchQuery(searchParams.get('q') || '');
@@ -1048,13 +1039,23 @@ export function GeneralItemsPage() {
   const isAdmin = me?.role === 'admin';
 
   const sellersQuery = useQuery({
-    queryKey: ['sellers-list-general-items'],
+    queryKey: ['sellers-list-general-items', debouncedSupplierSearchTerm],
+    enabled: activeTab === 'purchase-entry' || showNewSupplierModal,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
     queryFn: () =>
-      api<{ items: SellerOption[]; total?: number }>(`${endpoints.sellers}?limit=1000&page=1`),
+      api<{ items: SellerOption[]; total?: number }>(
+        `${endpoints.sellers}?page=1&limit=75&q=${encodeURIComponent(
+          debouncedSupplierSearchTerm.trim(),
+        )}`,
+      ),
   });
 
   const masterQuery = useQuery({
     queryKey: ['general-items-master'],
+    enabled: activeTab === 'purchase-entry' || activeTab === 'item-master',
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
     queryFn: () =>
       api<{ items: GeneralItemsMasterItem[] }>(endpoints.generalItemsMaster).then(
         (res) => res.items ?? [],
@@ -1074,6 +1075,7 @@ export function GeneralItemsPage() {
       registerPageSize,
     ],
     enabled: ['purchase-register', 'purchase-entry', 'reports', 'supplier-rate-history'].includes(activeTab),
+    staleTime: 60 * 1000,
     queryFn: () => {
       const params = new URLSearchParams();
       params.set('page', String(registerPage));
@@ -1530,6 +1532,7 @@ export function GeneralItemsPage() {
             canEdit={canEdit}
             supplierOptions={supplierOptions}
             onOpenSupplierModal={() => setShowNewSupplierModal(true)}
+            onSupplierSearchTermChange={setSupplierSearchTerm}
             masterItems={masterItems}
             selectedRowIndex={selectedRowIndex}
             setSelectedRowIndex={setSelectedRowIndex}
@@ -1881,7 +1884,6 @@ export function GeneralItemsPage() {
           }
           supplierCreateMutation.mutate({
             name: trimmedName,
-            ...(payload.contactPerson ? { contactPerson: payload.contactPerson } : {}),
             ...(normalizedPhone ? { phone: normalizedPhone } : {}),
           });
         }}

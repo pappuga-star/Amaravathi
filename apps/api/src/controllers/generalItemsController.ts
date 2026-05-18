@@ -41,6 +41,8 @@ const rateHistoryCache = new Map<
   { timestamp: number; data: { stats: any; history: any[] } }
 >();
 const RATE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
+let stockSummaryCache: { timestamp: number; data: any[] } | null = null;
+const STOCK_SUMMARY_CACHE_TTL = 2 * 60 * 1000;
 
 function normalizePurchasePayload(body: z.infer<typeof generalItemPurchaseSchema>) {
   const lineItems = body.lineItems.map((item) => {
@@ -147,6 +149,7 @@ export async function createGeneralItem(req: Request, res: Response) {
   const body = generalItemPurchaseSchema.parse(req.body);
   const record = await GeneralItemPurchase.create(normalizePurchasePayload(body));
   rateHistoryCache.clear();
+  stockSummaryCache = null;
   return created(res, formatPurchase(record.toObject()));
 }
 
@@ -164,6 +167,7 @@ export async function updateGeneralItem(req: Request, res: Response) {
   item.set(normalizePurchasePayload(body));
   await item.save();
   rateHistoryCache.clear();
+  stockSummaryCache = null;
   return ok(res, formatPurchase(item.toObject()), 'Updated');
 }
 
@@ -173,6 +177,7 @@ export async function deleteGeneralItem(req: Request, res: Response) {
   item.deletedAt = new Date();
   await item.save();
   rateHistoryCache.clear();
+  stockSummaryCache = null;
   return ok(res, { id: req.params.id }, 'Deleted');
 }
 
@@ -234,6 +239,10 @@ export async function generalItemsRateHistory(req: Request, res: Response) {
 }
 
 export async function generalItemsStockSummary(_req: Request, res: Response) {
+  if (stockSummaryCache && Date.now() - stockSummaryCache.timestamp < STOCK_SUMMARY_CACHE_TTL) {
+    return ok(res, stockSummaryCache.data);
+  }
+
   const docs = await GeneralItemPurchase.find({ deletedAt: null }).lean();
   const map = new Map<string, { particulars: string; unit: string; totalPurchasedQuantity: number; totalConsumedQuantity: number; currentStock: number }>();
 
@@ -253,7 +262,9 @@ export async function generalItemsStockSummary(_req: Request, res: Response) {
     }
   }
 
-  return ok(res, Array.from(map.values()).sort((a, b) => a.particulars.localeCompare(b.particulars)));
+  const payload = Array.from(map.values()).sort((a, b) => a.particulars.localeCompare(b.particulars));
+  stockSummaryCache = { timestamp: Date.now(), data: payload };
+  return ok(res, payload);
 }
 
 export async function listGeneralItemsMaster(req: Request, res: Response) {

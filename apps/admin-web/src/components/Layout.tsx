@@ -172,6 +172,9 @@ export function Layout() {
         <main className="mx-auto max-w-7xl p-4 lg:p-8">
           <Outlet />
         </main>
+        <footer className="pb-6 text-center text-xs text-slate-500">
+          blend with love by Kalyans-Esparex.in
+        </footer>
       </div>
 
       {/* Floating System-wide Search Elements */}
