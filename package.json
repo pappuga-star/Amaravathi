@@ -22,9 +22,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "duplicates": "jscpd . --ignore \"**/node_modules/**,**/dist/**,**/package-lock.json\"",
+    "duplicates:ci": "jscpd . --threshold 5.3 --ignore \"**/node_modules/**,**/dist/**,**/package-lock.json\"",
     "dead-code": "knip --no-exit-code",
+    "dead-code:ci": "knip",
     "circular": "madge --circular apps packages",
     "security": "npm audit --production",
+    "quality:pr": "npm run typecheck && npm run lint && npm run dead-code:ci && npm run duplicates:ci",
     "quality": "npm run format:check && npm run lint && npm run test && npm run build && npm run duplicates && npm run dead-code && npm run circular"
   },
   "devDependencies": {
@@ -40,7 +43,6 @@
     "madge": "^8.0.0",
     "prettier": "^3.3.2",
     "typescript": "^5.8.0",
-    "typescript-eslint": "^8.59.3",
-    "vite": "^7.0.0"
+    "typescript-eslint": "^8.59.3"
   }
 }

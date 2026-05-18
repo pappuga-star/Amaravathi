@@ -11,9 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@amaravathi/shared-types": "1.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "vitest": "^1.6.0"
   }

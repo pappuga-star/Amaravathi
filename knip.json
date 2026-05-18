@@ -1,0 +1,5 @@
+{
+  "ignore": [
+    "apps/api/src/utils/migratePurchaseBatchQuantity.ts"
+  ]
+}
