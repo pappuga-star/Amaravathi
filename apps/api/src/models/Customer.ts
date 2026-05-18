@@ -19,7 +19,6 @@ customerSchema.pre('validate', function setNameKey(next) {
 });
 
 customerSchema.index({ name: 1 });
-customerSchema.index({ mobileNumber: 1 });
 customerSchema.index({ deletedAt: 1, active: 1 });
 customerSchema.index(
   { nameKey: 1 },
