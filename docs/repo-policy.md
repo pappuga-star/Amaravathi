@@ -28,6 +28,7 @@ pnpm -w run quality:pr
 2. Keep one canonical schema/contract path; avoid parallel legacy payload shapes.
 3. Keep generated artifacts in canonical folders only (no duplicate copies).
 4. If compatibility code is needed, create a migration ticket and removal deadline in the same PR.
+5. No untracked files are allowed before push: every new file must be either committed or explicitly ignored in `.gitignore`.
 
 ## Local Pre-PR Checklist
 
