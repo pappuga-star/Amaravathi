@@ -11,15 +11,15 @@ This document defines the minimum engineering gates for pull requests.
 
 The GitHub Actions workflow `PR Quality Gates` runs on every PR to protected branches and must pass:
 
-1. `npm run typecheck`
-2. `npm run lint`
-3. `npm run dead-code:ci`
-4. `npm run duplicates:ci`
+1. `pnpm -w run typecheck`
+2. `pnpm -w run lint`
+3. `pnpm -w run dead-code:ci`
+4. `pnpm -w run duplicates:ci`
 
 Combined command:
 
 ```bash
-npm run quality:pr
+pnpm -w run quality:pr
 ```
 
 ## Code Quality Rules
@@ -34,9 +34,20 @@ npm run quality:pr
 Before opening a PR:
 
 ```bash
-npm ci
-npm run quality:pr
+corepack enable
+pnpm install --frozen-lockfile
+pnpm -w run quality:pr
 ```
+
+## Vercel Deployment Hygiene
+
+1. Vercel-oriented scripts must use pnpm-native workspace commands; do not use nested `npm run --workspace`.
+2. Root `package.json` must keep `\"engines\": { \"node\": \"22.x\" }`.
+3. Root `.nvmrc` must stay aligned with the Node engine major (`22`).
+4. Vercel project settings must keep:
+   - Install Command: `corepack enable && pnpm install --frozen-lockfile`
+   - Build Command: `pnpm -w run build:vercel`
+   - Node.js Version: `22.x`
 
 ## CI Baseline Notes
 
