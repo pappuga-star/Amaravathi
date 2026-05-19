@@ -1,50 +1,68 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Star,
-  Copy,
   Trash2,
   Download,
   Printer,
   Eye,
   Edit3,
 } from 'lucide-react';
-import { Button, Card, Input } from '@amaravathi/shared-ui';
+import { AccessibleIconButton, Button, Card } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
-import { useNotification } from '../components/NotificationContext';
+import { useNotification } from '@/components/NotificationContext';
 import { useTranslation } from 'react-i18next';
 import { CustomerTeaFormula } from '@amaravathi/shared-types';
-import { useDebounce } from '../hooks/useDebounce';
+import { useSearch } from '../search/useSearch';
+import { SearchInput } from '../search/SearchInput';
+import { searchKeys } from '../search/search-query-keys';
+import { SEARCH_MAX_LIMIT } from '../search/search.constants';
 
 interface SavedFormulasPageProps {
   onEdit?: (formula: CustomerTeaFormula) => void;
 }
 
+type CustomerTeaFormulaSummary = Pick<
+  CustomerTeaFormula,
+  | 'id'
+  | 'formulaCode'
+  | 'customerId'
+  | 'totalWeight'
+  | 'totalFormulaCost'
+  | 'costPerKg'
+  | 'costPer100Grams'
+  | 'isDefault'
+  | 'status'
+  | 'createdAt'
+  | 'deletedAt'
+> &
+  Partial<Pick<CustomerTeaFormula, 'lineItems' | 'notes'>>;
+
 export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const qParam = searchParams.get('q') || '';
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
-  const [searchQuery, setSearchQuery] = useState(qParam);
-
-  useEffect(() => {
-    setSearchQuery(qParam);
-  }, [qParam]);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [customerFilter, setCustomerFilter] = useState('');
+  const search = useSearch<CustomerTeaFormulaSummary>({
+    moduleName: endpoints.customerTeaFormulas,
+    initialLimit: SEARCH_MAX_LIMIT,
+    queryFn: ({ q, page, limit }) => {
+      let url = `${endpoints.customerTeaFormulas}?q=${encodeURIComponent(q)}&status=all&limit=${limit}&page=${page}`;
+      if (customerFilter) url += `&customerId=${customerFilter}`;
+      return api<{ items: CustomerTeaFormulaSummary[] }>(url);
+    },
+  });
   const [statusFilter, setStatusFilter] = useState<
     'All' | 'Active' | 'Inactive' | 'Deleted'
   >('All');
-  const [viewingFormula, setViewingFormula] =
-    useState<CustomerTeaFormula | null>(null);
+  const [viewingFormulaId, setViewingFormulaId] = useState<string | null>(null);
 
   // Fetch Customers (for dropdown filter)
   const { data: customersData } = useQuery({
-    queryKey: [endpoints.customers],
+    queryKey: searchKeys.dropdown('customers', ''),
     queryFn: () =>
       api<{ items: { id: string; name: string }[] }>(
         `${endpoints.customers}?limit=100`,
@@ -54,18 +72,27 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
 
   // Fetch Formulas
   const { data: formulasData, isLoading } = useQuery({
-    queryKey: [
-      endpoints.customerTeaFormulas,
-      debouncedSearchQuery,
+    queryKey: searchKeys.module(endpoints.customerTeaFormulas, {
+      q: search.debouncedQ,
+      page: search.page,
+      limit: search.limit,
       customerFilter,
-    ],
+    }),
     queryFn: () => {
-      let url = `${endpoints.customerTeaFormulas}?q=${encodeURIComponent(debouncedSearchQuery)}&status=all&limit=250`;
+      let url = `${endpoints.customerTeaFormulas}?q=${encodeURIComponent(search.debouncedQ)}&status=all&limit=${search.limit}&page=${search.page}`;
       if (customerFilter) url += `&customerId=${customerFilter}`;
-      return api<{ items: CustomerTeaFormula[] }>(url);
+      return api<{ items: CustomerTeaFormulaSummary[] }>(url);
     },
   });
   const allFormulas = formulasData?.items ?? [];
+  const { data: viewingFormula, isLoading: isLoadingFormulaDetail } = useQuery({
+    queryKey: searchKeys.module(endpoints.customerTeaFormulas, { id: viewingFormulaId ?? '' }),
+    queryFn: () =>
+      api<CustomerTeaFormula>(
+        `${endpoints.customerTeaFormulas}/${viewingFormulaId}?includeHistory=false`,
+      ),
+    enabled: !!viewingFormulaId,
+  });
 
   const formulas = allFormulas.filter((item) => {
     if (statusFilter === 'All') return !item.deletedAt;
@@ -86,35 +113,6 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
     },
     onError: (err: any) => {
       showError(err);
-    },
-  });
-
-  const duplicateMutation = useMutation({
-    mutationFn: (id: string) =>
-      api(`${endpoints.customerTeaFormulas}/${id}/duplicate`, {
-        method: 'POST',
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [endpoints.customerTeaFormulas],
-      });
-      showToast(t('savedFormulas.duplicateSuccess'), 'success');
-    },
-    onError: (err: any) => {
-      showError(err);
-    },
-  });
-
-  const setDefaultMutation = useMutation({
-    mutationFn: (id: string) =>
-      api(`${endpoints.customerTeaFormulas}/${id}/set-default`, {
-        method: 'POST',
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [endpoints.customerTeaFormulas],
-      });
-      showToast(t('savedFormulas.setDefaultSuccess'), 'success');
     },
   });
 
@@ -261,6 +259,14 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
+            <div className="w-56">
+              <SearchInput
+                value={search.q}
+                onChange={search.setQ}
+                loading={isLoading}
+                placeholder="Search formulas..."
+              />
+            </div>
             <select
               className="h-9 rounded-lg border border-slate-300 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
               value={customerFilter}
@@ -388,7 +394,7 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                         <div className="flex items-center justify-end gap-1.5">
                           <Button
                             variant="secondary"
-                            onClick={() => setViewingFormula(item)}
+                            onClick={() => setViewingFormulaId(item.id)}
                             className="h-8 px-2.5 bg-white text-blue-600 border-blue-100 hover:bg-blue-50 text-xs"
                           >
                             <Eye size={13} className="mr-1" />{' '}
@@ -396,45 +402,30 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                           </Button>
                           {!isDeleted && (
                             <>
-                              <button
+                              <AccessibleIconButton
                                 type="button"
                                 onClick={() => {
                                   if (onEdit) {
-                                    onEdit(item);
+                                    queryClient
+                                      .fetchQuery({
+                                        queryKey: [endpoints.customerTeaFormulas, item.id],
+                                        queryFn: () =>
+                                          api<CustomerTeaFormula>(
+                                            `${endpoints.customerTeaFormulas}/${item.id}?includeHistory=false`,
+                                          ),
+                                      })
+                                      .then((fullFormula) => onEdit(fullFormula))
+                                      .catch(showError);
                                   } else {
                                     navigate(`/customer-formulas/edit/${item.id}`);
                                   }
                                 }}
                                 className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-emerald-100 text-emerald-600 hover:bg-emerald-50 active:scale-95 transition-all focus:outline-none"
-                                title={t('savedFormulas.actions.edit')}
+                                label={t('savedFormulas.actions.edit')}
                               >
                                 <Edit3 size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  duplicateMutation.mutate(item.id)
-                                }
-                                disabled={duplicateMutation.isPending}
-                                className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-slate-200 text-blue-600 hover:bg-blue-50 active:scale-95 transition-all focus:outline-none disabled:opacity-40"
-                                title={t('savedFormulas.actions.duplicate')}
-                              >
-                                <Copy size={13} />
-                              </button>
-                              {!item.isDefault && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDefaultMutation.mutate(item.id)
-                                  }
-                                  disabled={setDefaultMutation.isPending}
-                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:bg-slate-50 active:scale-95 transition-all focus:outline-none disabled:opacity-40"
-                                  title={t('savedFormulas.actions.setDefault')}
-                                >
-                                  <Star size={13} className="text-slate-400" />
-                                </button>
-                              )}
-                              <button
+                              </AccessibleIconButton>
+                              <AccessibleIconButton
                                 type="button"
                                 onClick={async () => {
                                   const confirmed = await confirm({
@@ -452,10 +443,10 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
                                 }}
                                 disabled={deleteMutation.isPending}
                                 className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 active:scale-95 transition-all focus:outline-none disabled:opacity-40"
-                                title={t('savedFormulas.actions.delete')}
+                                label={t('savedFormulas.actions.delete')}
                               >
                                 <Trash2 size={13} />
-                              </button>
+                              </AccessibleIconButton>
                             </>
                           )}
                         </div>
@@ -470,7 +461,7 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
       </Card>
 
       {/* View Details Modal */}
-      {viewingFormula && (
+      {viewingFormula && !isLoadingFormulaDetail && (
         <ViewDetailsModal
           title={`Formula: ${viewingFormula.formulaCode}`}
           subtitle={`Customer: ${
@@ -478,10 +469,10 @@ export const SavedFormulasPage = ({ onEdit }: SavedFormulasPageProps) => {
               ? (viewingFormula.customerId as any).name
               : viewingFormula.customerId
           }`}
-          onClose={() => setViewingFormula(null)}
+          onClose={() => setViewingFormulaId(null)}
           onEdit={() => {
             const formulaId = viewingFormula.id;
-            setViewingFormula(null);
+            setViewingFormulaId(null);
             if (onEdit) {
               onEdit(viewingFormula);
             } else {

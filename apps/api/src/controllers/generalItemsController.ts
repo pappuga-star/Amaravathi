@@ -1,8 +1,12 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { escapeRegex, isSearchQueryPresent } from '@amaravathi/shared-utils';
 import { created, ok } from '../utils/apiResponse.js';
 import { GeneralItemPurchase, GeneralItemsMaster } from '../models/index.js';
+import { buildContainsRegex, escapeRegex } from '../search/search.utils.js';
+import { runListSearch } from '../search/search.service.js';
+import { invalidateSearchCaches, SEARCH_CACHE_PREFIXES } from '../search/search.events.js';
+import { searchCache } from '../search/search.cache.js';
+import { SEARCH_CACHE_TTL_SECONDS } from '../search/search.constants.js';
 
 const UNIT_VALUES = [
   'Kg',
@@ -36,11 +40,6 @@ const generalItemsMasterSchema = z.object({
   isActive: z.boolean().optional().default(true),
 });
 
-const rateHistoryCache = new Map<
-  string,
-  { timestamp: number; data: { stats: any; history: any[] } }
->();
-const RATE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
 let stockSummaryCache: { timestamp: number; data: any[] } | null = null;
 const STOCK_SUMMARY_CACHE_TTL = 2 * 60 * 1000;
 
@@ -92,21 +91,18 @@ function formatPurchase(doc: any) {
 }
 
 export async function listGeneralItems(req: Request, res: Response) {
-  const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
-  const page = Math.max(Number(req.query.page ?? 1), 1);
-  const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
   const supplierName = String(req.query.supplierName ?? '').trim();
   const particulars = String(req.query.particulars ?? '').trim();
   const billNumber = String(req.query.billNumber ?? '').trim();
   const fromDate = String(req.query.fromDate ?? '').trim();
   const toDate = String(req.query.toDate ?? '').trim();
 
-  const filter: any = { deletedAt: null };
+  const baseFilter: any = { deletedAt: null };
   const andConditions: any[] = [];
 
-  if (supplierName) andConditions.push({ supplierName: new RegExp(escapeRegex(supplierName), 'i') });
-  if (particulars) andConditions.push({ 'lineItems.particulars': new RegExp(escapeRegex(particulars), 'i') });
-  if (billNumber) andConditions.push({ billNumber: new RegExp(escapeRegex(billNumber), 'i') });
+  if (supplierName) andConditions.push({ supplierName: buildContainsRegex(supplierName) });
+  if (particulars) andConditions.push({ 'lineItems.particulars': buildContainsRegex(particulars) });
+  if (billNumber) andConditions.push({ billNumber: buildContainsRegex(billNumber) });
 
   if (fromDate || toDate) {
     const dateFilter: any = {};
@@ -119,37 +115,54 @@ export async function listGeneralItems(req: Request, res: Response) {
     andConditions.push({ purchaseDate: dateFilter });
   }
 
-  if (isSearchQueryPresent(rawQ)) {
-    const safeRegex = new RegExp(escapeRegex(String(rawQ).trim()), 'i');
-    andConditions.push({
-      $or: [
-        { supplierName: safeRegex },
-        { billNumber: safeRegex },
-        { notes: safeRegex },
-        { 'lineItems.particulars': safeRegex },
-      ],
-    });
-  }
+  const data = await runListSearch({
+    namespace: 'general-items',
+    model: GeneralItemPurchase,
+    query: req.query,
+    defaultSortBy: 'purchaseDate',
+    allowedSortBy: ['purchaseDate', 'createdAt', 'supplierName', 'billNumber'],
+    searchFields: [
+      { field: 'supplierName', keyField: 'supplierNameKey', category: 'name', weight: 1.2 },
+      { field: 'billNumber', category: 'code', weight: 1.1 },
+      { field: 'notes', category: 'text' },
+      { field: 'lineItems.particulars', category: 'name', weight: 0.9 },
+    ],
+    baseFilter,
+    buildFilter: (q) => {
+      const clauses: any[] = [...andConditions];
+      if (q) {
+        const safeRegex = buildContainsRegex(q);
+        clauses.push({
+          $or: [
+            { supplierName: safeRegex },
+            { billNumber: safeRegex },
+            { notes: safeRegex },
+            { 'lineItems.particulars': safeRegex },
+          ],
+        });
+      }
+      return clauses.length ? { $and: clauses } : {};
+    },
+  });
 
-  if (andConditions.length) filter.$and = andConditions;
-
-  const [items, total] = await Promise.all([
-    GeneralItemPurchase.find(filter)
-      .sort({ purchaseDate: -1, createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    GeneralItemPurchase.countDocuments(filter),
-  ]);
-
-  return ok(res, { items: items.map(formatPurchase), total, page, limit });
+  return ok(res, {
+    items: data.items.map(formatPurchase),
+    pagination: data.pagination,
+    total: data.total,
+    page: data.page,
+    limit: data.limit,
+  });
 }
 
 export async function createGeneralItem(req: Request, res: Response) {
   const body = generalItemPurchaseSchema.parse(req.body);
   const record = await GeneralItemPurchase.create(normalizePurchasePayload(body));
-  rateHistoryCache.clear();
+  searchCache.clearByPrefix(SEARCH_CACHE_PREFIXES.list);
   stockSummaryCache = null;
+  invalidateSearchCaches({
+    prefixes: [SEARCH_CACHE_PREFIXES.global, SEARCH_CACHE_PREFIXES.list],
+    reason: 'create',
+  });
   return created(res, formatPurchase(record.toObject()));
 }
 
@@ -166,8 +179,12 @@ export async function updateGeneralItem(req: Request, res: Response) {
 
   item.set(normalizePurchasePayload(body));
   await item.save();
-  rateHistoryCache.clear();
+  searchCache.clearByPrefix(SEARCH_CACHE_PREFIXES.list);
   stockSummaryCache = null;
+  invalidateSearchCaches({
+    prefixes: [SEARCH_CACHE_PREFIXES.global, SEARCH_CACHE_PREFIXES.list],
+    reason: 'update',
+  });
   return ok(res, formatPurchase(item.toObject()), 'Updated');
 }
 
@@ -176,8 +193,12 @@ export async function deleteGeneralItem(req: Request, res: Response) {
   if (!item) throw Object.assign(new Error('General item purchase not found'), { status: 404 });
   item.deletedAt = new Date();
   await item.save();
-  rateHistoryCache.clear();
+  searchCache.clearByPrefix(SEARCH_CACHE_PREFIXES.list);
   stockSummaryCache = null;
+  invalidateSearchCaches({
+    prefixes: [SEARCH_CACHE_PREFIXES.global, SEARCH_CACHE_PREFIXES.list],
+    reason: 'delete',
+  });
   return ok(res, { id: req.params.id }, 'Deleted');
 }
 
@@ -189,10 +210,10 @@ export async function generalItemsRateHistory(req: Request, res: Response) {
     throw Object.assign(new Error('particulars is required'), { status: 422 });
   }
 
-  const cacheKey = `${supplierName.toLowerCase()}::${particulars.toLowerCase()}`;
-  const cached = rateHistoryCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < RATE_HISTORY_CACHE_TTL) {
-    return ok(res, cached.data);
+  const cacheKey = `${SEARCH_CACHE_PREFIXES.reports}:general-items-rate-history:${supplierName.toLowerCase()}::${particulars.toLowerCase()}`;
+  const cached = searchCache.get<{ stats: any; history: any[] }>(cacheKey);
+  if (cached) {
+    return ok(res, cached);
   }
 
   const query: any = {
@@ -234,7 +255,7 @@ export async function generalItemsRateHistory(req: Request, res: Response) {
   };
 
   const payload = { stats, history: rows };
-  rateHistoryCache.set(cacheKey, { timestamp: Date.now(), data: payload });
+  searchCache.set(cacheKey, payload, SEARCH_CACHE_TTL_SECONDS);
   return ok(res, payload);
 }
 
@@ -268,11 +289,22 @@ export async function generalItemsStockSummary(_req: Request, res: Response) {
 }
 
 export async function listGeneralItemsMaster(req: Request, res: Response) {
-  const q = String(req.query.q ?? '').trim();
-  const filter: any = { deletedAt: null };
-  if (q) filter.itemName = new RegExp(escapeRegex(q), 'i');
-  const items = await GeneralItemsMaster.find(filter).sort({ itemName: 1 }).lean();
-  return ok(res, { items: items.map((item: any) => ({ id: String(item._id), itemName: item.itemName, defaultUnit: item.defaultUnit, isActive: item.isActive })) });
+  const data = await runListSearch({
+    namespace: 'general-items-master',
+    model: GeneralItemsMaster,
+    query: req.query,
+    defaultSortBy: 'itemName',
+    allowedSortBy: ['itemName', 'createdAt'],
+    baseFilter: { deletedAt: null },
+    buildFilter: (q) => (q ? { itemName: buildContainsRegex(q) } : {}),
+  });
+  return ok(res, {
+    items: data.items.map((item: any) => ({ id: String(item._id), itemName: item.itemName, defaultUnit: item.defaultUnit, isActive: item.isActive })),
+    pagination: data.pagination,
+    total: data.total,
+    page: data.page,
+    limit: data.limit,
+  });
 }
 
 export async function createGeneralItemsMaster(req: Request, res: Response) {
@@ -280,6 +312,10 @@ export async function createGeneralItemsMaster(req: Request, res: Response) {
   const exists = await GeneralItemsMaster.findOne({ itemName: new RegExp(`^${escapeRegex(body.itemName)}$`, 'i'), deletedAt: null });
   if (exists) throw Object.assign(new Error('Item already exists in master'), { status: 409 });
   const item = await GeneralItemsMaster.create(body);
+  invalidateSearchCaches({
+    prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+    reason: 'create',
+  });
   return created(res, { id: String(item._id), itemName: item.itemName, defaultUnit: item.defaultUnit, isActive: item.isActive });
 }
 
@@ -289,6 +325,10 @@ export async function updateGeneralItemsMaster(req: Request, res: Response) {
   if (!item) throw Object.assign(new Error('General item master not found'), { status: 404 });
   item.set(body);
   await item.save();
+  invalidateSearchCaches({
+    prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+    reason: 'update',
+  });
   return ok(res, { id: String(item._id), itemName: item.itemName, defaultUnit: item.defaultUnit, isActive: item.isActive }, 'Updated');
 }
 
@@ -297,5 +337,9 @@ export async function deleteGeneralItemsMaster(req: Request, res: Response) {
   if (!item) throw Object.assign(new Error('General item master not found'), { status: 404 });
   item.deletedAt = new Date();
   await item.save();
+  invalidateSearchCaches({
+    prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+    reason: 'delete',
+  });
   return ok(res, { id: req.params.id }, 'Deleted');
 }

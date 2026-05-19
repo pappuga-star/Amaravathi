@@ -1,32 +1,29 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   ClipboardList,
-  Coffee,
   FileBarChart,
   LayoutDashboard,
   Menu,
   Moon,
   Package,
   Settings,
+  Gauge,
   Users,
   X,
   LogOut,
   Truck,
-  Layers,
-  Activity,
-  Sliders,
   Beaker,
   Calculator,
-  Contact,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@amaravathi/shared-ui';
-import { clearToken, api } from '../lib/api';
-import { useQuery } from '@tanstack/react-query';
+import { AccessibleIconButton, Button } from '@amaravathi/shared-ui';
+import { clearToken } from '../lib/api';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { GlobalSearchFab } from './GlobalSearchFab';
 import { GlobalSearchModal } from './GlobalSearchModal';
+import { Logo } from './Logo';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
 import { Z_INDEX } from '../constants/zIndex';
 import { HEADER_HEIGHT } from '../constants/layout';
@@ -61,6 +58,7 @@ const nav = [
   { to: '/users', label: 'Users', key: 'users', icon: Users },
   { to: '/reports', label: 'Reports', key: 'reports', icon: FileBarChart },
   { to: '/settings', label: 'Settings', key: 'settings', icon: Settings },
+  { to: '/search-admin', label: 'Search Admin', key: 'searchAdmin', icon: Gauge },
 ];
 
 export function Layout() {
@@ -68,14 +66,13 @@ export function Layout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const searchState = useGlobalSearch();
+  const queryClient = useQueryClient();
 
-  const { data: me } = useQuery({
-    queryKey: ['me'],
-    queryFn: () => api<{ role: string }>('/auth/me'),
-  });
+  const me = queryClient.getQueryData<{ role: string }>(['me']);
   const role = me?.role;
 
   const allowedNav = nav.filter((item) => {
+    if (item.to === '/search-admin') return role === 'admin';
     if (role === 'viewer') {
       return ['/taste-customization', '/purchase-batch', '/general-items'].includes(item.to);
     }
@@ -97,18 +94,22 @@ export function Layout() {
         }`}
         style={{ top: HEADER_HEIGHT, zIndex: Z_INDEX.drawer }}
       >
-        <div className="flex h-16 items-center justify-between border-b px-5">
-          <div>
-            <p className="text-sm font-semibold text-emerald-700">Amaravathi</p>
-            <h1 className="text-base font-bold">Tea Pricing</h1>
+        <div className="flex min-h-[52px] items-center justify-between border-b px-4 py-1.5">
+          <div className="flex items-center">
+            <Logo
+              width={132}
+              height={48}
+              priority
+              className="h-auto max-h-12 w-[132px] object-contain"
+            />
           </div>
-          <button
-            className="lg:hidden"
+          <AccessibleIconButton
+            className="lg:hidden inline-flex items-center justify-center"
             onClick={() => setOpen(false)}
-            aria-label="Close navigation"
+            label="Close navigation"
           >
             <X size={20} />
-          </button>
+          </AccessibleIconButton>
         </div>
         <nav className="grid gap-1 p-3">
           {allowedNav.map((item) => (
@@ -130,48 +131,50 @@ export function Layout() {
           ))}
         </nav>
       </aside>
-      <div className="min-w-0 pt-16">
+      <div className="min-w-0" style={{ paddingTop: HEADER_HEIGHT }}>
         <header
-          className="fixed top-0 right-0 left-0 flex h-16 items-center justify-between border-b bg-white/95 px-4 backdrop-blur lg:left-[280px] lg:px-8"
-          style={{ zIndex: Z_INDEX.sticky, height: HEADER_HEIGHT }}
+          className="fixed top-0 right-0 left-0 border-b bg-white/95 backdrop-blur lg:left-[280px]"
+          style={{ zIndex: Z_INDEX.sticky, minHeight: HEADER_HEIGHT }}
         >
-          <div className="flex items-center gap-3">
-            <button
-              className="lg:hidden"
-              onClick={() => setOpen(true)}
-              aria-label="Open navigation"
-            >
-              <Menu size={22} />
-            </button>
-            <div>
-              <p className="text-xs text-slate-500">Admin / {title}</p>
-              <h2 className="text-lg font-bold">{title}</h2>
+          <div className="flex min-h-[72px] h-full items-center justify-between gap-4 px-4 py-2.5 lg:px-8">
+            <div className="flex items-center gap-3">
+              <AccessibleIconButton
+                className="lg:hidden inline-flex items-center justify-center"
+                onClick={() => setOpen(true)}
+                label="Open navigation"
+              >
+                <Menu size={22} />
+              </AccessibleIconButton>
+              <div className="flex flex-col justify-center gap-0.5">
+                <p className="text-xs text-slate-500">Admin / {title}</p>
+                <h2 className="text-lg font-bold">{title}</h2>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <LanguageSwitcher />
-            <div className="flex items-center gap-2">
-              <Button
-                variant="default"
-                className="h-9 px-3"
-                onClick={() =>
-                  document.documentElement.classList.toggle('dark')
-                }
-              >
-                <Moon className="h-4 w-4 text-current" />
-                <span className="hidden sm:inline">{t('theme')}</span>
-              </Button>
-              <Button
-                variant="default"
-                className="h-9 px-3 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
-                onClick={() => {
-                  clearToken();
-                  window.location.href = '/login';
-                }}
-              >
-                <LogOut className="h-4 w-4 text-current" />
-                <span className="hidden sm:inline">{t('nav.logout')}</span>
-              </Button>
+            <div className="flex items-center gap-3">
+              <LanguageSwitcher />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  className="h-9 px-3"
+                  onClick={() =>
+                    document.documentElement.classList.toggle('dark')
+                  }
+                >
+                  <Moon className="h-4 w-4 text-current" />
+                  <span className="hidden sm:inline">{t('theme')}</span>
+                </Button>
+                <Button
+                  variant="default"
+                  className="h-9 px-3 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
+                  onClick={() => {
+                    clearToken();
+                    window.location.href = '/login';
+                  }}
+                >
+                  <LogOut className="h-4 w-4 text-current" />
+                  <span className="hidden sm:inline">{t('nav.logout')}</span>
+                </Button>
+              </div>
             </div>
           </div>
         </header>
@@ -192,6 +195,8 @@ export function Layout() {
         setQuery={searchState.setQuery}
         results={searchState.results}
         totalResults={searchState.totalResults}
+        {...(searchState.quality ? { quality: searchState.quality } : {})}
+        {...(searchState.suggestions ? { suggestions: searchState.suggestions } : {})}
         isLoading={searchState.isLoading}
         recentSearches={searchState.recentSearches}
         addRecentSearch={searchState.addRecentSearch}

@@ -3,6 +3,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
+import { accessibilityRulesPlugin } from './eslint/accessibility-rules.mjs';
 
 export default tseslint.config(
   {
@@ -58,6 +59,27 @@ export default tseslint.config(
       react: {
         version: 'detect',
       },
+    },
+  },
+  {
+    files: ['apps/admin-web/src/**/*.{js,jsx,ts,tsx}'],
+    plugins: {
+      accessibility: accessibilityRulesPlugin,
+    },
+    rules: {
+      'accessibility/no-raw-icon-only-buttons': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../components/NotificationContext', './NotificationContext', '../../components/NotificationContext', 'src/components/NotificationContext'],
+              message:
+                "Use '@/components/NotificationContext' as the only allowed import path.",
+            },
+          ],
+        },
+      ],
     },
   },
 );

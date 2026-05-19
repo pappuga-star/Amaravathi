@@ -5,24 +5,25 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { Button, Card, Input } from '@amaravathi/shared-ui';
+import { AccessibleIconButton, Button, Card, Input } from '@amaravathi/shared-ui';
 import { api } from '../lib/api';
 import {
   Save,
   Edit3,
   Trash2,
   Eye,
-  Search,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
 import { ViewDetailsModal, ViewField } from './ViewDetailsModal';
-import { useNotification } from './NotificationContext';
-import { useDebounce } from '../hooks/useDebounce';
+import { useNotification } from '@/components/NotificationContext';
 import { Z_INDEX } from '../constants/zIndex';
 import { STICKY_IN_CONTENT } from '../utils/sticky';
+import { SEARCH_DEBOUNCE_MS, SEARCH_DEFAULT_LIMIT } from '../search/search.constants';
+import { SearchInput } from '../search/SearchInput';
+import { useSearch } from '../search/useSearch';
 
 export type FieldConfig = {
   key: string;
@@ -42,7 +43,7 @@ export function DataModule({
   endpoint: string;
   fields: FieldConfig[];
 }) {
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = SEARCH_DEFAULT_LIMIT;
   const queryClient = useQueryClient();
   const { showToast, showError, confirm } = useNotification();
 
@@ -57,17 +58,27 @@ export function DataModule({
   }, [fields]);
 
   const [form, setForm] = useState<Record<string, string>>(defaultFormValues);
-  const [q, setQ] = useState('');
-  const debouncedQ = useDebounce(q, 300);
-  const [currentPage, setCurrentPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewingRow, setViewingRow] = useState<Record<string, unknown> | null>(
     null,
   );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedQ]);
+  const search = useSearch<Record<string, unknown>>({
+    moduleName: endpoint,
+    debounceMs: SEARCH_DEBOUNCE_MS,
+    syncUrl: false,
+    initialLimit: PAGE_SIZE,
+    queryFn: ({ q, page, limit }) =>
+      api<{
+        items: Record<string, unknown>[];
+        total: number;
+        page: number;
+        limit: number;
+      }>(
+        `${endpoint}?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`,
+      ),
+  });
+  const currentPage = search.page;
+  const setCurrentPage = search.setPage;
 
   // Fetch current user details for role-based administrative gates
   const { data: me } = useQuery({
@@ -78,20 +89,7 @@ export function DataModule({
   const isAdmin = me?.role === 'admin';
   const canEdit = me?.role === 'admin' || me?.role === 'pricing_manager';
 
-  const { data } = useQuery({
-    queryKey: [endpoint, debouncedQ, currentPage, PAGE_SIZE],
-    queryFn: () =>
-      api<{
-        items: Record<string, unknown>[];
-        total: number;
-        page: number;
-        limit: number;
-      }>(
-        `${endpoint}?q=${encodeURIComponent(
-          debouncedQ,
-        )}&page=${currentPage}&limit=${PAGE_SIZE}`,
-      ),
-  });
+  const { data } = search.query;
   const rows = data?.items ?? [];
   const totalRecords = data?.total ?? 0;
   const pageSize = data?.limit ?? PAGE_SIZE;
@@ -178,15 +176,15 @@ export function DataModule({
           const rowData = info.row.original;
           return (
             <div className="flex items-center gap-2">
-              <button
+              <AccessibleIconButton
                 type="button"
                 onClick={() => setViewingRow(rowData)}
                 className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
-                title={`View ${title}`}
+                label={`View ${title}`}
               >
                 <Eye size={13} />
-              </button>
-              <button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
                 onClick={() => handleEdit(rowData)}
                 disabled={!canEdit}
@@ -195,11 +193,11 @@ export function DataModule({
                     ? 'hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300'
                     : 'opacity-40 cursor-not-allowed'
                 }`}
-                title={`Edit ${title}`}
+                label={`Edit ${title}`}
               >
                 <Edit3 size={13} />
-              </button>
-              <button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
                 onClick={() => handleDelete(rowData.id)}
                 disabled={!isAdmin}
@@ -208,10 +206,10 @@ export function DataModule({
                     ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-300'
                     : 'opacity-40 cursor-not-allowed'
                 }`}
-                title={`Delete ${title}`}
+                label={`Delete ${title}`}
               >
                 <Trash2 size={13} />
-              </button>
+              </AccessibleIconButton>
             </div>
           );
         },
@@ -369,16 +367,12 @@ export function DataModule({
           </div>
         </div>
         <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-xs">
-            <Search
-              size={14}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <Input
-              className="h-9 pl-8 text-xs"
+          <div className="w-full sm:max-w-xs">
+            <SearchInput
               placeholder="Search"
-              value={q}
-              onChange={(event) => setQ(event.target.value)}
+              value={search.q}
+              onChange={search.setQ}
+              loading={search.query.isFetching}
             />
           </div>
           <p className="text-[11px] font-medium text-slate-500">
@@ -460,24 +454,24 @@ export function DataModule({
               {serialStart + rows.length} of {totalRecords}
             </p>
             <div className="mr-20 flex items-center gap-1.5 sm:mr-24">
-              <Button
+              <AccessibleIconButton
                 type="button"
-                variant="secondary"
-                className="h-7 px-2 text-[11px]"
+                className="inline-flex items-center justify-center h-7 px-2 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage <= 1}
+                label="Go to first page"
               >
                 <ChevronsLeft size={13} />
-              </Button>
-              <Button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
-                variant="secondary"
-                className="h-7 px-2 text-[11px]"
+                className="inline-flex items-center justify-center h-7 px-2 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1}
+                label="Go to previous page"
               >
                 <ChevronLeft size={13} />
-              </Button>
+              </AccessibleIconButton>
               {pageNumbers.map((pageNumber, idx) => {
                 const prev = pageNumbers[idx - 1];
                 const gapBefore = prev && pageNumber - prev > 1;
@@ -500,26 +494,26 @@ export function DataModule({
                   </div>
                 );
               })}
-              <Button
+              <AccessibleIconButton
                 type="button"
-                variant="secondary"
-                className="h-7 px-2 text-[11px]"
+                className="inline-flex items-center justify-center h-7 px-2 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
                 onClick={() =>
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage >= totalPages}
+                label="Go to next page"
               >
                 <ChevronRight size={13} />
-              </Button>
-              <Button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
-                variant="secondary"
-                className="h-7 px-2 text-[11px]"
+                className="inline-flex items-center justify-center h-7 px-2 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage >= totalPages}
+                label="Go to last page"
               >
                 <ChevronsRight size={13} />
-              </Button>
+              </AccessibleIconButton>
             </div>
           </div>
         </div>

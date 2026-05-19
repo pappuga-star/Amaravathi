@@ -44,6 +44,9 @@ const SalesQuotationPlannerPage = lazy(() =>
 const GeneralItemsPage = lazy(() =>
   import('./pages/GeneralItemsPage').then((m) => ({ default: m.GeneralItemsPage })),
 );
+const SearchAdminPage = lazy(() =>
+  import('./search/SearchAdminPage').then((m) => ({ default: m.SearchAdminPage })),
+);
 
 function RouteLoader() {
   return (
@@ -178,6 +181,7 @@ export default function App() {
 
           <Route path="reports" element={<ErrorBoundary><ReportsPage /></ErrorBoundary>} />
           <Route path="settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
+          <Route path="search-admin" element={<ErrorBoundary><SearchAdminPage /></ErrorBoundary>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

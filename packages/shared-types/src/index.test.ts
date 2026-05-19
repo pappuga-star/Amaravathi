@@ -127,7 +127,27 @@ describe('Master Data Zod Schemas', () => {
         const error = result.error.errors.find(
           (err) => err.path.includes('purchaseBatchLineItemId')
         );
-        expect(error?.message).toBe('Purchase Batch Line Item ID is required.');
+        expect(error?.message).toBe('Invalid purchase batch line item ID');
+      }
+    });
+
+    it('rejects invalid purchaseBatchLineItemId format', () => {
+      const payload = {
+        ...validPayload,
+        lineItems: [
+          {
+            ...validPayload.lineItems[0],
+            purchaseBatchLineItemId: 'not-an-object-id',
+          },
+        ],
+      };
+      const result = customerTeaFormulaSchema.safeParse(payload);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const error = result.error.errors.find(
+          (err) => err.path.includes('purchaseBatchLineItemId')
+        );
+        expect(error?.message).toBe('Invalid purchase batch line item ID');
       }
     });
   });

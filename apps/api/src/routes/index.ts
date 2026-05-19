@@ -21,7 +21,6 @@ import {
   deleteUser,
 } from '../controllers/authController.js';
 import { globalSearchRoutes } from './globalSearchRoutes.js';
-import { globalSearch } from '../controllers/searchController.js';
 import { crudController } from '../controllers/crudController.js';
 import {
   createAddPurchaseBatch,
@@ -51,19 +50,24 @@ import {
   updateGeneralItemsMaster,
 } from '../controllers/generalItemsController.js';
 import { requireAuth, permit } from '../middleware/auth.js';
+import { validateObjectIdParam } from '../middleware/validateObjectId.js';
 import {
   TeaPowderType,
   AddPurchaseBatch,
   User,
   Seller,
   Customer,
+  CustomerTeaFormula,
 } from '../models/index.js';
-import {
-  leafCategoriesController,
-} from '../controllers/masterController.js';
+import { leafCategoriesController } from '../controllers/masterController.js';
 import { customerTeaFormulasController } from '../controllers/customerTeaFormulaController.js';
+import { invalidateSearchCaches, SEARCH_CACHE_PREFIXES } from '../search/search.events.js';
+import { searchRateLimit } from '../search/search-rate-limit.js';
+import { searchAdminRoutes } from '../search/search-admin.routes.js';
 
 const router = Router();
+router.param('id', validateObjectIdParam('id'));
+router.param('customerId', validateObjectIdParam('customerId'));
 const asyncHandler =
   (
     handler: (
@@ -97,6 +101,7 @@ router.post('/auth/login', asyncHandler(login));
 router.use(requireAuth);
 router.get('/auth/me', asyncHandler(me));
 router.use('/global-search', globalSearchRoutes);
+router.use('/search-admin', searchAdminRoutes);
 router.post('/users', permit('admin'), asyncHandler(createUser));
 
 const teaPowderTypes = crudController(TeaPowderType, teaPowderTypeSchema, [
@@ -114,7 +119,7 @@ const customers = crudController(Customer, customerSchema, [
   'mobileNumber',
 ]);
 
-router.get('/tea-powder-types', asyncHandler(teaPowderTypes.list));
+router.get('/tea-powder-types', searchRateLimit('search:list'), asyncHandler(teaPowderTypes.list));
 router.post(
   '/tea-powder-types',
   permit('admin', 'pricing_manager'),
@@ -155,11 +160,15 @@ router.delete(
     }
 
     await TeaPowderType.findByIdAndDelete(id);
+    invalidateSearchCaches({
+      prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+      reason: 'delete',
+    });
     return res.json({ success: true, message: 'Deleted', data: { id } });
   }),
 );
 
-router.get('/add-purchase-batch', asyncHandler(listAddPurchaseBatches));
+router.get('/add-purchase-batch', searchRateLimit('search:list'), asyncHandler(listAddPurchaseBatches));
 router.post(
   '/add-purchase-batch',
   permit('admin', 'pricing_manager'),
@@ -167,6 +176,7 @@ router.post(
 );
 router.get(
   '/add-purchase-batch/search',
+  searchRateLimit('search:autocomplete'),
   asyncHandler(searchAddPurchaseBatches),
 );
 router.get('/add-purchase-batch/lookup', asyncHandler(lookupAddPurchaseBatch));
@@ -182,7 +192,7 @@ router.delete(
   asyncHandler(deleteAddPurchaseBatch),
 );
 
-router.get('/general-items', asyncHandler(listGeneralItems));
+router.get('/general-items', searchRateLimit('search:list'), asyncHandler(listGeneralItems));
 router.post(
   '/general-items',
   permit('admin', 'pricing_manager'),
@@ -190,6 +200,7 @@ router.post(
 );
 router.get(
   '/general-items/rate-history',
+  searchRateLimit('search:autocomplete'),
   asyncHandler(generalItemsRateHistory),
 );
 router.get(
@@ -208,7 +219,7 @@ router.delete(
   asyncHandler(deleteGeneralItem),
 );
 
-router.get('/general-items-master', asyncHandler(listGeneralItemsMaster));
+router.get('/general-items-master', searchRateLimit('search:dropdown'), asyncHandler(listGeneralItemsMaster));
 router.post(
   '/general-items-master',
   permit('admin', 'pricing_manager'),
@@ -229,7 +240,7 @@ router.get('/users', permit('admin'), asyncHandler(users.list));
 router.put('/users/:id', permit('admin'), asyncHandler(updateUser));
 router.delete('/users/:id', permit('admin'), asyncHandler(deleteUser));
 
-router.get('/sellers', asyncHandler(sellers.list));
+router.get('/sellers', searchRateLimit('search:list'), asyncHandler(sellers.list));
 router.post(
   '/sellers',
   permit('admin', 'pricing_manager'),
@@ -263,11 +274,15 @@ router.delete(
       });
     }
     await Seller.findByIdAndDelete(id);
+    invalidateSearchCaches({
+      prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+      reason: 'delete',
+    });
     return res.json({ success: true, message: 'Deleted', data: { id } });
   }),
 );
 
-router.get('/customers', asyncHandler(customers.list));
+router.get('/customers', searchRateLimit('search:list'), asyncHandler(customers.list));
 router.post(
   '/customers',
   permit('admin', 'pricing_manager'),
@@ -284,25 +299,43 @@ router.delete(
   permit('admin'),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const customer = await Customer.findById(id);
-    if (!customer) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Record not found' });
-    }
-    // Check if this customer is used inside any formulas
-    const mongoose = (await import('mongoose')).default;
-    const formulaUse = await mongoose
-      .model('CustomerTeaFormula')
-      .findOne({ customerId: id });
-    if (formulaUse) {
+    if (typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: `Cannot delete because this Customer is linked to active tea formulas.`,
+        message: 'Invalid customer ID',
       });
     }
+    const customerObjectId = new mongoose.Types.ObjectId(id);
+
+    const customer = await Customer.findById(customerObjectId).lean();
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found',
+      });
+    }
+
+    const hasLinkedFormulas = await CustomerTeaFormula.exists({
+      customerId: customerObjectId,
+      deletedAt: null,
+    });
+    if (hasLinkedFormulas) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Cannot delete customer because related custom tea formulas exist.',
+      });
+    }
+
     await Customer.findByIdAndDelete(id);
-    return res.json({ success: true, message: 'Deleted', data: { id } });
+    invalidateSearchCaches({
+      prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+      reason: 'delete',
+    });
+    return res.json({
+      success: true,
+      message: 'Customer deleted successfully',
+    });
   }),
 );
 
@@ -313,11 +346,12 @@ router.get(
 );
 router.get(
   '/reports/seller-purchase-history',
+  searchRateLimit('search:reports'),
   asyncHandler(sellerPurchaseHistory),
 );
 
 // Leaf Categories API
-router.get('/leaf-categories', asyncHandler(leafCategoriesController.list));
+router.get('/leaf-categories', searchRateLimit('search:list'), asyncHandler(leafCategoriesController.list));
 router.post(
   '/leaf-categories',
   permit('admin', 'pricing_manager'),
@@ -340,15 +374,16 @@ router.post(
   asyncHandler(leafCategoriesController.restore),
 );
 
-
 // Customer Tea Formulas routes
 router.get(
   '/customers/:customerId/tea-formulas',
+  searchRateLimit('search:list'),
   asyncHandler(customerTeaFormulasController.list),
 );
 
 router.get(
   '/customer-tea-formulas',
+  searchRateLimit('search:list'),
   asyncHandler(customerTeaFormulasController.list),
 );
 router.post(
@@ -384,6 +419,7 @@ router.post(
 // Taste Customizations Route Aliases for Backward Compatibility
 router.get(
   '/taste-customizations',
+  searchRateLimit('search:list'),
   asyncHandler(customerTeaFormulasController.list),
 );
 router.post(

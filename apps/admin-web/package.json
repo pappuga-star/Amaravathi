@@ -13,9 +13,9 @@
     "test:ui": "playwright test"
   },
   "dependencies": {
-    "@amaravathi/shared-types": "1.0.0",
-    "@amaravathi/shared-ui": "1.0.0",
-    "@amaravathi/shared-utils": "1.0.0",
+    "@amaravathi/shared-types": "workspace:*",
+    "@amaravathi/shared-ui": "workspace:*",
+    "@amaravathi/shared-utils": "workspace:*",
     "@tanstack/react-query": "^5.51.1",
     "@tanstack/react-table": "^8.19.2",
     "i18next": "^26.2.0",

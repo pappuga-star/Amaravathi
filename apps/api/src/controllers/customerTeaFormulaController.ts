@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import {
   CustomerTeaFormula,
   CustomerTeaFormulaHistory,
@@ -6,9 +7,13 @@ import {
   AddPurchaseBatch,
 } from '../models/index.js';
 import { customerTeaFormulaSchema } from '@amaravathi/shared-types';
-import { escapeRegex, isSearchQueryPresent } from '@amaravathi/shared-utils';
+import { isSearchQueryPresent } from '@amaravathi/shared-utils';
 import { ok, created } from '../utils/apiResponse.js';
 import { ZodError } from 'zod';
+import { AppError, toObjectId } from '../utils/objectId.js';
+import { buildContainsRegex } from '../search/search.utils.js';
+import { validateSearchQuery } from '../search/search.validators.js';
+import { invalidateSearchCaches, SEARCH_CACHE_PREFIXES } from '../search/search.events.js';
 
 function zodIssuesToFieldMap(error: ZodError): Record<string, string> {
   return error.issues.reduce(
@@ -37,18 +42,46 @@ function normalizeIncomingLineItems(body: any) {
   });
 }
 
-function getBatchLineItems(batch: any) {
-  if (Array.isArray(batch?.lineItems)) return batch.lineItems;
-  // Explicitly reject malformed/legacy-only records instead of crashing.
-  return [];
+const PERF_LOGS = process.env.TEA_FORMULA_PERF_LOGS === '1';
+const LIST_FIELDS =
+  '_id formulaCode customerId totalWeight totalFormulaCost costPerKg costPer100Grams isDefault status createdAt deletedAt';
+const SAVE_RESPONSE_FIELDS =
+  '_id formulaCode customerId totalWeight totalFormulaCost costPerKg costPer100Grams isDefault status createdAt updatedAt deletedAt';
+
+type IncomingFormulaLineItem = {
+  purchaseBatchCode: string;
+  purchaseBatchLineItemId: unknown;
+  ingredientCategory: 'Leaf' | 'Add-On';
+  ingredientName: string;
+  quantityInGrams: number;
+  pricePerGram?: number | undefined;
+  rowCost?: number | undefined;
+};
+
+type NormalizedFormulaLineItem = {
+  purchaseBatchCode: string;
+  purchaseBatchLineItemId: string;
+  ingredientCategory: 'Leaf' | 'Add-On';
+  ingredientName: string;
+  quantityInGrams: number;
+  pricePerGram: number;
+  rowCost: number;
+};
+
+interface PurchaseBatchLineLookup {
+  lineItemId: mongoose.Types.ObjectId;
+  batchCode: string;
+  teaPowderTypeName: string;
+  pricePerKg: number;
+  availableStockInGrams: number;
 }
 
-async function validateAndBuildLineItems(
-  lineItems: Array<any>,
+export async function validateAndBuildLineItems(
+  lineItems: IncomingFormulaLineItem[],
 ): Promise<
   | {
       ok: true;
-      updatedLineItems: Array<any>;
+      updatedLineItems: Array<NormalizedFormulaLineItem>;
       totalWeight: number;
       totalFormulaCost: number;
       costPerKg: number;
@@ -57,10 +90,33 @@ async function validateAndBuildLineItems(
   | { ok: false; status: number; message: string }
 > {
   const batchCodes = Array.from(new Set(lineItems.map((item) => item.purchaseBatchCode)));
-  const batches = await AddPurchaseBatch.find({
-    batchCode: { $in: batchCodes },
-  }).lean();
-  const batchMap = new Map<string, any>(batches.map((b) => [b.batchCode, b]));
+  const lineItemObjectIds = lineItems
+    .map((item) => item.purchaseBatchLineItemId)
+    .map((id) => String(id ?? '').trim())
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => toObjectId(id, 'purchase batch line item ID'));
+
+  const matchedBatchLineItems = await AddPurchaseBatch.aggregate<PurchaseBatchLineLookup>([
+    { $match: { batchCode: { $in: batchCodes } } },
+    { $unwind: '$lineItems' },
+    lineItemObjectIds.length > 0
+      ? { $match: { 'lineItems._id': { $in: lineItemObjectIds } } }
+      : { $match: { _id: { $exists: true } } },
+    {
+      $project: {
+        _id: 0,
+        batchCode: 1,
+        lineItemId: '$lineItems._id',
+        teaPowderTypeName: '$lineItems.teaPowderTypeName',
+        pricePerKg: '$lineItems.pricePerKg',
+        availableStockInGrams: '$lineItems.availableStockInGrams',
+      },
+    },
+  ]);
+
+  const batchLineItemById = new Map<string, PurchaseBatchLineLookup>(
+    matchedBatchLineItems.map((item) => [String(item.lineItemId), item]),
+  );
 
   const combinations = new Set<string>();
   for (const item of lineItems) {
@@ -74,48 +130,46 @@ async function validateAndBuildLineItems(
     }
     combinations.add(key);
 
-    const batch = batchMap.get(item.purchaseBatchCode);
-    if (!batch) {
-      return {
-        ok: false,
-        status: 400,
-        message: `Purchase Batch with code "${item.purchaseBatchCode}" not found.`,
-      };
-    }
-
-    const batchLineItems = getBatchLineItems(batch);
-    if (batchLineItems.length === 0) {
-      return {
-        ok: false,
-        status: 400,
-        message: `Purchase Batch "${item.purchaseBatchCode}" has no valid line items. Please edit and save the batch again.`,
-      };
-    }
-
-    const batchItem = batchLineItems.find(
-      (bi: any) =>
-        bi._id?.toString() === item.purchaseBatchLineItemId ||
-        bi.teaPowderTypeName?.toLowerCase() === item.ingredientName.toLowerCase(),
-    );
+    const batchItem = batchLineItemById.get(String(item.purchaseBatchLineItemId));
     if (!batchItem) {
       return {
         ok: false,
         status: 400,
-        message: `Ingredient "${item.ingredientName}" was not found in Purchase Batch "${item.purchaseBatchCode}".`,
+        message: `Ingredient "${item.ingredientName}" was not found in Purchase Batch "${item.purchaseBatchCode}" by selected line item.`,
+      };
+    }
+    if (batchItem.batchCode !== item.purchaseBatchCode) {
+      return {
+        ok: false,
+        status: 400,
+        message: `Purchase Batch line item mismatch for "${item.ingredientName}" and Batch "${item.purchaseBatchCode}".`,
+      };
+    }
+    if (
+      String(batchItem.teaPowderTypeName || '').toLowerCase() !==
+      String(item.ingredientName || '').toLowerCase()
+    ) {
+      return {
+        ok: false,
+        status: 400,
+        message: `Ingredient "${item.ingredientName}" does not match selected Purchase Batch line item.`,
       };
     }
   }
 
   let totalWeight = 0;
   let totalFormulaCost = 0;
-  const updatedLineItems = lineItems.map((item: any) => {
-    const batch = batchMap.get(item.purchaseBatchCode);
-    const batchItem = getBatchLineItems(batch).find(
-      (bi: any) =>
-        bi._id?.toString() === item.purchaseBatchLineItemId ||
-        bi.teaPowderTypeName?.toLowerCase() === item.ingredientName.toLowerCase(),
-    );
-    const pricePerGram = batchItem ? batchItem.pricePerKg / 1000 : item.pricePerGram || 0;
+  const updatedLineItems: NormalizedFormulaLineItem[] = lineItems.map((item) => {
+    const batchItem = batchLineItemById.get(String(item.purchaseBatchLineItemId));
+    if (!batchItem?.lineItemId) {
+      throw new AppError(
+        'Purchase batch line item ID not found for selected ingredient.',
+        400,
+      );
+    }
+    const pricePerGram = batchItem
+      ? batchItem.pricePerKg / 1000
+      : item.pricePerGram || 0;
     const rowCost = Number((item.quantityInGrams * pricePerGram).toFixed(2));
     totalWeight += item.quantityInGrams;
     totalFormulaCost += rowCost;
@@ -124,8 +178,8 @@ async function validateAndBuildLineItems(
       pricePerGram,
       rowCost,
       purchaseBatchLineItemId: batchItem
-        ? batchItem._id.toString()
-        : item.purchaseBatchLineItemId,
+        ? String(toObjectId(batchItem.lineItemId, 'purchase batch line item ID'))
+        : String(toObjectId(item.purchaseBatchLineItemId, 'purchase batch line item ID')),
     };
   });
 
@@ -152,22 +206,21 @@ async function validateAndBuildLineItems(
 
 export const customerTeaFormulasController = {
   async list(req: Request, res: Response) {
-    const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
+    if (PERF_LOGS) console.time('customerTeaFormulas.list.total');
+    const normalizedSearch = validateSearchQuery(req.query, {
+      defaultSortBy: 'createdAt',
+      allowedSortBy: ['createdAt'],
+    });
+    const rawQ = normalizedSearch.rawQuery;
     const customerId = String(req.query.customerId ?? '').trim();
     const leafCategoryId = String(req.query.leafCategoryId ?? '').trim();
     const status = String(req.query.status ?? 'all')
       .trim()
       .toLowerCase();
-    const sortBy = String(req.query.sortBy ?? 'createdAt').trim();
-    const sortOrder =
-      String(req.query.sortOrder ?? 'desc')
-        .trim()
-        .toLowerCase() === 'desc'
-        ? -1
-        : 1;
-
-    const page = Math.max(Number(req.query.page ?? 1), 1);
-    const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 1000);
+    const sortBy = normalizedSearch.sortBy;
+    const sortOrder = normalizedSearch.sortOrder === 'desc' ? -1 : 1;
+    const page = normalizedSearch.page;
+    const limit = normalizedSearch.limit;
 
     const filter: any = {};
 
@@ -184,8 +237,8 @@ export const customerTeaFormulasController = {
 
     // 3. Search query
     if (isSearchQueryPresent(rawQ)) {
-      const q = String(rawQ).trim();
-      const safeRegex = new RegExp(escapeRegex(q), 'i');
+      const q = normalizedSearch.normalizedQuery;
+      const safeRegex = buildContainsRegex(q);
       const matchingCustomers = await Customer.find({
         name: safeRegex,
       })
@@ -213,27 +266,62 @@ export const customerTeaFormulasController = {
       }
     }
 
-    const sortConfig: any = { [sortBy]: sortOrder };
+    const safeSortBy = sortBy === 'createdAt' ? 'createdAt' : 'createdAt';
+    const sortConfig: any = { [safeSortBy]: sortOrder };
 
+    if (PERF_LOGS) console.time('customerTeaFormulas.list.query');
     const [items, total] = await Promise.all([
       CustomerTeaFormula.find(filter)
-        .populate('customerId', 'name')
+        .select(LIST_FIELDS)
         .sort(sortConfig)
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
       CustomerTeaFormula.countDocuments(filter),
     ]);
+    if (PERF_LOGS) console.timeEnd('customerTeaFormulas.list.query');
+
+    if (PERF_LOGS) console.time('customerTeaFormulas.list.customerMap');
+    const customerIds = Array.from(
+      new Set(
+        items
+          .map((item: any) => String(item.customerId || ''))
+          .filter((value) => mongoose.Types.ObjectId.isValid(value)),
+      ),
+    );
+    const customers = customerIds.length
+      ? await Customer.find({ _id: { $in: customerIds } }).select('_id name').lean()
+      : [];
+    const customerMap = new Map(customers.map((c: any) => [String(c._id), c.name]));
+    if (PERF_LOGS) console.timeEnd('customerTeaFormulas.list.customerMap');
 
     const normalizedItems = items.map((item: any) => ({
       ...item,
       id: item._id.toString(),
+      customerId: item.customerId
+        ? { id: String(item.customerId), name: customerMap.get(String(item.customerId)) || '-' }
+        : null,
     }));
 
-    return ok(res, { items: normalizedItems, total, page, limit });
+    const response = ok(res, {
+      items: normalizedItems,
+      pagination: {
+        page,
+        limit,
+        totalItems: total,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+      },
+      total,
+      page,
+      limit,
+    });
+    if (PERF_LOGS) console.timeEnd('customerTeaFormulas.list.total');
+    return response;
   },
 
   async get(req: Request, res: Response) {
+    if (PERF_LOGS) console.time('customerTeaFormulas.get.total');
+    const includeHistory = String(req.query.includeHistory ?? 'false') === 'true';
     const item = await CustomerTeaFormula.findById(req.params.id)
       .populate('customerId', 'name')
       .lean();
@@ -244,25 +332,27 @@ export const customerTeaFormulasController = {
         .json({ success: false, message: 'Formula not found' });
     }
 
-    // Fetch snapshot history
-    const history = await CustomerTeaFormulaHistory.find({
-      formulaId: req.params.id,
-    })
-      .populate('changedBy', 'name')
-      .sort({ createdAt: -1 })
-      .lean();
+    let history: any[] = [];
+    if (includeHistory) {
+      history = await CustomerTeaFormulaHistory.find({
+        formulaId: req.params.id,
+      })
+        .populate('changedBy', 'name')
+        .sort({ createdAt: -1 })
+        .lean();
+    }
 
-    return ok(res, {
+    const response = ok(res, {
       ...item,
       id: item._id.toString(),
       history: history.map((h: any) => ({ ...h, id: h._id.toString() })),
     });
+    if (PERF_LOGS) console.timeEnd('customerTeaFormulas.get.total');
+    return response;
   },
 
   async create(req: Request, res: Response) {
-    console.log('Incoming Customer Tea Formula Payload:');
-    console.log(JSON.stringify(req.body, null, 2));
-
+    if (PERF_LOGS) console.time('customerTeaFormulas.create.total');
     normalizeIncomingLineItems(req.body);
 
     let parsed;
@@ -279,10 +369,14 @@ export const customerTeaFormulasController = {
       });
     }
 
+    if (PERF_LOGS) console.time('customerTeaFormulas.create.validateCustomer');
     const customer = await Customer.findOne({
       _id: parsed.customerId,
       active: true,
-    });
+    })
+      .select('_id')
+      .lean();
+    if (PERF_LOGS) console.timeEnd('customerTeaFormulas.create.validateCustomer');
     if (!customer) {
       return res.status(400).json({
         success: false,
@@ -290,7 +384,9 @@ export const customerTeaFormulasController = {
       });
     }
 
+    if (PERF_LOGS) console.time('customerTeaFormulas.create.validateLineItems');
     const computed = await validateAndBuildLineItems(parsed.lineItems);
+    if (PERF_LOGS) console.timeEnd('customerTeaFormulas.create.validateLineItems');
     if (!computed.ok) {
       return res.status(computed.status).json({
         success: false,
@@ -314,6 +410,7 @@ export const customerTeaFormulasController = {
       costPer100Grams: computed.costPer100Grams,
     };
 
+    if (PERF_LOGS) console.time('customerTeaFormulas.create.save');
     try {
       const formula = await CustomerTeaFormula.create(formulaPayload);
 
@@ -324,10 +421,20 @@ export const customerTeaFormulasController = {
         changeType: 'Create',
       });
 
-      return created(res, {
-        ...formula.toObject(),
+      const saved = await CustomerTeaFormula.findById(formula._id)
+        .select(SAVE_RESPONSE_FIELDS)
+        .lean();
+      if (PERF_LOGS) console.timeEnd('customerTeaFormulas.create.save');
+      const response = created(res, {
+        ...(saved || formula.toObject()),
         id: formula._id.toString(),
       });
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'create',
+      });
+      if (PERF_LOGS) console.timeEnd('customerTeaFormulas.create.total');
+      return response;
     } catch (error: any) {
       if (error.code === 11000) {
         return res.status(400).json({
@@ -417,6 +524,10 @@ export const customerTeaFormulasController = {
         changedBy: (req as any).user?.id,
         changeType: 'Update',
       });
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'update',
+      });
 
       return ok(
         res,
@@ -446,6 +557,10 @@ export const customerTeaFormulasController = {
         .status(404)
         .json({ success: false, message: 'Formula not found' });
     }
+    invalidateSearchCaches({
+      prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+      reason: 'delete',
+    });
 
     return ok(res, { id: req.params.id }, 'Soft Deleted');
   },
@@ -473,6 +588,10 @@ export const customerTeaFormulasController = {
       snapshot: formula.toObject(),
       changedBy: (req as any).user?.id,
       changeType: 'Update',
+    });
+    invalidateSearchCaches({
+      prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+      reason: 'update',
     });
 
     return ok(
@@ -512,6 +631,10 @@ export const customerTeaFormulasController = {
       snapshot: copy.toObject(),
       changedBy: (req as any).user?.id,
       changeType: 'Create',
+    });
+    invalidateSearchCaches({
+      prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+      reason: 'create',
     });
 
     return created(

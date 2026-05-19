@@ -1,14 +1,22 @@
 import { clsx } from 'clsx';
-import { forwardRef } from 'react';
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  InputHTMLAttributes,
-  PropsWithChildren,
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type PropsWithChildren,
 } from 'react';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'add' | 'delete' | 'edit' | 'warning' | 'secondary' | 'default';
+}
+
+export interface AccessibleIconButtonProps
+  extends ButtonProps {
+  label: string;
+  tooltipClassName?: string;
+  wrapperClassName?: string;
+  tooltipPosition?: 'top' | 'right' | 'bottom' | 'left';
 }
 
 export function Button({
@@ -37,6 +45,45 @@ export function Button({
       )}
       {...props}
     />
+  );
+}
+
+export function AccessibleIconButton({
+  label,
+  children,
+  className,
+  tooltipClassName,
+  wrapperClassName,
+  tooltipPosition = 'top',
+  ...props
+}: AccessibleIconButtonProps) {
+  const tooltipPositionClasses = {
+    top: '-top-9 left-1/2 -translate-x-1/2',
+    right: 'left-[calc(100%+0.5rem)] top-1/2 -translate-y-1/2',
+    bottom: '-bottom-9 left-1/2 -translate-x-1/2',
+    left: 'right-[calc(100%+0.5rem)] top-1/2 -translate-y-1/2',
+  };
+
+  return (
+    <span className={clsx('relative inline-flex group', wrapperClassName)}>
+      <button
+        {...props}
+        className={className}
+        aria-label={label}
+        title={label}
+      >
+        {children}
+      </button>
+      <span
+        className={clsx(
+          'pointer-events-none absolute whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100',
+          tooltipPositionClasses[tooltipPosition],
+          tooltipClassName,
+        )}
+      >
+        {label}
+      </span>
+    </span>
   );
 }
 

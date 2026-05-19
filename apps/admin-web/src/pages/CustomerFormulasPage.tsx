@@ -13,10 +13,10 @@ import {
   Eye,
   Check,
 } from 'lucide-react';
-import { Button, Card, Input } from '@amaravathi/shared-ui';
+import { AccessibleIconButton, Button, Card, Input } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
-import { useNotification } from '../components/NotificationContext';
+import { useNotification } from '@/components/NotificationContext';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -87,8 +87,10 @@ export const CustomerFormulasPage = ({
             typeof item.purchaseBatchLineItemId === 'object'
               ? (item.purchaseBatchLineItemId as any).id ||
                 (item.purchaseBatchLineItemId as any)._id ||
-                String(item.purchaseBatchLineItemId)
-              : String(item.purchaseBatchLineItemId),
+                ''
+              : item.purchaseBatchLineItemId
+                ? String(item.purchaseBatchLineItemId)
+                : '',
           ingredientCategory: item.ingredientCategory,
           ingredientName: item.ingredientName,
           quantityInGrams: item.quantityInGrams,
@@ -374,6 +376,16 @@ export const CustomerFormulasPage = ({
 
     if (lineItems.length === 0) {
       showToast(t('customerFormulas.messages.addAtLeastOne'), 'error');
+      return;
+    }
+
+    const missingLineItemId = lineItems.some(
+      (item) =>
+        !item.purchaseBatchLineItemId ||
+        !/^[0-9a-fA-F]{24}$/.test(String(item.purchaseBatchLineItemId).trim()),
+    );
+    if (missingLineItemId) {
+      showToast('Please select a valid purchase batch ingredient for every row.', 'error');
       return;
     }
 
@@ -693,7 +705,7 @@ export const CustomerFormulasPage = ({
                             <div className="flex items-center justify-center gap-1.5">
                               {lockedRows[idx] ? (
                                 /* Edit/Pencil Button to unlock */
-                                <button
+                                <AccessibleIconButton
                                   type="button"
                                   onClick={() =>
                                     setLockedRows({
@@ -703,16 +715,16 @@ export const CustomerFormulasPage = ({
                                   }
                                   disabled={!canEdit}
                                   className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-40"
-                                  title={t('customerFormulas.editRow')}
+                                  label={t('customerFormulas.editRow')}
                                 >
                                   <Edit3 size={14} />
-                                </button>
+                                </AccessibleIconButton>
                               ) : (
                                 /* Green Tick Mark Button to lock */
-                                <button
+                                <AccessibleIconButton
                                   type="button"
                                   className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-40"
-                                  title={t(
+                                  label={t(
                                     'customerFormulas.confirmIngredient',
                                   )}
                                   disabled={
@@ -729,30 +741,30 @@ export const CustomerFormulasPage = ({
                                   }}
                                 >
                                   <Check size={14} />
-                                </button>
+                                </AccessibleIconButton>
                               )}
 
                               {/* Plus button to append new row */}
-                              <button
+                              <AccessibleIconButton
                                 type="button"
                                 onClick={addLineItem}
                                 disabled={!canEdit}
                                 className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-40"
-                                title={t('customerFormulas.addIngredientRow')}
+                                label={t('customerFormulas.addIngredientRow')}
                               >
                                 <Plus size={14} />
-                              </button>
+                              </AccessibleIconButton>
 
                               {/* Delete button */}
-                              <button
+                              <AccessibleIconButton
                                 type="button"
                                 onClick={() => removeLineItem(idx)}
                                 disabled={!canEdit}
                                 className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
-                                title={t('customerFormulas.removeItem')}
+                                label={t('customerFormulas.removeItem')}
                               >
                                 <X size={14} />
-                              </button>
+                              </AccessibleIconButton>
                             </div>
                           </td>
                         </tr>

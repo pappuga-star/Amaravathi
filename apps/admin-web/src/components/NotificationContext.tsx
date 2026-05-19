@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { CheckCircle2, AlertCircle, Info, XCircle, X } from 'lucide-react';
-import { Button } from '@amaravathi/shared-ui';
+import { AccessibleIconButton, Button } from '@amaravathi/shared-ui';
 import { Portal } from './ui/Portal';
 import { Z_INDEX } from '../constants/zIndex';
 
@@ -170,13 +170,13 @@ export function NotificationProvider({
               <div className="flex-1 text-sm font-medium leading-relaxed">
                 {toast.message}
               </div>
-              <button
+              <AccessibleIconButton
                 onClick={() => removeToast(toast.id)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                aria-label="Close"
+                label="Close notification"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </AccessibleIconButton>
             </div>
           );
         })}

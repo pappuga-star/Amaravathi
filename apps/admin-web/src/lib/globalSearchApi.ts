@@ -1,4 +1,5 @@
 import { api } from './api';
+import { SEARCH_MIN_CHARS } from '../search/search.constants';
 
 export interface SearchResultItem {
   _id: string;
@@ -23,11 +24,17 @@ export interface SearchResponse {
   query: string;
   results: GroupedSearchResults;
   totalResults: number;
+  quality?: {
+    expandedTerms?: string[];
+    correctedQuery?: string;
+    suggestions?: Array<{ text: string; type: 'completion' | 'popular' | 'entity' }>;
+    zeroResultRecoveryApplied?: boolean;
+  };
 }
 
 export const globalSearchApi = {
   async search(query: string): Promise<SearchResponse> {
-    if (!query || query.trim().length < 2) {
+    if (!query || query.trim().length < SEARCH_MIN_CHARS) {
       return { 
         query, 
         results: { customers: [], savedBlends: [], customerTeaBlends: [], purchaseBatches: [], generalItems: [], batchIngredients: [], suppliers: [], teaPowderTypes: [] },

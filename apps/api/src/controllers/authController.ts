@@ -25,7 +25,13 @@ export async function login(req: Request, res: Response) {
   );
   return ok(res, {
     token,
-    user: { id: user._id, name: user.name, email: user.email, role: user.role },
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      forcePasswordChange: Boolean((user as any).forcePasswordChange),
+    },
   });
 }
 
@@ -58,6 +64,7 @@ export async function me(req: Request, res: Response) {
     email: user.email,
     role: user.role,
     active: user.active,
+    forcePasswordChange: Boolean((user as any).forcePasswordChange),
   });
 }
 
@@ -71,6 +78,7 @@ export async function updateUser(req: Request, res: Response) {
 
   if (body.password) {
     updateData.passwordHash = await bcrypt.hash(body.password, 12);
+    updateData.forcePasswordChange = false;
   }
 
   const user = await User.findByIdAndUpdate(
@@ -91,6 +99,7 @@ export async function updateUser(req: Request, res: Response) {
       email: user.email,
       role: user.role,
       active: user.active,
+      forcePasswordChange: Boolean((user as any).forcePasswordChange),
     },
     'Updated',
   );

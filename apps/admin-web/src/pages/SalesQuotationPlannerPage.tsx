@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Button, Card, Input } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
-import { useNotification } from '../components/NotificationContext';
+import { useNotification } from '@/components/NotificationContext';
 import { useTranslation } from 'react-i18next';
 import { useTabsKeyboardNavigation } from '../hooks/useTabsKeyboardNavigation';
 

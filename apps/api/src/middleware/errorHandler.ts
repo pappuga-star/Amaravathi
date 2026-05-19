@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler } from 'express';
 import mongoose from 'mongoose';
 import { ZodError } from 'zod';
+import { searchMetrics } from '../search/search-metrics.js';
 
 function zodIssuesToFieldMap(error: ZodError): Record<string, string> {
   return error.issues.reduce(
@@ -15,7 +16,10 @@ function zodIssuesToFieldMap(error: ZodError): Record<string, string> {
   );
 }
 
-export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
+  if (req.path.includes('search') || req.path.includes('customer-tea-formulas') || req.path.includes('sellers') || req.path.includes('customers')) {
+    searchMetrics.recordError();
+  }
   if (error instanceof ZodError) {
     return res.status(422).json({
       success: false,

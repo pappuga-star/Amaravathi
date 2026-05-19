@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { normalizeName } from '@amaravathi/shared-utils';
 
 const generalItemLineSchema = new Schema(
   {
@@ -20,6 +21,7 @@ const generalItemPurchaseSchema = new Schema(
     purchaseDate: { type: Date, required: true },
     billNumber: { type: String, trim: true, default: '' },
     supplierName: { type: String, required: true, trim: true },
+    supplierNameKey: { type: String, required: true, trim: true },
     notes: { type: String, trim: true, default: '' },
     lineItems: { type: [generalItemLineSchema], default: [] },
     totalAmount: { type: Number, required: true, min: 0, default: 0 },
@@ -30,12 +32,16 @@ const generalItemPurchaseSchema = new Schema(
 
 generalItemPurchaseSchema.index({ purchaseDate: -1 });
 generalItemPurchaseSchema.index({ supplierName: 1 });
+generalItemPurchaseSchema.index({ supplierNameKey: 1 });
 generalItemPurchaseSchema.index({ 'lineItems.particulars': 1 });
 generalItemPurchaseSchema.index({ billNumber: 1 });
 generalItemPurchaseSchema.index({ deletedAt: 1 });
+generalItemPurchaseSchema.index({ deletedAt: 1, purchaseDate: -1 });
+generalItemPurchaseSchema.index({ deletedAt: 1, supplierName: 1, purchaseDate: -1 });
 
 generalItemPurchaseSchema.pre('validate', function preValidate(next) {
   const doc = this as any;
+  doc.supplierNameKey = normalizeName(doc.supplierName ?? '');
   let total = 0;
   doc.lineItems = (doc.lineItems || []).map((item: any) => {
     const quantity = Number(item.quantity ?? 0);

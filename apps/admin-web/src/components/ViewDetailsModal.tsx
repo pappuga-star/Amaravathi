@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Printer, Edit3 } from 'lucide-react';
-import { Button } from '@amaravathi/shared-ui';
+import { AccessibleIconButton, Button } from '@amaravathi/shared-ui';
 import { Portal } from './ui/Portal';
 import { Z_INDEX } from '../constants/zIndex';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -142,13 +142,13 @@ export function ViewDetailsModal({
           </div>
           <div className="flex items-center gap-3">
             {headerMeta && <div className="hidden sm:flex items-center gap-2 no-print">{headerMeta}</div>}
-            <button
+            <AccessibleIconButton
               onClick={onClose}
               className="p-1.5 rounded-lg text-emerald-200 hover:bg-emerald-700/50 hover:text-white transition-colors no-print"
-              aria-label="Close"
+              label="Close dialog"
             >
               <X size={20} />
-            </button>
+            </AccessibleIconButton>
           </div>
         </div>
 

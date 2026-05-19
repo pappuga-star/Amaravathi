@@ -42,3 +42,15 @@ npm run quality:pr
 
 - `knip.json` contains explicit ignores for approved one-off operational files.
 - Duplicate threshold in CI is set to `5.3%` to prevent regression while existing duplication is being reduced incrementally.
+
+## Search Governance
+
+- Search SSOT guardrails must pass on every PR: `npm run search:ssot:verify`.
+- Search benchmark regression checks must pass: `npm run search:benchmark:regression`.
+- Search release readiness checks must pass before merge: `npm run search:release:check`.
+
+## React Context Import Invariants
+
+- `NotificationContext` has a single canonical import path: `@/components/NotificationContext`.
+- Do not import `NotificationContext`, `NotificationProvider`, or `useNotification` via relative paths or alternate aliases.
+- `NotificationProvider` must be mounted once at app root and must not be re-declared in feature modules.

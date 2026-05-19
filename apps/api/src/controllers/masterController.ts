@@ -5,10 +5,12 @@ import {
   leafCategorySchema,
 } from '@amaravathi/shared-types';
 import {
-  escapeRegex,
   isSearchQueryPresent as isSearchQueryPresentUtil,
 } from '@amaravathi/shared-utils';
 import { ok, created } from '../utils/apiResponse.js';
+import { buildContainsRegex } from '../search/search.utils.js';
+import { runListSearch } from '../search/search.service.js';
+import { invalidateSearchCaches, SEARCH_CACHE_PREFIXES } from '../search/search.events.js';
 
 function buildMasterController(
   model: any,
@@ -19,66 +21,64 @@ function buildMasterController(
 ) {
   return {
     async list(req: Request, res: Response) {
-      const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
       const status = String(req.query.status ?? 'all')
         .trim()
         .toLowerCase();
-      const sortBy = String(req.query.sortBy ?? defaultSortField).trim();
-      const sortOrder =
-        String(req.query.sortOrder ?? 'asc')
-          .trim()
-          .toLowerCase() === 'desc'
-          ? -1
-          : 1;
-
-      const page = Math.max(Number(req.query.page ?? 1), 1);
-      const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
-
-      const filter: any = {};
-
-      // 1. Search Query
-      if (isSearchQueryPresentUtil(rawQ) && searchFields.length) {
-        const q = String(rawQ).trim();
-        const safeRegex = new RegExp(escapeRegex(q), 'i');
-        filter.$or = searchFields.map((field) => ({
-          [field]: safeRegex,
-        }));
-      }
-
-      // 2. Status Filtering
+      const statusFilter: any = {};
       if (status === 'deleted') {
-        filter.deletedAt = { $ne: null };
+        statusFilter.deletedAt = { $ne: null };
       } else {
-        filter.deletedAt = null;
-        if (status === 'active') {
-          filter.active = true;
-        } else if (status === 'inactive') {
-          filter.active = false;
+        statusFilter.deletedAt = null;
+        if (status === 'active') statusFilter.active = true;
+        if (status === 'inactive') statusFilter.active = false;
+      }
+
+      const data = await runListSearch({
+        namespace: model.modelName,
+        model,
+        query: req.query,
+        defaultSortBy: defaultSortField,
+        allowedSortBy: [defaultSortField, ...searchFields, 'createdAt'],
+        searchFields: searchFields.map((field) => ({
+          field,
+          ...(field === 'name' ? { keyField: 'nameKey' } : {}),
+          category: field.toLowerCase().includes('code') ? 'code' : 'name',
+        })),
+        baseFilter: statusFilter,
+        buildFilter: (q) => {
+          if (!isSearchQueryPresentUtil(q) || !searchFields.length) return {};
+          const regex = buildContainsRegex(q);
+          return {
+            $or: searchFields.map((field) => ({ [field]: regex })),
+          };
+        },
+        transformItem: (item: any) => item,
+      });
+
+      let items = data.items as any[];
+      if (populateFields.length) {
+        const ids = items.map((item: any) => item._id);
+        let queryBuilder = model.find({ _id: { $in: ids } });
+        for (const field of populateFields) {
+          queryBuilder = queryBuilder.populate(field);
         }
+        const populated = await queryBuilder.lean();
+        const byId = new Map(populated.map((item: any) => [String(item._id), item]));
+        items = ids.map((id: any) => byId.get(String(id))).filter(Boolean);
       }
-
-      const sortConfig: any = { [sortBy]: sortOrder };
-
-      let queryBuilder = model.find(filter);
-      for (const field of populateFields) {
-        queryBuilder = queryBuilder.populate(field);
-      }
-
-      const [items, total] = await Promise.all([
-        queryBuilder
-          .sort(sortConfig)
-          .skip((page - 1) * limit)
-          .limit(limit)
-          .lean(),
-        model.countDocuments(filter),
-      ]);
 
       const normalizedItems = items.map((item: any) => ({
         ...item,
         id: item._id.toString(),
       }));
 
-      return ok(res, { items: normalizedItems, total, page, limit });
+      return ok(res, {
+        items: normalizedItems,
+        pagination: data.pagination,
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+      });
     },
 
     async get(req: Request, res: Response) {
@@ -98,6 +98,10 @@ function buildMasterController(
     async create(req: Request, res: Response) {
       const body = schema.parse(req.body);
       const item = await model.create(body);
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'create',
+      });
       return created(res, { ...item.toObject(), id: item._id.toString() });
     },
 
@@ -129,6 +133,10 @@ function buildMasterController(
             .updateMany({ [fieldName]: req.params.id }, { status: 'Inactive' });
         }
       }
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'update',
+      });
 
       return ok(
         res,
@@ -161,6 +169,10 @@ function buildMasterController(
           .model('CustomerTeaFormula')
           .updateMany({ [fieldName]: req.params.id }, { status: 'Inactive' });
       }
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'delete',
+      });
 
       return ok(res, { id: req.params.id }, 'Soft Deleted');
     },
@@ -176,6 +188,10 @@ function buildMasterController(
           .status(404)
           .json({ success: false, message: 'Record not found' });
       }
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'restore',
+      });
       return ok(
         res,
         { ...item.toObject(), id: item._id.toString() },

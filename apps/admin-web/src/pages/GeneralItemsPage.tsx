@@ -1,17 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Field, Input } from '@amaravathi/shared-ui';
+import {
+  AccessibleIconButton,
+  Button,
+  Card,
+  Field,
+  Input,
+} from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { formatCurrency } from '@amaravathi/shared-utils';
-import { useDebounce } from '../hooks/useDebounce';
-import { useNotification } from '../components/NotificationContext';
+import { useNotification } from '@/components/NotificationContext';
 import { Edit3, Eye, Plus, Printer, Trash2 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Z_INDEX } from '../constants/zIndex';
 import { Portal } from '../components/ui/Portal';
 import { useTabsKeyboardNavigation } from '../hooks/useTabsKeyboardNavigation';
 import { STICKY_IN_CONTENT } from '../utils/sticky';
+import { useSearch } from '../search/useSearch';
+import { searchKeys } from '../search/search-query-keys';
+import { SEARCH_DEFAULT_LIMIT } from '../search/search.constants';
+import { AutocompleteSearchInput } from '../search/AutocompleteSearchInput';
 
 type Unit = 'Kg' | 'Grams' | 'Pieces' | 'Boxes' | 'Packets' | 'Dozens' | 'Liters';
 
@@ -55,58 +63,19 @@ function SupplierAutocompleteInput({
   disabled?: boolean;
   onSearchTermChange?: (value: string) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState(value);
-
-  useEffect(() => {
-    setSearch(value);
-  }, [value]);
-
-  const filtered = options
-    .filter((opt) => opt.toLowerCase().includes(search.toLowerCase()))
-    .slice(0, 8);
+  const optionalProps = {
+    ...(disabled !== undefined ? { disabled } : {}),
+    ...(onSearchTermChange ? { onSearchTermChange } : {}),
+  };
 
   return (
-    <div className="relative">
-      <Input
-        value={search}
-        onChange={(e) => {
-          const next = e.target.value;
-          setSearch(next);
-          onChange(next);
-          onSearchTermChange?.(next);
-          setIsOpen(true);
-        }}
-        onFocus={() => {
-          onSearchTermChange?.(search);
-          setIsOpen(true);
-        }}
-        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-        placeholder={placeholder}
-        disabled={disabled}
-      />
-      {isOpen && filtered.length > 0 && !disabled ? (
-        <ul
-          className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
-          style={{ zIndex: Z_INDEX.dropdown }}
-        >
-          {filtered.map((opt, i) => (
-            <li
-              key={`${opt}-${i}`}
-              className="cursor-pointer rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setSearch(opt);
-                onChange(opt);
-                setIsOpen(false);
-              }}
-            >
-              {opt}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
+    <AutocompleteSearchInput
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
+      {...optionalProps}
+    />
   );
 }
 
@@ -125,99 +94,19 @@ function ParticularsAutocompleteInput({
   disabled?: boolean;
   onFocus?: () => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState(value);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
-
-  useEffect(() => {
-    setSearch(value);
-  }, [value]);
-
-  const trimmedSearch = search.trim().toLowerCase();
-  const filtered = trimmedSearch
-    ? options
-        .filter((opt) => opt.toLowerCase().includes(trimmedSearch))
-        .slice(0, 10)
-    : [];
-
-  useEffect(() => {
-    if (!isOpen || filtered.length === 0 || disabled) return;
-
-    const updatePosition = () => {
-      const rect = inputRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setDropdownPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    };
-
-    updatePosition();
-    window.addEventListener('scroll', updatePosition, true);
-    window.addEventListener('resize', updatePosition);
-
-    return () => {
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
-    };
-  }, [isOpen, filtered.length, disabled]);
+  const optionalProps = {
+    ...(disabled !== undefined ? { disabled } : {}),
+    ...(onFocus ? { onFocus } : {}),
+  };
 
   return (
-    <div className="relative w-full">
-      <Input
-        ref={inputRef}
-        value={search}
-        onFocus={onFocus}
-        onChange={(e) => {
-          const next = e.target.value;
-          setSearch(next);
-          onChange(next);
-          setIsOpen(next.trim().length > 0);
-        }}
-        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-        placeholder={placeholder}
-        disabled={disabled}
-      />
-      {isOpen &&
-      filtered.length > 0 &&
-      !disabled &&
-      typeof document !== 'undefined' &&
-      dropdownPosition
-        ? createPortal(
-            <ul
-              className="fixed max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
-              style={{
-                top: dropdownPosition.top,
-                left: dropdownPosition.left,
-                width: dropdownPosition.width,
-                zIndex: Z_INDEX.dropdown,
-              }}
-            >
-              {filtered.map((opt, i) => (
-                <li
-                  key={`${opt}-${i}`}
-                  className="cursor-pointer rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setSearch(opt);
-                    onChange(opt);
-                    setIsOpen(false);
-                  }}
-                >
-                  {opt}
-                </li>
-              ))}
-            </ul>,
-            document.body,
-          )
-        : null}
-    </div>
+    <AutocompleteSearchInput
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
+      {...optionalProps}
+    />
   );
 }
 
@@ -592,22 +481,24 @@ function GeneralItemsForm({
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex gap-2">
-                    <Button
+                    <AccessibleIconButton
                       type="button"
                       className="h-9 px-2"
                       onClick={addLine}
                       disabled={!canEdit}
+                      label="Add line item"
                     >
                       <Plus size={14} />
-                    </Button>
-                    <Button
+                    </AccessibleIconButton>
+                    <AccessibleIconButton
                       type="button"
                       className="h-9 px-2"
                       onClick={() => removeLine(index)}
                       disabled={!canEdit}
+                      label="Remove line item"
                     >
                       <Trash2 size={14} />
-                    </Button>
+                    </AccessibleIconButton>
                   </div>
                 </td>
               </tr>
@@ -847,9 +738,9 @@ function GeneralItemsViewDialog({
             </p>
           </div>
           <div className="flex gap-2">
-            <Button className="h-8" onClick={onEdit}>
+            <AccessibleIconButton className="h-8" onClick={onEdit} label="Edit general item purchase">
               <Edit3 size={14} />
-            </Button>
+            </AccessibleIconButton>
             <Button className="h-8" onClick={onClose}>
               Close
             </Button>
@@ -930,15 +821,15 @@ function GeneralItemsTable({
                 <td className="px-3 py-2">{formatCurrency(row.totalAmount)}</td>
                 <td className="px-3 py-2">
                   <div className="flex gap-2">
-                    <Button className="h-8 px-2" onClick={() => onView(row.id)}>
+                    <AccessibleIconButton className="h-8 px-2" onClick={() => onView(row.id)} label="View purchase details">
                       <Eye size={14} />
-                    </Button>
-                    <Button className="h-8 px-2" disabled={!canEdit} onClick={() => onEdit(row.id)}>
+                    </AccessibleIconButton>
+                    <AccessibleIconButton className="h-8 px-2" disabled={!canEdit} onClick={() => onEdit(row.id)} label="Edit purchase">
                       <Edit3 size={14} />
-                    </Button>
-                    <Button className="h-8 px-2" disabled={!isAdmin} onClick={() => onDelete(row.id)}>
+                    </AccessibleIconButton>
+                    <AccessibleIconButton className="h-8 px-2" disabled={!isAdmin} onClick={() => onDelete(row.id)} label="Delete purchase">
                       <Trash2 size={14} />
-                    </Button>
+                    </AccessibleIconButton>
                   </div>
                 </td>
               </tr>
@@ -976,12 +867,16 @@ function GeneralItemsMasterPage({
   const [defaultUnit, setDefaultUnit] = useState<Unit>('Pieces');
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const search = useSearch<never>({
+    moduleName: 'general-items-master-local-filter',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
   const filteredItems = useMemo(() => {
-    const term = searchQuery.trim().toLowerCase();
+    const term = search.debouncedQ.trim().toLowerCase();
     if (!term) return masterItems;
     return masterItems.filter((item) =>
       [item.itemName, item.defaultUnit, item.isActive ? 'active' : 'inactive']
@@ -989,7 +884,7 @@ function GeneralItemsMasterPage({
         .toLowerCase()
         .includes(term),
     );
-  }, [masterItems, searchQuery]);
+  }, [masterItems, search.debouncedQ]);
 
   const totalRecords = masterItems.length;
   const totalFilteredRecords = filteredItems.length;
@@ -1008,7 +903,7 @@ function GeneralItemsMasterPage({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [search.debouncedQ]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -1109,8 +1004,8 @@ function GeneralItemsMasterPage({
         <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="w-full sm:max-w-xs">
             <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={search.q}
+              onChange={(e) => search.setQ(e.target.value)}
               placeholder="Search items..."
               className="h-9 text-xs"
             />
@@ -1142,12 +1037,12 @@ function GeneralItemsMasterPage({
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
-                      <Button className="h-8 px-2" disabled={!canEdit} onClick={() => loadEdit(item)}>
+                      <AccessibleIconButton className="h-8 px-2" disabled={!canEdit} onClick={() => loadEdit(item)} label="Edit master item">
                         <Edit3 size={14} />
-                      </Button>
-                      <Button className="h-8 px-2" disabled={!isAdmin} onClick={() => onDelete(item.id)}>
+                      </AccessibleIconButton>
+                      <AccessibleIconButton className="h-8 px-2" disabled={!isAdmin} onClick={() => onDelete(item.id)} label="Delete master item">
                         <Trash2 size={14} />
-                      </Button>
+                      </AccessibleIconButton>
                     </div>
                   </td>
                 </tr>
@@ -1174,6 +1069,8 @@ function GeneralItemsMasterPage({
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage(1)}
                 disabled={safeCurrentPage <= 1}
+                aria-label="Go to first page"
+                title="Go to first page"
               >
                 {'<<'}
               </Button>
@@ -1183,6 +1080,8 @@ function GeneralItemsMasterPage({
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={safeCurrentPage <= 1}
+                aria-label="Go to previous page"
+                title="Go to previous page"
               >
                 {'<'}
               </Button>
@@ -1212,6 +1111,8 @@ function GeneralItemsMasterPage({
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safeCurrentPage >= totalPages}
+                aria-label="Go to next page"
+                title="Go to next page"
               >
                 {'>'}
               </Button>
@@ -1221,6 +1122,8 @@ function GeneralItemsMasterPage({
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={safeCurrentPage >= totalPages}
+                aria-label="Go to last page"
+                title="Go to last page"
               >
                 {'>>'}
               </Button>
@@ -1239,13 +1142,47 @@ export function GeneralItemsPage() {
 
   const [activeTab, setActiveTab] = useState<'purchase-entry' | 'purchase-register' | 'item-master' | 'supplier-rate-history' | 'stock-summary' | 'reports'>('purchase-entry');
   const [registerPage, setRegisterPage] = useState(1);
-  const [registerPageSize] = useState(20);
+  const [registerPageSize] = useState(SEARCH_DEFAULT_LIMIT);
   const [showNewSupplierModal, setShowNewSupplierModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewingPurchase, setViewingPurchase] = useState<GeneralItemPurchase | null>(null);
   const [selectedRowIndex, setSelectedRowIndex] = useState(0);
 
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const search = useSearch<GeneralItemPurchase>({
+    moduleName: 'general-items-purchases',
+    queryFn: async () => ({ items: [] }),
+    initialLimit: registerPageSize,
+  });
+  const supplierFilterSearch = useSearch<never>({
+    moduleName: 'general-items-supplier-filter',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
+  const particularsFilterSearch = useSearch<never>({
+    moduleName: 'general-items-particulars-filter',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
+  const billFilterSearch = useSearch<never>({
+    moduleName: 'general-items-bill-filter',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
+  const fromDateSearch = useSearch<never>({
+    moduleName: 'general-items-from-date-filter',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
+  const toDateSearch = useSearch<never>({
+    moduleName: 'general-items-to-date-filter',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
+  const supplierLookupSearch = useSearch<never>({
+    moduleName: 'general-items-supplier-lookup',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [filterSupplierName, setFilterSupplierName] = useState('');
@@ -1262,21 +1199,48 @@ export function GeneralItemsPage() {
     lineItems: [createLineItem()],
   });
 
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  const debouncedSupplierName = useDebounce(filterSupplierName, 300);
-  const debouncedParticulars = useDebounce(filterParticulars, 300);
-  const debouncedBillNumber = useDebounce(filterBillNumber, 300);
-  const debouncedFromDate = useDebounce(fromDate, 300);
-  const debouncedToDate = useDebounce(toDate, 300);
-  const debouncedSupplierSearchTerm = useDebounce(supplierSearchTerm, 250);
+  useEffect(() => {
+    search.setQ(searchParams.get('q') || '');
+  }, [searchParams, search]);
 
   useEffect(() => {
-    setSearchQuery(searchParams.get('q') || '');
-  }, [searchParams]);
+    supplierFilterSearch.setQ(filterSupplierName);
+  }, [filterSupplierName, supplierFilterSearch]);
+  useEffect(() => {
+    particularsFilterSearch.setQ(filterParticulars);
+  }, [filterParticulars, particularsFilterSearch]);
+  useEffect(() => {
+    billFilterSearch.setQ(filterBillNumber);
+  }, [filterBillNumber, billFilterSearch]);
+  useEffect(() => {
+    fromDateSearch.setQ(fromDate);
+  }, [fromDate, fromDateSearch]);
+  useEffect(() => {
+    toDateSearch.setQ(toDate);
+  }, [toDate, toDateSearch]);
+  useEffect(() => {
+    supplierLookupSearch.setQ(supplierSearchTerm);
+  }, [supplierSearchTerm, supplierLookupSearch]);
 
   const selectedLine = form.lineItems[selectedRowIndex] ?? form.lineItems[0];
-  const rateLookupSupplier = useDebounce(form.supplierName.trim(), 300);
-  const rateLookupParticulars = useDebounce(selectedLine?.particulars?.trim() ?? '', 300);
+  const rateSupplierSearch = useSearch<never>({
+    moduleName: 'general-items-rate-supplier',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
+  const rateParticularSearch = useSearch<never>({
+    moduleName: 'general-items-rate-particular',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
+  useEffect(() => {
+    rateSupplierSearch.setQ(form.supplierName.trim());
+  }, [form.supplierName, rateSupplierSearch]);
+  useEffect(() => {
+    rateParticularSearch.setQ(selectedLine?.particulars?.trim() ?? '');
+  }, [selectedLine?.particulars, rateParticularSearch]);
+  const rateLookupSupplier = rateSupplierSearch.debouncedQ;
+  const rateLookupParticulars = rateParticularSearch.debouncedQ;
 
   const { data: me } = useQuery({
     queryKey: ['me'],
@@ -1287,23 +1251,19 @@ export function GeneralItemsPage() {
   const isAdmin = me?.role === 'admin';
 
   const sellersQuery = useQuery({
-    queryKey: ['sellers-list-general-items', debouncedSupplierSearchTerm],
+    queryKey: searchKeys.dropdown('sellers-list-general-items', supplierLookupSearch.debouncedQ),
     enabled: activeTab === 'purchase-entry' || showNewSupplierModal,
-    staleTime: 30 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
     queryFn: () =>
       api<{ items: SellerOption[]; total?: number }>(
         `${endpoints.sellers}?page=1&limit=75&q=${encodeURIComponent(
-          debouncedSupplierSearchTerm.trim(),
+          supplierLookupSearch.debouncedQ.trim(),
         )}`,
       ),
   });
 
   const masterQuery = useQuery({
-    queryKey: ['general-items-master'],
+    queryKey: searchKeys.module('general-items-master', {}),
     enabled: activeTab === 'purchase-entry' || activeTab === 'item-master',
-    staleTime: 30 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
     queryFn: () =>
       api<{ items: GeneralItemsMasterItem[] }>(endpoints.generalItemsMaster).then(
         (res) => res.items ?? [],
@@ -1312,28 +1272,28 @@ export function GeneralItemsPage() {
 
   const purchasesQuery = useQuery({
     queryKey: [
-      'general-items-purchases',
-      debouncedSearchQuery,
-      debouncedSupplierName,
-      debouncedParticulars,
-      debouncedBillNumber,
-      debouncedFromDate,
-      debouncedToDate,
-      registerPage,
-      registerPageSize,
+      ...searchKeys.module('general-items-purchases', {
+        q: search.debouncedQ,
+        supplierName: supplierFilterSearch.debouncedQ,
+        particulars: particularsFilterSearch.debouncedQ,
+        billNumber: billFilterSearch.debouncedQ,
+        fromDate: fromDateSearch.debouncedQ,
+        toDate: toDateSearch.debouncedQ,
+        page: registerPage,
+        limit: registerPageSize,
+      }),
     ],
     enabled: ['purchase-register', 'purchase-entry', 'reports', 'supplier-rate-history'].includes(activeTab),
-    staleTime: 60 * 1000,
     queryFn: () => {
       const params = new URLSearchParams();
       params.set('page', String(registerPage));
       params.set('limit', String(registerPageSize));
-      if (debouncedSearchQuery.trim()) params.set('q', debouncedSearchQuery.trim());
-      if (debouncedSupplierName.trim()) params.set('supplierName', debouncedSupplierName.trim());
-      if (debouncedParticulars.trim()) params.set('particulars', debouncedParticulars.trim());
-      if (debouncedBillNumber.trim()) params.set('billNumber', debouncedBillNumber.trim());
-      if (debouncedFromDate.trim()) params.set('fromDate', debouncedFromDate.trim());
-      if (debouncedToDate.trim()) params.set('toDate', debouncedToDate.trim());
+      if (search.debouncedQ.trim()) params.set('q', search.debouncedQ.trim());
+      if (supplierFilterSearch.debouncedQ.trim()) params.set('supplierName', supplierFilterSearch.debouncedQ.trim());
+      if (particularsFilterSearch.debouncedQ.trim()) params.set('particulars', particularsFilterSearch.debouncedQ.trim());
+      if (billFilterSearch.debouncedQ.trim()) params.set('billNumber', billFilterSearch.debouncedQ.trim());
+      if (fromDateSearch.debouncedQ.trim()) params.set('fromDate', fromDateSearch.debouncedQ.trim());
+      if (toDateSearch.debouncedQ.trim()) params.set('toDate', toDateSearch.debouncedQ.trim());
       return api<{ items: GeneralItemPurchase[]; total: number; page: number; limit: number }>(
         `${endpoints.generalItems}?${params.toString()}`,
       ).then((res) => res);
@@ -1341,29 +1301,32 @@ export function GeneralItemsPage() {
   });
 
   const stockSummaryQuery = useQuery({
-    queryKey: ['general-items-stock-summary'],
+    queryKey: searchKeys.module('general-items-stock-summary', {}),
     enabled: ['stock-summary', 'reports'].includes(activeTab),
     queryFn: () => api<StockSummaryRow[]>('/general-items/stock-summary'),
   });
 
   const rateHistoryQuery = useQuery({
-    queryKey: ['general-items-rate-history', rateLookupSupplier, rateLookupParticulars],
+    queryKey: searchKeys.module('general-items-rate-history', {
+      supplier: rateLookupSupplier,
+      particulars: rateLookupParticulars,
+    }),
     queryFn: () =>
       api<RateHistoryResponse>(
         `/general-items/rate-history?supplierName=${encodeURIComponent(rateLookupSupplier)}&particulars=${encodeURIComponent(rateLookupParticulars)}`,
       ),
     enabled: rateLookupSupplier.length > 0 && rateLookupParticulars.length > 0,
-    staleTime: 5 * 60 * 1000,
   });
 
   const itemRateHistoryQuery = useQuery({
-    queryKey: ['general-items-rate-history-all-suppliers', rateLookupParticulars],
+    queryKey: searchKeys.module('general-items-rate-history-all-suppliers', {
+      particulars: rateLookupParticulars,
+    }),
     queryFn: () =>
       api<RateHistoryResponse>(
         `/general-items/rate-history?particulars=${encodeURIComponent(rateLookupParticulars)}`,
       ),
     enabled: rateLookupParticulars.length > 0,
-    staleTime: 5 * 60 * 1000,
   });
 
   const saveMutation = useMutation({
@@ -1389,8 +1352,8 @@ export function GeneralItemsPage() {
       });
       setEditingId(null);
       setSelectedRowIndex(0);
-      queryClient.invalidateQueries({ queryKey: ['general-items-purchases'] });
-      queryClient.invalidateQueries({ queryKey: ['general-items-stock-summary'] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-purchases') });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-stock-summary') });
       showToast('General item purchase saved successfully.', 'success');
     },
     onError: (err: any) => showError(err),
@@ -1400,8 +1363,8 @@ export function GeneralItemsPage() {
     mutationFn: (id: string) =>
       api(`${endpoints.generalItems}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-items-purchases'] });
-      queryClient.invalidateQueries({ queryKey: ['general-items-stock-summary'] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-purchases') });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-stock-summary') });
       showToast('General item purchase deleted.', 'success');
     },
     onError: (err: any) => showError(err),
@@ -1414,7 +1377,7 @@ export function GeneralItemsPage() {
         body: JSON.stringify(payload),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-items-master'] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-master') });
       showToast('General item master created.', 'success');
     },
     onError: (err: any) => showError(err),
@@ -1427,7 +1390,7 @@ export function GeneralItemsPage() {
         body: JSON.stringify(payload),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-items-master'] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-master') });
       showToast('General item master updated.', 'success');
     },
     onError: (err: any) => showError(err),
@@ -1437,7 +1400,7 @@ export function GeneralItemsPage() {
     mutationFn: (id: string) =>
       api(`${endpoints.generalItemsMaster}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-items-master'] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-master') });
       showToast('General item master deleted.', 'success');
     },
     onError: (err: any) => showError(err),
@@ -1663,7 +1626,7 @@ export function GeneralItemsPage() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ['general-items-master'] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-master') });
     }
 
     saveMutation.mutate(payload);
@@ -1709,7 +1672,7 @@ export function GeneralItemsPage() {
         body: JSON.stringify(payload),
       }),
     onSuccess: async (supplier) => {
-      await queryClient.invalidateQueries({ queryKey: ['sellers-list-general-items'] });
+      await queryClient.invalidateQueries({ queryKey: searchKeys.dropdownPrefix('sellers-list-general-items') });
       setForm((prev) => ({ ...prev, supplierName: supplier.name }));
       setShowNewSupplierModal(false);
       showToast(`Supplier "${supplier.name}" added successfully.`, 'success');
@@ -1890,8 +1853,8 @@ export function GeneralItemsPage() {
             <h4 className="text-sm font-bold text-slate-800">Filters and Search</h4>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={search.q}
+                onChange={(e) => search.setQ(e.target.value)}
                 placeholder="Global search"
               />
               <Input

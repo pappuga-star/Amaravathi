@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { connectDatabase } from '../config/db.js';
+import { env } from '../config/env.js';
 import {
   AddPurchaseBatch,
   TeaPowderType,
@@ -15,49 +16,52 @@ export async function seedDatabase(exitOnComplete = false) {
   console.log('🌱 Starting database seeding...');
 
   // 1. Seed Users
-  await User.updateOne(
-    { email: 'admin@amaravathi.local' },
+  const seedUsers = [
     {
-      $setOnInsert: {
-        name: 'System Admin',
-        email: 'admin@amaravathi.local',
-        passwordHash: await bcrypt.hash('Admin@12345', 12),
-        role: 'admin',
-        active: true,
-      },
+      name: 'System Admin',
+      role: 'admin' as const,
+      email: env.seedAdminEmail.trim(),
+      password: env.seedAdminPassword,
     },
-    { upsert: true },
-  );
-
-  await User.updateOne(
-    { email: 'operator@amaravathi.local' },
     {
-      $setOnInsert: {
-        name: 'Pricing Operator',
-        email: 'operator@amaravathi.local',
-        passwordHash: await bcrypt.hash('Operator@12345', 12),
-        role: 'operator',
-        active: true,
-      },
+      name: 'Pricing Operator',
+      role: 'operator' as const,
+      email: env.seedOperatorEmail.trim(),
+      password: env.seedOperatorPassword,
     },
-    { upsert: true },
-  );
-
-  await User.updateOne(
-    { email: 'viewer@amaravathi.local' },
     {
-      $setOnInsert: {
-        name: 'Read-only Viewer',
-        email: 'viewer@amaravathi.local',
-        passwordHash: await bcrypt.hash('Viewer@12345', 12),
-        role: 'viewer',
-        active: true,
-      },
+      name: 'Read-only Viewer',
+      role: 'viewer' as const,
+      email: env.seedViewerEmail.trim(),
+      password: env.seedViewerPassword,
     },
-    { upsert: true },
-  );
+  ];
+  let usersSeeded = 0;
+  for (const seedUser of seedUsers) {
+    if (!seedUser.email || !seedUser.password) {
+      console.warn(
+        `⚠️  Skipping ${seedUser.role} seed user due to missing env credentials.`,
+      );
+      continue;
+    }
+    await User.updateOne(
+      { email: seedUser.email },
+      {
+        $setOnInsert: {
+          name: seedUser.name,
+          email: seedUser.email,
+          passwordHash: await bcrypt.hash(seedUser.password, 12),
+          role: seedUser.role,
+          active: true,
+          forcePasswordChange: true,
+        },
+      },
+      { upsert: true },
+    );
+    usersSeeded += 1;
+  }
 
-  console.log('✅ Seeded users (Admin, Operator, Viewer)');
+  console.log(`✅ Seeded users: ${usersSeeded}`);
 
   // 2. Seed Sellers
   await Seller.findOneAndUpdate(
@@ -115,7 +119,7 @@ export async function seedDatabase(exitOnComplete = false) {
     { upsert: true, new: true, runValidators: true },
   );
 
-  const darjeelingClassic = await LeafCategory.findOneAndUpdate(
+  await LeafCategory.findOneAndUpdate(
     { name: 'Darjeeling Classic' },
     {
       $set: {

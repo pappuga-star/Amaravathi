@@ -1,6 +1,11 @@
 node_modules
+.pnpm-store
 dist
+build
+apps/api/dist
+apps/admin-web/dist
 coverage
+.env*
 .env
 .env.local
 .env.production

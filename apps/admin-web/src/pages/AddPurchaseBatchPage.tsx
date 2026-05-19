@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,23 +16,32 @@ import {
   ClipboardList,
   Eye,
 } from 'lucide-react';
-import { Button, Card, Input, Field } from '@amaravathi/shared-ui';
+import {
+  AccessibleIconButton,
+  Button,
+  Card,
+  Input,
+  Field,
+} from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { formatCurrency, generateBatchCode } from '@amaravathi/shared-utils';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
-import { useNotification } from '../components/NotificationContext';
+import { useNotification } from '@/components/NotificationContext';
 import { useTranslation } from 'react-i18next';
-import { useDebounce } from '../hooks/useDebounce';
-import type {
-  PurchaseBatch,
-  PurchaseBatchInput,
-  PurchaseBatchItemInput,
+import { useSearch } from '../search/useSearch';
+import { searchKeys } from '../search/search-query-keys';
+import { SEARCH_MIN_CHARS } from '../search/search.constants';
+import { AutocompleteSearchInput } from '../search/AutocompleteSearchInput';
+import {
+  purchaseBatchSchema as purchaseBatchZodSchema,
+  type PurchaseBatch,
+  type PurchaseBatchInput,
+  type PurchaseBatchItemInput,
 } from '@amaravathi/shared-types';
-import { purchaseBatchSchema as purchaseBatchZodSchema } from '@amaravathi/shared-types';
 import { TeaPowderTypesPage } from './Modules';
 import { Z_INDEX } from '../constants/zIndex';
 import { useTabsKeyboardNavigation } from '../hooks/useTabsKeyboardNavigation';
-import { STICKY_IN_CONTENT } from '../utils/sticky';
+import { STICKY_BELOW_HEADER } from '../utils/sticky';
 
 const initialFormState = {
   purchaseDate: new Date(),
@@ -44,154 +52,6 @@ const initialFormState = {
   lineItems: [{ teaPowderTypeId: '', teaPowderTypeName: '', quantityKg: 0, pricePerKg: 0, totalAmount: 0 }],
 };
 
-interface AutocompleteInputProps {
-  value: string;
-  onChange: (val: string) => void;
-  options: string[];
-  placeholder: string;
-  hasError?: boolean;
-  onCreateNew?: (val: string) => void;
-  createLabel?: string;
-  className?: string;
-  required?: boolean;
-  minCharsForCreate?: number;
-  onSearchTermChange?: (val: string) => void;
-}
-
-function AutocompleteInput({
-  value,
-  onChange,
-  options,
-  placeholder,
-  hasError,
-  onCreateNew,
-  createLabel,
-  className,
-  required,
-  minCharsForCreate = 3,
-  onSearchTermChange,
-}: AutocompleteInputProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState(value);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
-
-  useEffect(() => {
-    setSearch(value);
-  }, [value]);
-
-  const filtered = options
-    .filter((opt) => opt.toLowerCase().includes(search.toLowerCase()))
-    .slice(0, 8);
-
-  const hasExactMatch = options.some(
-    (opt) => opt.toLowerCase() === search.trim().toLowerCase(),
-  );
-  const canShowCreateOption =
-    search.trim().length >= minCharsForCreate &&
-    !hasExactMatch &&
-    Boolean(onCreateNew);
-
-  useEffect(() => {
-    if (!isOpen || (filtered.length === 0 && !canShowCreateOption)) return;
-
-    const updatePosition = () => {
-      const rect = inputRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setDropdownPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    };
-
-    updatePosition();
-    window.addEventListener('scroll', updatePosition, true);
-    window.addEventListener('resize', updatePosition);
-    return () => {
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
-    };
-  }, [isOpen, filtered.length, canShowCreateOption]);
-
-  return (
-    <div className="relative">
-      <Input
-        ref={inputRef}
-        className={`h-10 text-sm font-normal transition-colors ${className || ''} ${
-          hasError
-            ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50/10'
-            : 'border-slate-200'
-        }`}
-        value={search}
-        onChange={(e) => {
-          const val = e.target.value;
-          setSearch(val);
-          onChange(val);
-          onSearchTermChange?.(val);
-          setIsOpen(true);
-        }}
-        onFocus={() => {
-          onSearchTermChange?.(search);
-          setIsOpen(true);
-        }}
-        onBlur={() => {
-          setTimeout(() => setIsOpen(false), 200);
-        }}
-        placeholder={placeholder}
-        required={required}
-      />
-      {isOpen &&
-        (filtered.length > 0 || canShowCreateOption) &&
-        typeof document !== 'undefined' &&
-        dropdownPosition &&
-        createPortal(
-          <ul
-            className="fixed max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5 focus:outline-none"
-            style={{
-              zIndex: Z_INDEX.dropdown,
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-            }}
-          >
-            {filtered.map((opt, i) => (
-              <li
-                key={i}
-                onMouseDown={() => {
-                  onChange(opt);
-                  setSearch(opt);
-                  setIsOpen(false);
-                }}
-                className="relative cursor-pointer select-none rounded-md px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
-              >
-                {opt}
-              </li>
-            ))}
-            {canShowCreateOption && (
-              <li
-                onMouseDown={() => {
-                  if (onCreateNew) {
-                    onCreateNew(search.trim());
-                  }
-                  setIsOpen(false);
-                }}
-                className="relative cursor-pointer select-none rounded-md px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 hover:text-emerald-800 transition-colors border-t border-slate-100"
-              >
-                Add "{search}" as new {createLabel || 'Tea Powder Type'}
-              </li>
-            )}
-          </ul>,
-          document.body,
-        )}
-    </div>
-  );
-}
-
 export function AddPurchaseBatchPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -201,13 +61,15 @@ export function AddPurchaseBatchPage() {
     useState<Partial<PurchaseBatchInput>>(initialFormState);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  const [teaPowderTypeSearchTerm, setTeaPowderTypeSearchTerm] = useState('');
-  const debouncedTeaPowderTypeSearchTerm = useDebounce(
-    teaPowderTypeSearchTerm,
-    300,
-  );
+  const batchSearch = useSearch<PurchaseBatch>({
+    moduleName: 'add-purchase-batch-page',
+    queryFn: async () => ({ items: [] }),
+  });
+  const teaTypeSearch = useSearch<{ id: string; name: string }>({
+    moduleName: 'tea-powder-types-autocomplete',
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
 
   const activeTab = searchParams.get('tab') === 'types' ? 'types' : 'batches';
   const setActiveTab = (tab: 'batches' | 'types') => {
@@ -225,9 +87,9 @@ export function AddPurchaseBatchPage() {
   useEffect(() => {
     const q = searchParams.get('q');
     if (q !== null) {
-      setSearchQuery(q);
+      batchSearch.setQ(q);
     }
-  }, [searchParams]);
+  }, [searchParams, batchSearch]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedBatches, setExpandedBatches] = useState<
@@ -252,10 +114,10 @@ export function AddPurchaseBatchPage() {
 
   // Fetch batches query
   const { data: batches = [], isLoading } = useQuery({
-    queryKey: ['batches', debouncedSearchQuery],
+    queryKey: searchKeys.module('batches', { q: batchSearch.debouncedQ }),
     queryFn: () =>
       api<{ items: PurchaseBatch[] }>(
-        `${endpoints.batches}?q=${encodeURIComponent(debouncedSearchQuery)}`,
+        `${endpoints.batches}?q=${encodeURIComponent(batchSearch.debouncedQ)}`,
       ).then((res) => res.items),
   });
 
@@ -268,12 +130,12 @@ export function AddPurchaseBatchPage() {
       ).then((res) => res.items ?? []),
   });
   const { data: teaPowderTypeSearchResults = [] } = useQuery({
-    queryKey: ['teaPowderTypes-search', debouncedTeaPowderTypeSearchTerm],
-    enabled: debouncedTeaPowderTypeSearchTerm.trim().length >= 2,
+    queryKey: searchKeys.autocomplete('teaPowderTypes', teaTypeSearch.debouncedQ),
+    enabled: teaTypeSearch.debouncedQ.trim().length >= SEARCH_MIN_CHARS,
     queryFn: () =>
       api<{ items: { id: string; name: string }[] }>(
         `${endpoints.teaPowderTypes}?q=${encodeURIComponent(
-          debouncedTeaPowderTypeSearchTerm.trim(),
+          teaTypeSearch.debouncedQ.trim(),
         )}&page=1&limit=50`,
       ).then((res) => res.items ?? []),
   });
@@ -508,8 +370,22 @@ export function AddPurchaseBatchPage() {
       return;
     }
 
+    const normalizedLineItems = formData.lineItems.map((item) => {
+      const teaPowderTypeName = String(item.teaPowderTypeName ?? '').trim();
+      const matchedType = teaPowderTypeByName.get(
+        teaPowderTypeName.toLowerCase(),
+      );
+
+      return {
+        ...item,
+        teaPowderTypeId:
+          String(item.teaPowderTypeId ?? '').trim() || matchedType?.id || '',
+        teaPowderTypeName: matchedType?.name ?? teaPowderTypeName,
+      };
+    });
+
     // Verify unique tea powder types
-    const itemNames = formData.lineItems.map((item) =>
+    const itemNames = normalizedLineItems.map((item) =>
       item.teaPowderTypeId.trim().toLowerCase(),
     );
     const duplicates = itemNames.filter(
@@ -526,7 +402,7 @@ export function AddPurchaseBatchPage() {
       return;
     }
 
-    for (const item of formData.lineItems) {
+    for (const item of normalizedLineItems) {
       if (!item.teaPowderTypeId?.trim() || !item.teaPowderTypeName?.trim()) {
         showToast(t('addPurchaseBatch.messages.typeRequired'), 'error');
         return;
@@ -552,7 +428,7 @@ export function AddPurchaseBatchPage() {
       sellerId: String(formData.sellerId ?? '').trim() || undefined,
       sellerName: String(formData.sellerName ?? '').trim() || undefined,
       batchCode: batchCodePreview,
-      lineItems: formData.lineItems.map((item) => ({
+      lineItems: normalizedLineItems.map((item) => ({
         teaPowderTypeId: item.teaPowderTypeId,
         teaPowderTypeName: item.teaPowderTypeName,
         quantityKg: Number(item.quantityKg),
@@ -560,12 +436,12 @@ export function AddPurchaseBatchPage() {
         totalAmount: Number((Number(item.quantityKg) * Number(item.pricePerKg)).toFixed(2)),
       })),
       totalQuantityKg: Number(
-        formData.lineItems
+        normalizedLineItems
           .reduce((sum, item) => sum + Number(item.quantityKg || 0), 0)
           .toFixed(3),
       ),
       totalBatchAmount: Number(
-        formData.lineItems
+        normalizedLineItems
           .reduce((sum, item) => sum + Number(item.quantityKg || 0) * Number(item.pricePerKg || 0), 0)
           .toFixed(2),
       ),
@@ -676,7 +552,7 @@ export function AddPurchaseBatchPage() {
       {/* Sticky Tab Buttons Container */}
       <div
         className="-mx-1 mt-1 rounded-xl bg-slate-50/95 px-1 py-1 backdrop-blur no-print"
-        style={STICKY_IN_CONTENT}
+        style={STICKY_BELOW_HEADER}
       >
         <div
           role="tablist"
@@ -741,11 +617,11 @@ export function AddPurchaseBatchPage() {
                         </span>
                       )}
                     </div>
-                    <button
+                    <AccessibleIconButton
                       type="button"
                       onClick={handleCancel}
                       className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none"
-                      title={t('addPurchaseBatch.form.dismissForm')}
+                      label={t('addPurchaseBatch.form.dismissForm')}
                     >
                       <svg
                         className="h-4.5 w-4.5"
@@ -760,7 +636,7 @@ export function AddPurchaseBatchPage() {
                           d="M6 18L18 6M6 6l12 12"
                         />
                       </svg>
-                    </button>
+                    </AccessibleIconButton>
                   </div>
 
                   <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
@@ -890,8 +766,7 @@ export function AddPurchaseBatchPage() {
                             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                             size={18}
                           />
-                          <AutocompleteInput
-                            className="pl-10"
+                          <AutocompleteSearchInput
                             value={formData.sellerName || ''}
                             onChange={(val) => {
                               const seller = sellerByName.get(
@@ -911,8 +786,7 @@ export function AddPurchaseBatchPage() {
                               createSellerMutation.mutate(val)
                             }
                             createLabel="Seller"
-                            hasError={false}
-                            required={false}
+                            minChars={3}
                           />
                         </div>
                       </Field>
@@ -1007,7 +881,7 @@ export function AddPurchaseBatchPage() {
                                 {t('addPurchaseBatch.table.teaPowderType')}
                               </span>
                               {isEditingRow ? (
-                                <AutocompleteInput
+                                <AutocompleteSearchInput
                                   value={item.teaPowderTypeName}
                                   onChange={(val) => {
                                     const normalized = val.trim().toLowerCase();
@@ -1020,12 +894,11 @@ export function AddPurchaseBatchPage() {
                                       matched?.id ?? '',
                                     );
                                   }}
-                                  onSearchTermChange={setTeaPowderTypeSearchTerm}
+                                  onSearchTermChange={teaTypeSearch.setQ}
                                   options={autocompleteOptions}
                                   placeholder={t(
                                     'addPurchaseBatch.table.selectGrade',
                                   )}
-                                  hasError={isDuplicate}
                                   onCreateNew={(newVal) => {
                                     const normalized = newVal
                                       .trim()
@@ -1060,7 +933,7 @@ export function AddPurchaseBatchPage() {
                                       },
                                     });
                                   }}
-                                  minCharsForCreate={3}
+                                  minChars={3}
                                 />
                               ) : (
                                 <div className="text-sm font-normal text-slate-700 select-none truncate">
@@ -1152,7 +1025,7 @@ export function AddPurchaseBatchPage() {
                               <div className="flex items-center gap-2 justify-center">
                                 {isEditingRow ? (
                                   /* Done/Confirm Checkmark Button - ONLY active when row is valid */
-                                  <button
+                                  <AccessibleIconButton
                                     type="button"
                                     disabled={!isRowValid}
                                     onClick={() => {
@@ -1162,15 +1035,13 @@ export function AddPurchaseBatchPage() {
                                       });
                                     }}
                                     className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm transition-all duration-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-50 disabled:hover:text-emerald-700 disabled:hover:border-emerald-200"
-                                    title={t(
-                                      'addPurchaseBatch.table.confirmItem',
-                                    )}
+                                    label={t('addPurchaseBatch.table.confirmItem')}
                                   >
                                     <Check className="h-4 w-4 text-current" />
-                                  </button>
+                                  </AccessibleIconButton>
                                 ) : (
                                   /* Edit Pencil Icon Button */
-                                  <button
+                                  <AccessibleIconButton
                                     type="button"
                                     onClick={() =>
                                       setEditingRowIndices({
@@ -1179,33 +1050,33 @@ export function AddPurchaseBatchPage() {
                                       })
                                     }
                                     className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 focus:outline-none"
-                                    title={t('addPurchaseBatch.table.editItem')}
+                                    label={t('addPurchaseBatch.table.editItem')}
                                   >
                                     <Edit3 className="h-3.5 w-3.5 text-current" />
-                                  </button>
+                                  </AccessibleIconButton>
                                 )}
 
                                 {/* Delete Row Button */}
-                                <button
+                                <AccessibleIconButton
                                   type="button"
                                   onClick={() => removeItem(index)}
                                   className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                   disabled={formData.lineItems!.length <= 1}
-                                  title={t('addPurchaseBatch.table.deleteItem')}
+                                  label={t('addPurchaseBatch.table.deleteItem')}
                                 >
                                   <Trash2 className="h-3.5 w-3.5 text-current" />
-                                </button>
+                                </AccessibleIconButton>
 
                                 {/* Add Row Button - Appears ONLY on the last view-mode row of the array */}
                                 {showAddButton && (
-                                  <button
+                                  <AccessibleIconButton
                                     type="button"
                                     onClick={addItem}
                                     className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 focus:outline-none"
-                                    title={t('addPurchaseBatch.table.addItem')}
+                                    label={t('addPurchaseBatch.table.addItem')}
                                   >
                                     <Plus className="h-4 w-4 text-current" />
-                                  </button>
+                                  </AccessibleIconButton>
                                 )}
                               </div>
                             </div>
@@ -1215,12 +1086,6 @@ export function AddPurchaseBatchPage() {
                     </div>
                   </div>
                 </Card>
-
-                {saveMutation.error ? (
-                  <div className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700 border border-red-100">
-                    {saveMutation.error.message}
-                  </div>
-                ) : null}
 
                 {/* 4. Save / Cancel Buttons */}
                 <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-6">
@@ -1283,8 +1148,8 @@ export function AddPurchaseBatchPage() {
                         className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
                       />
                       <Input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={batchSearch.q}
+                        onChange={(e) => batchSearch.setQ(e.target.value)}
                         placeholder="Search items..."
                         className="h-9 pl-8 text-xs"
                       />
@@ -1399,38 +1264,38 @@ export function AddPurchaseBatchPage() {
                                     ? t('addPurchaseBatch.card.hideItems')
                                     : t('addPurchaseBatch.card.viewItems')}
                                 </Button>
-                                <button
+                                <AccessibleIconButton
                                   type="button"
                                   onClick={() => setViewingBatch(batch)}
                                   className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 active:scale-95 focus:outline-none"
-                                  title={t(
+                                  label={t(
                                     'addPurchaseBatch.card.viewDetailsTooltip',
                                   )}
                                 >
                                   <Eye className="h-4 w-4 text-current" />
-                                </button>
+                                </AccessibleIconButton>
                                 {canEdit && (
                                   <>
-                                    <button
+                                    <AccessibleIconButton
                                       type="button"
                                       onClick={() => handleEdit(batch)}
                                       className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 active:scale-95 focus:outline-none"
-                                      title={t(
+                                      label={t(
                                         'addPurchaseBatch.card.editTooltip',
                                       )}
                                     >
                                       <Edit3 className="h-4 w-4 text-current" />
-                                    </button>
-                                    <button
+                                    </AccessibleIconButton>
+                                    <AccessibleIconButton
                                       type="button"
                                       onClick={() => handleDelete(batch.id)}
                                       className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 active:scale-95 focus:outline-none"
-                                      title={t(
+                                      label={t(
                                         'addPurchaseBatch.card.deleteTooltip',
                                       )}
                                     >
                                       <Trash2 className="h-4 w-4 text-current" />
-                                    </button>
+                                    </AccessibleIconButton>
                                   </>
                                 )}
                               </div>
@@ -1482,6 +1347,8 @@ export function AddPurchaseBatchPage() {
                         disabled={currentPage === 1}
                         variant="secondary"
                         className="h-8 px-2 text-xs"
+                        aria-label="Go to first page"
+                        title="Go to first page"
                       >
                         {'<<'}
                       </Button>
@@ -1490,6 +1357,8 @@ export function AddPurchaseBatchPage() {
                         disabled={currentPage === 1}
                         variant="secondary"
                         className="h-8 px-2 text-xs"
+                        aria-label="Go to previous page"
+                        title="Go to previous page"
                       >
                         {'<'}
                       </Button>
@@ -1518,6 +1387,8 @@ export function AddPurchaseBatchPage() {
                         disabled={currentPage === totalPages || totalPages === 0}
                         variant="secondary"
                         className="h-8 px-2 text-xs"
+                        aria-label="Go to next page"
+                        title="Go to next page"
                       >
                         {'>'}
                       </Button>
@@ -1526,6 +1397,8 @@ export function AddPurchaseBatchPage() {
                         disabled={currentPage === totalPages || totalPages === 0}
                         variant="secondary"
                         className="h-8 px-2 text-xs"
+                        aria-label="Go to last page"
+                        title="Go to last page"
                       >
                         {'>>'}
                       </Button>

@@ -4,6 +4,7 @@ import { Button, Card, Field, Input } from '@amaravathi/shared-ui';
 import { api, setToken } from '../lib/api';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { Logo } from '../components/Logo';
 
 export function Login() {
   const { t } = useTranslation();
@@ -33,6 +34,12 @@ export function Login() {
         <LanguageSwitcher />
       </div>
       <Card className="w-full max-w-md p-6">
+        <Logo
+          width={180}
+          height={60}
+          priority
+          className="h-auto w-[180px]"
+        />
         <p className="text-sm font-semibold text-emerald-700">
           {t('login.system')}
         </p>

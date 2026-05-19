@@ -1,8 +1,10 @@
 import type { Request, Response } from 'express';
 import type { Model } from 'mongoose';
 import type { ZodObject, ZodRawShape } from 'zod';
-import { escapeRegex, isSearchQueryPresent } from '@amaravathi/shared-utils';
 import { created, ok } from '../utils/apiResponse.js';
+import { buildContainsRegex } from '../search/search.utils.js';
+import { runListSearch } from '../search/search.service.js';
+import { invalidateSearchCaches, SEARCH_CACHE_PREFIXES } from '../search/search.events.js';
 
 export function crudController(
   model: Model<any>,
@@ -11,33 +13,40 @@ export function crudController(
 ) {
   return {
     async list(req: Request, res: Response) {
-      const rawQ = typeof req.query.q === 'string' ? req.query.q : undefined;
-      const page = Math.max(Number(req.query.page ?? 1), 1);
-      const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
-      const filter =
-        isSearchQueryPresent(rawQ) && searchFields.length
-          ? {
-              $or: searchFields.map((field) => ({
-                [field]: {
-                  $regex: new RegExp(escapeRegex(String(rawQ).trim()), 'i'),
-                },
-              })),
-            }
-          : {};
-      const [items, total] = await Promise.all([
-        model
-          .find(filter)
-          .sort({ createdAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(limit)
-          .lean(),
-        model.countDocuments(filter),
-      ]);
-      const normalizedItems = items.map((item: any) => ({
+      const data = await runListSearch({
+        namespace: model.modelName,
+        model,
+        query: req.query,
+        defaultSortBy: 'createdAt',
+        allowedSortBy: ['createdAt', ...searchFields],
+        searchFields: searchFields.map((field) => ({
+          field,
+          ...(field === 'name' ? { keyField: 'nameKey' } : {}),
+          category: field.toLowerCase().includes('code') ? 'code' : 'name',
+        })),
+        useEstimatedCountWhenNoFilter: true,
+        buildFilter: (q) => {
+          if (!q || !searchFields.length) return {};
+          const regex = buildContainsRegex(q);
+          return {
+            $or: searchFields.map((field) => ({
+              [field]: regex,
+            })),
+          };
+        },
+      });
+
+      const normalizedItems = data.items.map((item: any) => ({
         ...item,
         id: item._id.toString(),
       }));
-      return ok(res, { items: normalizedItems, total, page, limit });
+      return ok(res, {
+        items: normalizedItems,
+        pagination: data.pagination,
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+      });
     },
 
     async get(req: Request, res: Response) {
@@ -51,6 +60,10 @@ export function crudController(
       const body = schema.parse(req.body);
       const item = await model.create(body);
       const itemObj = item.toObject ? item.toObject() : item;
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'create',
+      });
       return created(res, { ...itemObj, id: (item as any)._id.toString() });
     },
 
@@ -63,6 +76,10 @@ export function crudController(
       if (!item)
         throw Object.assign(new Error('Record not found'), { status: 404 });
       const itemObj = item.toObject ? item.toObject() : item;
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'update',
+      });
       return ok(
         res,
         { ...itemObj, id: (item as any)._id.toString() },
@@ -74,6 +91,10 @@ export function crudController(
       const item = await model.findByIdAndDelete(req.params.id);
       if (!item)
         throw Object.assign(new Error('Record not found'), { status: 404 });
+      invalidateSearchCaches({
+        prefixes: [SEARCH_CACHE_PREFIXES.list, SEARCH_CACHE_PREFIXES.global],
+        reason: 'delete',
+      });
       return ok(res, { id: req.params.id }, 'Deleted');
     },
   };

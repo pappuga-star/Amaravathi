@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Loader2, History, X, CornerDownLeft } from 'lucide-react';
 import { GroupedSearchResults, SearchResultItem } from '../lib/globalSearchApi';
 import { SearchResultList } from './SearchResultList';
+import { SearchSuggestionsDropdown } from '../search/SearchSuggestionsDropdown';
+import { SearchNoResults } from '../search/SearchNoResults';
 import { Portal } from './ui/Portal';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useClickOutside } from '../hooks/useClickOutside';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { Z_INDEX } from '../constants/zIndex';
+import { AccessibleIconButton } from '@amaravathi/shared-ui';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -16,6 +19,11 @@ interface GlobalSearchModalProps {
   setQuery: (q: string) => void;
   results: GroupedSearchResults;
   totalResults: number;
+  quality?: {
+    correctedQuery?: string;
+    suggestions?: Array<{ text: string; type: 'completion' | 'popular' | 'entity' }>;
+  };
+  suggestions?: Array<{ text: string; type: 'completion' | 'popular' | 'entity' }>;
   isLoading: boolean;
   recentSearches: string[];
   addRecentSearch: (term: string) => void;
@@ -29,6 +37,8 @@ export const GlobalSearchModal = ({
   setQuery,
   results,
   totalResults,
+  quality,
+  suggestions = [],
   isLoading,
   recentSearches,
   addRecentSearch,
@@ -128,17 +138,24 @@ export const GlobalSearchModal = ({
           {isLoading ? (
             <Loader2 className="animate-spin text-emerald-600 shrink-0" size={18} />
           ) : query ? (
-            <button
+            <AccessibleIconButton
               onClick={() => setQuery('')}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 shrink-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+              label="Clear search"
             >
               <X size={16} />
-            </button>
+            </AccessibleIconButton>
           ) : null}
         </div>
 
         {/* Search Content Body */}
         <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-200">
+          {query.trim() ? (
+            <SearchSuggestionsDropdown
+              suggestions={suggestions}
+              onSelect={(value) => setQuery(value)}
+            />
+          ) : null}
           {/* Case 1: Empty Search Term & Recent Searches */}
           {!query.trim() ? (
             <div className="space-y-4 py-2">
@@ -151,6 +168,8 @@ export const GlobalSearchModal = ({
                     <button
                       onClick={clearRecentSearches}
                       className="text-[10px] font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded transition-colors"
+                      title="Clear all recent searches"
+                      aria-label="Clear all recent searches"
                     >
                       Clear All
                     </button>
@@ -191,13 +210,12 @@ export const GlobalSearchModal = ({
               </p>
             </div>
           ) : !hasResults ? (
-            /* Case 3: Empty State (No Matches) */
-            <div className="text-center py-16 text-slate-400 dark:text-slate-500">
-              <p className="text-sm font-semibold">No matches found for "{query}"</p>
-              <p className="text-xs mt-1">
-                Please double check spelling or try other keywords.
-              </p>
-            </div>
+            <SearchNoResults
+              query={query}
+              {...(quality?.correctedQuery ? { didYouMean: quality.correctedQuery } : {})}
+              alternatives={(quality?.suggestions ?? []).map((s) => s.text)}
+              onSelect={(value) => setQuery(value)}
+            />
           ) : (
             /* Case 4: Results List rendering */
             <SearchResultList

@@ -1,8 +1,12 @@
-import mongoose, { Schema } from 'mongoose';
-import { generateBatchCode } from '@amaravathi/shared-utils';
+import { Schema, model } from 'mongoose';
+import { generateBatchCode, normalizeName } from '@amaravathi/shared-utils';
 
 const purchaseBatchItemSchema = new Schema({
-  teaPowderTypeId: { type: Schema.Types.ObjectId, required: true, ref: 'TeaPowderType' },
+  teaPowderTypeId: {
+    type: Schema.Types.ObjectId,
+    required: true,
+    ref: 'TeaPowderType',
+  },
   teaPowderTypeName: { type: String, required: true, trim: true },
   quantityKg: { type: Number, required: true, min: 0 },
   pricePerKg: { type: Number, required: true, min: 0 },
@@ -16,9 +20,15 @@ const purchaseBatchSchema = new Schema(
     numberOfBags: { type: Number, required: true, min: 1 },
     purchaseDate: { type: Date, required: true },
     billNumber: { type: String, required: true, trim: true },
-    sellerId: { type: Schema.Types.ObjectId, required: false, ref: 'Seller', default: null },
+    sellerId: {
+      type: Schema.Types.ObjectId,
+      required: false,
+      ref: 'Seller',
+      default: null,
+    },
     sellerName: { type: String, required: false, trim: true, default: '' },
-    batchCode: { type: String, required: true, trim: true, unique: true },
+    batchCode: { type: String, required: true, trim: true },
+    batchCodeKey: { type: String, required: true, trim: true },
     lineItems: { type: [purchaseBatchItemSchema], default: [] },
     totalQuantityKg: { type: Number, required: true, min: 0, default: 0 },
     totalBatchAmount: { type: Number, required: true, min: 0, default: 0 },
@@ -29,8 +39,15 @@ const purchaseBatchSchema = new Schema(
 purchaseBatchSchema.index({ purchaseDate: -1 });
 purchaseBatchSchema.index({ sellerName: 1 });
 purchaseBatchSchema.index({ billNumber: 1 });
+purchaseBatchSchema.index({ batchCode: 1 });
+purchaseBatchSchema.index({ batchCodeKey: 1 });
+purchaseBatchSchema.index({ 'lineItems._id': 1 });
 purchaseBatchSchema.index({ 'lineItems.teaPowderTypeName': 1 });
 purchaseBatchSchema.index({ purchaseDate: -1, createdAt: -1 });
+purchaseBatchSchema.index(
+  { purchaseDate: 1, sellerName: 1, billNumber: 1 },
+  { unique: true, name: 'uniq_purchase_batch_identity' },
+);
 
 purchaseBatchSchema.pre('validate', async function setAutoFields(next) {
   const doc = this as any;
@@ -45,7 +62,10 @@ purchaseBatchSchema.pre('validate', async function setAutoFields(next) {
   }
 
   // Legacy compatibility: migrate old "items" into new "lineItems" during save.
-  if ((!doc.lineItems || doc.lineItems.length === 0) && Array.isArray(doc.items)) {
+  if (
+    (!doc.lineItems || doc.lineItems.length === 0) &&
+    Array.isArray(doc.items)
+  ) {
     doc.lineItems = doc.items.map((legacy: any) => ({
       teaPowderTypeId: legacy.teaPowderTypeId,
       teaPowderTypeName: legacy.teaPowderTypeName ?? legacy.teaPowderType,
@@ -89,29 +109,11 @@ purchaseBatchSchema.pre('validate', async function setAutoFields(next) {
     doc.isModified('numberOfBags') ||
     doc.isModified('purchaseDate')
   ) {
-    let finalCode = baseCode;
-    let suffix = 1;
-    let exists = true;
-    while (exists) {
-      const query: any = { batchCode: finalCode };
-      if (!doc.isNew) {
-        query._id = { $ne: doc._id };
-      }
-      const duplicate = await mongoose.model('AddPurchaseBatch').findOne(query);
-      if (duplicate) {
-        suffix++;
-        finalCode = `${baseCode}-${suffix}`;
-      } else {
-        exists = false;
-      }
-    }
-    doc.batchCode = finalCode;
+    doc.batchCode = baseCode;
   }
+  doc.batchCodeKey = normalizeName(doc.batchCode ?? '');
 
   next();
 });
 
-export const AddPurchaseBatch = mongoose.model(
-  'AddPurchaseBatch',
-  purchaseBatchSchema,
-);
+export const AddPurchaseBatch = model('AddPurchaseBatch', purchaseBatchSchema);

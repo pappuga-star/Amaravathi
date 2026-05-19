@@ -198,7 +198,10 @@ export const customerTeaFormulaSchema = z.object({
             required_error: 'Purchase Batch Line Item ID is required.',
           })
           .trim()
-          .min(1, 'Purchase Batch Line Item ID is required.'),
+          .regex(
+            /^[0-9a-fA-F]{24}$/,
+            'Invalid purchase batch line item ID',
+          ),
         ingredientCategory: z.enum(['Leaf', 'Add-On']),
         ingredientName: z.string().trim().min(1),
         quantityInGrams: z.coerce.number().positive(),

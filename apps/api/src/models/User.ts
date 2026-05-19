@@ -8,6 +8,7 @@ export type UserDocument = mongoose.Document & {
   passwordHash: string;
   role: Role;
   active: boolean;
+  forcePasswordChange: boolean;
   comparePassword(password: string): Promise<boolean>;
 };
 
@@ -29,6 +30,7 @@ const userSchema = new Schema<UserDocument>(
       required: true,
     },
     active: { type: Boolean, default: true },
+    forcePasswordChange: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

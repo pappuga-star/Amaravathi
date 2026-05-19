@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, Input, Button } from '@amaravathi/shared-ui';
 import { api } from '../lib/api';
-import { useNotification } from '../components/NotificationContext';
+import { useNotification } from '@/components/NotificationContext';
 import { User, Settings, Shield, Bell, HelpCircle, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -154,6 +154,9 @@ export function SettingsPage() {
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     systemAlerts ? 'bg-emerald-600' : 'bg-slate-200'
                   }`}
+                  title="Toggle real-time notifications"
+                  aria-label="Toggle real-time notifications"
+                  aria-pressed={systemAlerts}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${

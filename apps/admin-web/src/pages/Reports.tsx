@@ -1,24 +1,33 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, Input, Field, Button } from '@amaravathi/shared-ui';
+import { Card, Field, Button } from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
-import { Search, User, TrendingUp, ClipboardList, Printer } from 'lucide-react';
+import { User, TrendingUp, ClipboardList, Printer } from 'lucide-react';
 import { formatCurrency } from '@amaravathi/shared-utils';
 import type { PurchaseBatch } from '@amaravathi/shared-types';
 import { useTabsKeyboardNavigation } from '../hooks/useTabsKeyboardNavigation';
+import { useSearch } from '../search/useSearch';
+import { searchKeys } from '../search/search-query-keys';
+import { SearchInput } from '../search/SearchInput';
+import { SEARCH_MAX_LIMIT } from '../search/search.constants';
 
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<
     'trends' | 'list' | 'detail' | 'seller'
   >('trends');
-  const [sellerSearch, setSellerSearch] = useState('');
+  const sellerSearch = useSearch<any>({
+    moduleName: 'reports-seller-history',
+    initialLimit: SEARCH_MAX_LIMIT,
+    syncUrl: false,
+    queryFn: async () => ({ items: [] }),
+  });
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const reportTabs = ['trends', 'list', 'detail', 'seller'] as const;
   const onReportTabsKeyDown = useTabsKeyboardNavigation(reportTabs, activeTab, setActiveTab);
 
   // Fetch all purchase batches for Batch List and Selector
   const batchesQuery = useQuery({
-    queryKey: ['report-batches'],
+    queryKey: searchKeys.module('report-batches', {}),
     queryFn: () =>
       api<{ items: PurchaseBatch[] }>(`${endpoints.batches}?limit=1000`).then(
         (res) => res.items,
@@ -27,18 +36,18 @@ export function ReportsPage() {
 
   // Fetch latest rates report
   const latestByTea = useQuery({
-    queryKey: ['latest-rates-by-tea'],
+    queryKey: searchKeys.module('latest-rates-by-tea', {}),
     queryFn: () => api<any[]>('/reports/latest-rates-by-tea-powder'),
   });
 
   // Fetch seller purchase history
   const sellerHistory = useQuery({
-    queryKey: ['seller-history', sellerSearch],
+    queryKey: searchKeys.module('seller-history', { q: sellerSearch.debouncedQ }),
     queryFn: () =>
       api<any[]>(
-        `/reports/seller-purchase-history?sellerName=${encodeURIComponent(sellerSearch)}`,
+        `/reports/seller-purchase-history?sellerName=${encodeURIComponent(sellerSearch.debouncedQ)}`,
       ),
-    enabled: sellerSearch.length >= 2,
+    enabled: sellerSearch.debouncedQ.length >= 2,
   });
 
   const selectedBatch = batchesQuery.data?.find(
@@ -393,18 +402,12 @@ export function ReportsPage() {
           </div>
           <div className="mb-6">
             <Field label="Search Seller">
-              <div className="relative">
-                <Search
-                  className="absolute left-3 top-3 text-slate-400"
-                  size={18}
-                />
-                <Input
-                  className="pl-10"
-                  placeholder="Enter seller name..."
-                  value={sellerSearch}
-                  onChange={(e) => setSellerSearch(e.target.value)}
-                />
-              </div>
+              <SearchInput
+                placeholder="Enter seller name..."
+                value={sellerSearch.q}
+                onChange={sellerSearch.setQ}
+                loading={sellerHistory.isFetching}
+              />
             </Field>
           </div>
           <div className="grid gap-3">
@@ -431,14 +434,14 @@ export function ReportsPage() {
                 </div>
               </div>
             ))}
-            {sellerSearch.length >= 2 &&
+            {sellerSearch.debouncedQ.length >= 2 &&
               !sellerHistory.isLoading &&
               sellerHistory.data?.length === 0 && (
                 <p className="py-10 text-center text-sm text-slate-400">
                   No history found for this seller.
                 </p>
               )}
-            {sellerSearch.length < 2 && (
+            {sellerSearch.debouncedQ.length < 2 && (
               <p className="py-10 text-center text-sm text-slate-400 italic">
                 Enter at least 2 characters to search history.
               </p>

@@ -46,6 +46,20 @@ jobs:
       - name: Security Audit
         run: npm run security > security-report.txt || true
 
+      - name: Search SSOT Verify
+        run: npm run search:ssot:verify > search-ssot-report.txt || true
+
+      - name: Search Benchmark Regression
+        run: npm run search:benchmark:regression > search-benchmark-report.txt || true
+
+      - name: Search Release Check
+        env:
+          SEARCH_ENGINE: prefix
+          SEARCH_CACHE_PROVIDER: memory
+          SEARCH_ENABLE_SYNONYMS: "true"
+          SEARCH_ENABLE_FUZZY: "true"
+        run: npm run search:release:check > search-release-report.txt || true
+
       - name: Fail if Any Gate Failed
         run: |
           npm run format:check && \
@@ -55,7 +69,10 @@ jobs:
           npm run duplicates && \
           npm run dead-code && \
           npm run circular && \
-          npm run security
+          npm run security && \
+          npm run search:ssot:verify && \
+          npm run search:benchmark:regression && \
+          npm run search:release:check
 
       - name: Upload Reports
         if: always()

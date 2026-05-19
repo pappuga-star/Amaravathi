@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Save,
@@ -7,41 +6,47 @@ import {
   Edit3,
   Trash2,
   Eye,
-  X,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
-import { Button, Card, Input } from '@amaravathi/shared-ui';
+import {
+  AccessibleIconButton,
+  Button,
+  Card,
+  Input,
+} from '@amaravathi/shared-ui';
 import { api, endpoints } from '../lib/api';
 import { DataModule } from '../components/DataModule';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
-import { useNotification } from '../components/NotificationContext';
-import { useDebounce } from '../hooks/useDebounce';
+import { useNotification } from '@/components/NotificationContext';
 import { Z_INDEX } from '../constants/zIndex';
 import { STICKY_IN_CONTENT } from '../utils/sticky';
+import { useSearch } from '../search/useSearch';
+import { SearchInput } from '../search/SearchInput';
+import { SEARCH_DEFAULT_LIMIT } from '../search/search.constants';
+import { searchKeys } from '../search/search-query-keys';
 
 export const TeaPowderTypesPage = () => {
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = SEARCH_DEFAULT_LIMIT;
   const queryClient = useQueryClient();
   const { showError, confirm } = useNotification();
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchParams] = useSearchParams();
-  const qParam = searchParams.get('q') || '';
-  const [searchQuery, setSearchQuery] = useState(qParam);
-
-  useEffect(() => {
-    setSearchQuery(qParam);
-  }, [qParam]);
-
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearchQuery]);
+  const search = useSearch<{ id: string; name: string }>({
+    moduleName: endpoints.teaPowderTypes,
+    initialLimit: PAGE_SIZE,
+    queryFn: ({ q, page, limit }) =>
+      api<{
+        items: { id: string; name: string }[];
+        total: number;
+        page: number;
+        limit: number;
+      }>(`${endpoints.teaPowderTypes}?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`),
+  });
+  const currentPage = search.page;
+  const setCurrentPage = search.setPage;
   const [viewingType, setViewingType] = useState<{
     id: string;
     name: string;
@@ -57,25 +62,7 @@ export const TeaPowderTypesPage = () => {
   const canEdit = me?.role === 'admin' || me?.role === 'pricing_manager';
 
   // Fetch list
-  const { data } = useQuery({
-    queryKey: [
-      endpoints.teaPowderTypes,
-      debouncedSearchQuery,
-      currentPage,
-      PAGE_SIZE,
-    ],
-    queryFn: () =>
-      api<{
-        items: { id: string; name: string }[];
-        total: number;
-        page: number;
-        limit: number;
-      }>(
-        `${endpoints.teaPowderTypes}?q=${encodeURIComponent(
-          debouncedSearchQuery,
-        )}&page=${currentPage}&limit=${PAGE_SIZE}`,
-      ),
-  });
+  const { data } = search.query;
   const items = data?.items ?? [];
   const totalRecords = data?.total ?? 0;
   const pageSize = data?.limit ?? PAGE_SIZE;
@@ -222,15 +209,11 @@ export const TeaPowderTypesPage = () => {
 
         <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
-            <Search
-              size={14}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+            <SearchInput
+              value={search.q}
+              onChange={search.setQ}
               placeholder="Search tea powder types..."
-              className="h-9 pl-8 text-xs"
+              loading={search.query.isFetching}
             />
           </div>
           <p className="text-[11px] font-medium text-slate-500">
@@ -280,15 +263,15 @@ export const TeaPowderTypesPage = () => {
                     </td>
                     <td className="sticky right-0 bg-white px-4 py-2.5 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => setViewingType(item)}
                           className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all duration-200 active:scale-95 focus:outline-none"
-                          title="View Details"
+                          label="View tea powder type details"
                         >
                           <Eye size={13} />
-                        </button>
-                        <button
+                        </AccessibleIconButton>
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => handleEdit(item)}
                           disabled={!canEdit}
@@ -297,15 +280,15 @@ export const TeaPowderTypesPage = () => {
                               ? 'hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 active:scale-95'
                               : 'opacity-40 cursor-not-allowed'
                           } focus:outline-none`}
-                          title={
+                          label={
                             canEdit
-                              ? 'Edit'
-                              : 'Only admins or pricing managers can edit'
+                              ? 'Edit tea powder type'
+                              : 'Only admins or pricing managers can edit tea powder type'
                           }
                         >
                           <Edit3 size={13} />
-                        </button>
-                        <button
+                        </AccessibleIconButton>
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => handleDelete(item.id)}
                           disabled={!isAdmin}
@@ -314,10 +297,14 @@ export const TeaPowderTypesPage = () => {
                               ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-300 active:scale-95'
                               : 'opacity-40 cursor-not-allowed'
                           } focus:outline-none`}
-                          title={isAdmin ? 'Delete' : 'Only admins can delete'}
+                          label={
+                            isAdmin
+                              ? 'Delete tea powder type'
+                              : 'Only admins can delete tea powder type'
+                          }
                         >
                           <Trash2 size={13} />
-                        </button>
+                        </AccessibleIconButton>
                       </div>
                     </td>
                   </tr>
@@ -337,24 +324,26 @@ export const TeaPowderTypesPage = () => {
             {serialStart + items.length} of {totalRecords}
             </p>
             <div className="mr-20 flex items-center gap-1.5 sm:mr-24">
-              <Button
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage <= 1}
+                label="Go to first page"
               >
                 <ChevronsLeft size={13} />
-              </Button>
-              <Button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1}
+                label="Go to previous page"
               >
                 <ChevronLeft size={13} />
-              </Button>
+              </AccessibleIconButton>
 
               {pageNumbers.map((pageNumber, idx) => {
                 const prev = pageNumbers[idx - 1];
@@ -379,7 +368,7 @@ export const TeaPowderTypesPage = () => {
                 );
               })}
 
-              <Button
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
@@ -387,18 +376,20 @@ export const TeaPowderTypesPage = () => {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage >= totalPages}
+                label="Go to next page"
               >
                 <ChevronRight size={13} />
-              </Button>
-              <Button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage >= totalPages}
+                label="Go to last page"
               >
                 <ChevronsRight size={13} />
-              </Button>
+              </AccessibleIconButton>
             </div>
           </div>
         </div>
@@ -426,7 +417,7 @@ export const TeaPowderTypesPage = () => {
 };
 
 export const SellersPage = () => {
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = SEARCH_DEFAULT_LIMIT;
   const queryClient = useQueryClient();
   const { showError, confirm } = useNotification();
   const [name, setName] = useState('');
@@ -434,18 +425,31 @@ export const SellersPage = () => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchParams] = useSearchParams();
-  const qParam = searchParams.get('q') || '';
-  const [searchQuery, setSearchQuery] = useState(qParam);
-
-  useEffect(() => {
-    setSearchQuery(qParam);
-  }, [qParam]);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearchQuery]);
+  const search = useSearch<{
+    id: string;
+    name: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+  }>({
+    moduleName: endpoints.sellers,
+    initialLimit: PAGE_SIZE,
+    queryFn: ({ q, page, limit }) =>
+      api<{
+        items: {
+          id: string;
+          name: string;
+          contactPerson?: string;
+          phone?: string;
+          email?: string;
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+      }>(`${endpoints.sellers}?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`),
+  });
+  const currentPage = search.page;
+  const setCurrentPage = search.setPage;
   const [viewingSeller, setViewingSeller] = useState<{
     id: string;
     name: string;
@@ -464,26 +468,7 @@ export const SellersPage = () => {
   const canEdit = me?.role === 'admin' || me?.role === 'pricing_manager';
 
   // Fetch list
-  const { data } = useQuery({
-    queryKey: [endpoints.sellers, debouncedSearchQuery, currentPage, PAGE_SIZE],
-    queryFn: () =>
-      api<{
-        items: {
-          id: string;
-          name: string;
-          contactPerson?: string;
-          phone?: string;
-          email?: string;
-        }[];
-        total: number;
-        page: number;
-        limit: number;
-      }>(
-        `${endpoints.sellers}?q=${encodeURIComponent(
-          debouncedSearchQuery,
-        )}&page=${currentPage}&limit=${PAGE_SIZE}`,
-      ),
-  });
+  const { data } = search.query;
   const items = data?.items ?? [];
   const totalRecords = data?.total ?? 0;
   const pageSize = data?.limit ?? PAGE_SIZE;
@@ -683,15 +668,11 @@ export const SellersPage = () => {
 
         <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
-            <Search
-              size={14}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+            <SearchInput
+              value={search.q}
+              onChange={search.setQ}
               placeholder="Search sellers..."
-              className="h-9 pl-8 text-xs"
+              loading={search.query.isFetching}
             />
           </div>
           <p className="text-[11px] font-medium text-slate-500">
@@ -759,15 +740,15 @@ export const SellersPage = () => {
                     </td>
                     <td className="sticky right-0 bg-white px-4 py-2.5 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => setViewingSeller(item)}
                           className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all duration-200 active:scale-95 focus:outline-none"
-                          title="View Details"
+                          label="View seller details"
                         >
                           <Eye size={13} />
-                        </button>
-                        <button
+                        </AccessibleIconButton>
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => handleEdit(item)}
                           disabled={!canEdit}
@@ -776,15 +757,15 @@ export const SellersPage = () => {
                               ? 'hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 active:scale-95'
                               : 'opacity-40 cursor-not-allowed'
                           } focus:outline-none`}
-                          title={
+                          label={
                             canEdit
-                              ? 'Edit'
-                              : 'Only admins or pricing managers can edit'
+                              ? 'Edit seller'
+                              : 'Only admins or pricing managers can edit seller'
                           }
                         >
                           <Edit3 size={13} />
-                        </button>
-                        <button
+                        </AccessibleIconButton>
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => handleDelete(item.id)}
                           disabled={!isAdmin}
@@ -793,10 +774,14 @@ export const SellersPage = () => {
                               ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-300 active:scale-95'
                               : 'opacity-40 cursor-not-allowed'
                           } focus:outline-none`}
-                          title={isAdmin ? 'Delete' : 'Only admins can delete'}
+                          label={
+                            isAdmin
+                              ? 'Delete seller'
+                              : 'Only admins can delete seller'
+                          }
                         >
                           <Trash2 size={13} />
-                        </button>
+                        </AccessibleIconButton>
                       </div>
                     </td>
                   </tr>
@@ -813,24 +798,26 @@ export const SellersPage = () => {
               {serialStart + items.length} of {totalRecords}
             </p>
             <div className="flex items-center gap-1.5">
-              <Button
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage <= 1}
+                label="Go to first page"
               >
                 <ChevronsLeft size={13} />
-              </Button>
-              <Button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1}
+                label="Go to previous page"
               >
                 <ChevronLeft size={13} />
-              </Button>
+              </AccessibleIconButton>
               {pageNumbers.map((pageNumber, idx) => {
                 const prev = pageNumbers[idx - 1];
                 const gapBefore = prev && pageNumber - prev > 1;
@@ -853,7 +840,7 @@ export const SellersPage = () => {
                   </div>
                 );
               })}
-              <Button
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
@@ -861,18 +848,20 @@ export const SellersPage = () => {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage >= totalPages}
+                label="Go to next page"
               >
                 <ChevronRight size={13} />
-              </Button>
-              <Button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage >= totalPages}
+                label="Go to last page"
               >
                 <ChevronsRight size={13} />
-              </Button>
+              </AccessibleIconButton>
             </div>
           </div>
         </div>
@@ -934,25 +923,36 @@ export const UsersPage = () => (
 );
 
 export const CustomersPage = () => {
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = SEARCH_DEFAULT_LIMIT;
   const queryClient = useQueryClient();
   const { showError, confirm } = useNotification();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchParams] = useSearchParams();
-  const qParam = searchParams.get('q') || '';
-  const [searchQuery, setSearchQuery] = useState(qParam);
-
-  useEffect(() => {
-    setSearchQuery(qParam);
-  }, [qParam]);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearchQuery]);
+  const search = useSearch<{
+    id: string;
+    name: string;
+    address?: string;
+    mobileNumber?: string;
+  }>({
+    moduleName: endpoints.customers,
+    initialLimit: PAGE_SIZE,
+    queryFn: ({ q, page, limit }) =>
+      api<{
+        items: {
+          id: string;
+          name: string;
+          address?: string;
+          mobileNumber?: string;
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+      }>(`${endpoints.customers}?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`),
+  });
+  const currentPage = search.page;
+  const setCurrentPage = search.setPage;
   const [viewingCustomer, setViewingCustomer] = useState<{
     id: string;
     name: string;
@@ -961,7 +961,7 @@ export const CustomersPage = () => {
   } | null>(null);
 
   const { data: customerFormulasData } = useQuery({
-    queryKey: ['customer-formulas', viewingCustomer?.id],
+    queryKey: searchKeys.module('customer-formulas', { customerId: viewingCustomer?.id ?? '' }),
     queryFn: () =>
       viewingCustomer
          ? api<{ items: any[] }>(
@@ -980,25 +980,7 @@ export const CustomersPage = () => {
   const isAdmin = me?.role === 'admin';
   const canEdit = me?.role === 'admin' || me?.role === 'pricing_manager';
 
-  const { data } = useQuery({
-    queryKey: [endpoints.customers, debouncedSearchQuery, currentPage, PAGE_SIZE],
-    queryFn: () =>
-      api<{
-        items: {
-          id: string;
-          name: string;
-          address?: string;
-          mobileNumber?: string;
-        }[];
-        total: number;
-        page: number;
-        limit: number;
-      }>(
-        `${endpoints.customers}?q=${encodeURIComponent(
-          debouncedSearchQuery,
-        )}&page=${currentPage}&limit=${PAGE_SIZE}`,
-      ),
-  });
+  const { data } = search.query;
   const items = data?.items ?? [];
   const totalRecords = data?.total ?? 0;
   const pageSize = data?.limit ?? PAGE_SIZE;
@@ -1168,15 +1150,11 @@ export const CustomersPage = () => {
 
         <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
-            <Search
-              size={14}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+            <SearchInput
+              value={search.q}
+              onChange={search.setQ}
               placeholder="Search customers..."
-              className="h-9 pl-8 text-xs"
+              loading={search.query.isFetching}
             />
           </div>
           <p className="text-[11px] font-medium text-slate-500">
@@ -1238,30 +1216,32 @@ export const CustomersPage = () => {
                     </td>
                     <td className="sticky right-0 bg-white px-4 py-2.5 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => setViewingCustomer(item)}
                           className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
-                          title="View Customized Formulas"
+                          label="View customer formulas"
                         >
                           <Eye size={13} />
-                        </button>
-                        <button
+                        </AccessibleIconButton>
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => handleEdit(item)}
                           disabled={!canEdit}
                           className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          label="Edit customer"
                         >
                           <Edit3 size={13} />
-                        </button>
-                        <button
+                        </AccessibleIconButton>
+                        <AccessibleIconButton
                           type="button"
                           onClick={() => handleDelete(item.id)}
                           disabled={!isAdmin}
                           className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          label="Delete customer"
                         >
                           <Trash2 size={13} />
-                        </button>
+                        </AccessibleIconButton>
                       </div>
                     </td>
                   </tr>
@@ -1281,24 +1261,26 @@ export const CustomersPage = () => {
               {serialStart + items.length} of {totalRecords}
             </p>
             <div className="mr-20 flex items-center gap-1.5 sm:mr-24">
-              <Button
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage <= 1}
+                label="Go to first page"
               >
                 <ChevronsLeft size={13} />
-              </Button>
-              <Button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1}
+                label="Go to previous page"
               >
                 <ChevronLeft size={13} />
-              </Button>
+              </AccessibleIconButton>
               {pageNumbers.map((pageNumber, idx) => {
                 const prev = pageNumbers[idx - 1];
                 const gapBefore = prev && pageNumber - prev > 1;
@@ -1321,7 +1303,7 @@ export const CustomersPage = () => {
                   </div>
                 );
               })}
-              <Button
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
@@ -1329,18 +1311,20 @@ export const CustomersPage = () => {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage >= totalPages}
+                label="Go to next page"
               >
                 <ChevronRight size={13} />
-              </Button>
-              <Button
+              </AccessibleIconButton>
+              <AccessibleIconButton
                 type="button"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage >= totalPages}
+                label="Go to last page"
               >
                 <ChevronsRight size={13} />
-              </Button>
+              </AccessibleIconButton>
             </div>
           </div>
         </div>

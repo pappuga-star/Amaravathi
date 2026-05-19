@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Typecheck, Lint, Dead Code, Duplicates
+    name: Search Governance Gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -27,5 +27,37 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run PR quality gates
-        run: npm run quality:pr
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Search Unit Tests
+        run: npm run test:search:unit
+
+      - name: Search Integration Tests
+        run: npm run test:search:integration
+
+      - name: Search Frontend Tests
+        run: npm run test:search:frontend
+
+      - name: Search E2E Tests
+        run: npm run test:search:e2e
+
+      - name: Search SSOT Guardrail
+        run: npm run search:ssot:verify
+
+      - name: Search Benchmark Regression Check
+        run: npm run search:benchmark:regression
+
+      - name: Search Release Readiness Check
+        env:
+          SEARCH_ENGINE: prefix
+          SEARCH_CACHE_PROVIDER: memory
+          SEARCH_ENABLE_SYNONYMS: "true"
+          SEARCH_ENABLE_FUZZY: "true"
+        run: npm run search:release:check

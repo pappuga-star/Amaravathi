@@ -1,0 +1,22 @@
+[
+  {
+    "input": "royl",
+    "expected": ["Royal"]
+  },
+  {
+    "input": "premim",
+    "expected": ["Premium"]
+  },
+  {
+    "input": "supplier",
+    "expected": ["Seller", "Supplier"]
+  },
+  {
+    "input": "batch",
+    "expected": ["Batch", "Lot"]
+  },
+  {
+    "input": "ctf001",
+    "expected": ["Customer Tea Formula CTF001"]
+  }
+]
