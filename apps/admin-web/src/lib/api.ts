@@ -135,4 +135,5 @@ export const endpoints = {
   customers: '/customers',
   leafCategories: '/leaf-categories',
   customerTeaFormulas: '/customer-tea-formulas',
+  systemSettings: '/system-settings',
 };

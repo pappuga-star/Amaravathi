@@ -64,6 +64,10 @@ import { customerTeaFormulasController } from '../controllers/customerTeaFormula
 import { invalidateSearchCaches, SEARCH_CACHE_PREFIXES } from '../search/search.events.js';
 import { searchRateLimit } from '../search/search-rate-limit.js';
 import { searchAdminRoutes } from '../search/search-admin.routes.js';
+import {
+  getSystemSettingsController,
+  updateSystemSettingsController,
+} from '../controllers/systemSettingsController.js';
 
 const router = Router();
 router.param('id', validateObjectIdParam('id'));
@@ -100,9 +104,11 @@ router.post('/auth/login', asyncHandler(login));
 
 router.use(requireAuth);
 router.get('/auth/me', asyncHandler(me));
+router.get('/system-settings', asyncHandler(getSystemSettingsController));
 router.use('/global-search', globalSearchRoutes);
 router.use('/search-admin', searchAdminRoutes);
 router.post('/users', permit('admin'), asyncHandler(createUser));
+router.put('/system-settings', asyncHandler(updateSystemSettingsController));
 
 const teaPowderTypes = crudController(TeaPowderType, teaPowderTypeSchema, [
   'name',

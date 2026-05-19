@@ -1,47 +1,70 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, Input, Button } from '@amaravathi/shared-ui';
+import { type SystemSettingsInput } from '@amaravathi/shared-types';
 import { api } from '../lib/api';
 import { useNotification } from '@/components/NotificationContext';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import { User, Settings, Shield, Bell, HelpCircle, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+const CURRENCY_OPTIONS = [
+  { value: 'INR', label: 'INR (₹) - Indian Rupee' },
+  { value: 'USD', label: 'USD ($) - US Dollar' },
+  { value: 'EUR', label: 'EUR (€) - Euro' },
+  { value: 'GBP', label: 'GBP (£) - British Pound' },
+] as const;
+
 export function SettingsPage() {
   const { t } = useTranslation();
-  const { showToast } = useNotification();
-  // Fetch active user profile from me endpoint
+  const { showToast, showError } = useNotification();
+
   const { data: me } = useQuery({
     queryKey: ['me-profile'],
-    queryFn: () =>
-      api<{ name: string; email: string; role: string }>('/auth/me'),
+    queryFn: () => api<{ name: string; email: string; role: string }>('/auth/me'),
   });
 
-  const [estateName, setEstateName] = useState('Amaravathi Tea Estates');
-  const [bagWeight, setBagWeight] = useState('50');
-  const [currency, setCurrency] = useState('INR');
-  const [systemAlerts, setSystemAlerts] = useState(true);
+  const {
+    data: settings,
+    isLoading,
+    isSaving,
+    saveSystemSettings,
+  } = useSystemSettings();
 
-  // Load local preferences on component mount
+  const [form, setForm] = useState<SystemSettingsInput>({
+    defaultEstateName: 'Amaravathi Tea Estates',
+    defaultBagCapacityKg: 50,
+    systemCurrency: 'INR',
+    realTimeNotificationsEnabled: true,
+  });
+
   useEffect(() => {
-    const savedName = localStorage.getItem('setting_estate_name');
-    if (savedName) setEstateName(savedName);
-    const savedWeight = localStorage.getItem('setting_bag_weight');
-    if (savedWeight) setBagWeight(savedWeight);
-    const savedCurrency = localStorage.getItem('setting_currency');
-    if (savedCurrency) setCurrency(savedCurrency);
-  }, []);
+    if (!settings) return;
+    setForm({
+      defaultEstateName: settings.defaultEstateName,
+      defaultBagCapacityKg: settings.defaultBagCapacityKg,
+      systemCurrency: settings.systemCurrency,
+      realTimeNotificationsEnabled: settings.realTimeNotificationsEnabled,
+    });
+  }, [settings]);
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const canUpdate = useMemo(() => {
+    const role = String(me?.role ?? '').toLowerCase();
+    return role === 'admin' || role === 'super_admin';
+  }, [me?.role]);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('setting_estate_name', estateName);
-    localStorage.setItem('setting_bag_weight', bagWeight);
-    localStorage.setItem('setting_currency', currency);
-    showToast(t('settings.saveSuccess'), 'success');
+    try {
+      await saveSystemSettings(form);
+      showToast(t('settings.saveSuccess'), 'success');
+    } catch (error) {
+      showError(error);
+    }
   };
 
   return (
     <div className="grid gap-8">
-      {/* Top Header */}
       <div>
         <h2 className="text-2xl font-bold text-slate-900">
           {t('settings.title')}
@@ -50,7 +73,6 @@ export function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column: Active User Profile Card */}
         <div className="lg:col-span-1 grid gap-6 h-max">
           <Card className="p-6 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col items-center text-center gap-4">
             <div className="grid size-20 place-items-center rounded-full bg-emerald-50 text-emerald-600 ring-4 ring-emerald-100/50">
@@ -86,7 +108,6 @@ export function SettingsPage() {
           </Card>
         </div>
 
-        {/* Right Columns: Master System Configuration Form */}
         <div className="lg:col-span-2 grid gap-6">
           <Card className="p-6 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-6">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
@@ -108,9 +129,14 @@ export function SettingsPage() {
                 <span>{t('settings.estateName')}</span>
                 <Input
                   type="text"
-                  value={estateName}
-                  onChange={(e) => setEstateName(e.target.value)}
+                  value={form.defaultEstateName}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, defaultEstateName: e.target.value }))
+                  }
+                  minLength={2}
+                  maxLength={100}
                   required
+                  disabled={isLoading || isSaving}
                 />
               </label>
 
@@ -119,21 +145,38 @@ export function SettingsPage() {
                   <span>{t('settings.bagWeight')}</span>
                   <Input
                     type="number"
-                    value={bagWeight}
-                    onChange={(e) => setBagWeight(e.target.value)}
+                    value={String(form.defaultBagCapacityKg)}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        defaultBagCapacityKg: Number(e.target.value || 0),
+                      }))
+                    }
+                    min={0.000001}
+                    max={1000}
+                    step="any"
                     required
+                    disabled={isLoading || isSaving}
                   />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-700">
                   <span>{t('settings.currency')}</span>
                   <select
                     className="w-full h-10 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 bg-white"
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
+                    value={form.systemCurrency}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        systemCurrency: e.target.value as SystemSettingsInput['systemCurrency'],
+                      }))
+                    }
+                    disabled={isLoading || isSaving}
                   >
-                    <option value="INR">INR (₹) - Indian Rupee</option>
-                    <option value="USD">USD ($) - US Dollar</option>
-                    <option value="EUR">EUR (€) - Euro</option>
+                    {CURRENCY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -150,17 +193,26 @@ export function SettingsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSystemAlerts(!systemAlerts)}
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      realTimeNotificationsEnabled:
+                        !prev.realTimeNotificationsEnabled,
+                    }))
+                  }
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    systemAlerts ? 'bg-emerald-600' : 'bg-slate-200'
+                    form.realTimeNotificationsEnabled ? 'bg-emerald-600' : 'bg-slate-200'
                   }`}
                   title="Toggle real-time notifications"
                   aria-label="Toggle real-time notifications"
-                  aria-pressed={systemAlerts}
+                  aria-pressed={form.realTimeNotificationsEnabled}
+                  disabled={isLoading || isSaving}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      systemAlerts ? 'translate-x-5' : 'translate-x-0'
+                      form.realTimeNotificationsEnabled
+                        ? 'translate-x-5'
+                        : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -170,10 +222,11 @@ export function SettingsPage() {
                 <Button
                   type="submit"
                   variant="add"
+                  disabled={!canUpdate || isLoading || isSaving}
                   className="h-10 px-6 font-semibold transition-colors hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
                 >
                   <Save className="h-4 w-4 text-current" />
-                  <span>{t('settings.saveConfig')}</span>
+                  <span>{isSaving ? 'Saving...' : t('settings.saveConfig')}</span>
                 </Button>
               </div>
             </form>
