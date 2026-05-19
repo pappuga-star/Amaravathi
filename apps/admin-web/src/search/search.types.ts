@@ -1,4 +1,4 @@
-export interface SearchPagination {
+interface SearchPagination {
   page: number;
   limit: number;
   totalItems: number;

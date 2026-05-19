@@ -1,5 +1,12 @@
 {
   "ignore": [
-    "apps/api/src/utils/migratePurchaseBatchQuantity.ts"
+    "apps/api/src/utils/migratePurchaseBatchQuantity.ts",
+    "apps/api/src/utils/auditPurchaseBatchLineItemIds.ts",
+    "apps/api/src/utils/auditPurchaseBatchUpdatePerformance.ts",
+    "apps/api/src/utils/benchmarkCustomerTeaFormulaPerformance.ts",
+    "apps/api/src/utils/boundedTtlCache.ts",
+    "apps/api/src/utils/bulkInsertTeaPowderTypes.ts",
+    "apps/api/src/utils/forensicApiPerformanceAudit.ts",
+    "apps/api/src/utils/repairPurchaseBatchIndexes.ts"
   ]
 }

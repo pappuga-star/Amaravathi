@@ -8,7 +8,7 @@ export type RankedSearchField = {
   category?: 'code' | 'name' | 'text';
 };
 
-export type SearchExecutionMode = 'contains' | 'prefix';
+type SearchExecutionMode = 'contains' | 'prefix';
 
 export interface SearchPlanOptions {
   normalizedQuery: string;
@@ -16,7 +16,7 @@ export interface SearchPlanOptions {
   mode?: SearchExecutionMode;
 }
 
-export interface SearchPlan {
+interface SearchPlan {
   filter: FilterQuery<any>;
   normalizedQuery: string;
   /** true when the backing engine had to fall back to non-primary strategy */

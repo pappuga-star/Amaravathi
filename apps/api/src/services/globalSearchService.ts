@@ -1,6 +1,1 @@
-export {
-  globalSearchService,
-  emptyGroupedResults,
-  type GroupedSearchResults,
-  type SearchResultItem,
-} from '../search/global-search.service.js';
+export { globalSearchService } from '../search/global-search.service.js';

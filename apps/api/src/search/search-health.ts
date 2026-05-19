@@ -3,6 +3,7 @@ import { getRedisLastPingLatencyMs, getRedisMemoryUsageBytes, getRedisReconnectA
 import { searchCache } from './search.cache.js';
 import type { SearchHealthSnapshot } from './search-admin.types.js';
 import { searchMetrics } from './search-metrics.js';
+import { getRecentSlowQueries } from './search-profiler.js';
 
 export async function getSearchHealth(): Promise<SearchHealthSnapshot> {
   const metrics = searchMetrics.getSnapshot();
@@ -32,12 +33,12 @@ export async function getSearchHealth(): Promise<SearchHealthSnapshot> {
     cacheHitRatioPct: metrics.cacheHitRatioPct,
     p95LatencyMs: metrics.p95LatencyMs,
     averageLatencyMs: metrics.averageResponseTimeMs,
-    slowQueryCount: metrics.slowQueries,
     invalidationCount: metrics.invalidationCount,
     activeSearchEngine: env.searchEngine,
     redisConnected,
     redisPingLatencyMs,
     redisMemoryUsageBytes,
     redisReconnectAttempts: getRedisReconnectAttempts(),
+    slowQueryCount: Math.max(metrics.slowQueries, getRecentSlowQueries().length),
   };
 }

@@ -12,10 +12,3 @@ export const STICKY_BELOW_HEADER = {
   top: HEADER_HEIGHT,
   zIndex: Z_INDEX.sticky,
 };
-
-export const FIXED_BELOW_HEADER = {
-  position: 'fixed' as const,
-  top: HEADER_HEIGHT,
-  zIndex: Z_INDEX.sticky,
-};
-

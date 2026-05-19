@@ -1,7 +1,7 @@
 import type { RankedSearchField } from './search-engine.js';
 import { normalizeSearchKey } from './search.utils.js';
 
-export const DEFAULT_SEARCH_WEIGHTS = {
+const DEFAULT_SEARCH_WEIGHTS = {
   exactCode: 100,
   prefixCode: 80,
   exactName: 70,

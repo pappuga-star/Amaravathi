@@ -54,3 +54,17 @@ npm run quality:pr
 - `NotificationContext` has a single canonical import path: `@/components/NotificationContext`.
 - Do not import `NotificationContext`, `NotificationProvider`, or `useNotification` via relative paths or alternate aliases.
 - `NotificationProvider` must be mounted once at app root and must not be re-declared in feature modules.
+
+## Test Runner Isolation
+
+- Playwright E2E tests must use `*.e2e.spec.ts` and live under `apps/admin-web/tests/e2e`.
+- Vitest tests must use `*.test.ts`, `*.test.tsx`, `*.spec.ts`, or `*.spec.tsx` for unit/integration scope only.
+- Vitest must exclude all E2E paths/patterns (`tests/e2e/**`, `**/*.e2e.spec.*`).
+- Playwright must only scan `apps/admin-web/tests/e2e`.
+
+## Dead Code Governance
+
+- `knip` findings must be resolved before merge by either:
+  1. removing dead code, or
+  2. adding an explicit `knip.json` ignore entry for intentional operational/CLI files.
+- Every intentional `knip` ignore must have justification in the related quality audit report.

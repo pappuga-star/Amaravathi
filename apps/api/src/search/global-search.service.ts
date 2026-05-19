@@ -33,7 +33,7 @@ export interface GroupedSearchResults {
   suppliers: SearchResultItem[];
 }
 
-export const emptyGroupedResults: GroupedSearchResults = {
+const emptyGroupedResults: GroupedSearchResults = {
   customers: [],
   savedBlends: [],
   customerTeaBlends: [],

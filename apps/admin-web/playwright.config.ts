@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './tests/e2e',
+  testMatch: '**/*.e2e.spec.ts',
   fullyParallel: false,
   retries: 0,
   use: {
@@ -19,4 +20,3 @@ export default defineConfig({
     },
   ],
 });
-

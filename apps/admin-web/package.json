@@ -9,8 +9,10 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "lint": "eslint . && tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests",
-    "test:ui": "playwright test"
+    "test": "npm run test:unit",
+    "test:unit": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test",
+    "test:all": "npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
     "@amaravathi/shared-types": "workspace:*",

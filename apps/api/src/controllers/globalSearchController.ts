@@ -11,6 +11,7 @@ import { buildSuggestions } from '../search/search-suggestions.js';
 import { personalizeResults, trackUserSearch } from '../search/search-personalization.js';
 import { applyBusinessRelevance } from '../search/search-relevance.js';
 import type { GroupedSearchResults, SearchResultItem } from '../search/global-search.service.js';
+import type { SearchDetailedResult } from '../search/search-quality.types.js';
 
 function flattenResults(results: GroupedSearchResults): SearchResultItem[] {
   return [
@@ -109,19 +110,23 @@ export const globalSearchController = {
       trackUserSearch(userId, q);
       trackSearchTerm(q, totalResults > 0);
 
+      const data: SearchDetailedResult = {
+        query: q,
+        results: rankedResults,
+        totalResults,
+        quality: {
+          expandedTerms,
+          ...(zeroRecovery.correctedQuery
+            ? { correctedQuery: zeroRecovery.correctedQuery }
+            : {}),
+          suggestions,
+          zeroResultRecoveryApplied: totalResults > 0 && !!zeroRecovery.correctedQuery,
+        },
+      };
+
       return res.json({
         success: true,
-        data: {
-          query: q,
-          results: rankedResults,
-          totalResults,
-          quality: {
-            expandedTerms,
-            correctedQuery: zeroRecovery.correctedQuery,
-            suggestions,
-            zeroResultRecoveryApplied: totalResults > 0 && !!zeroRecovery.correctedQuery,
-          },
-        },
+        data,
       });
     } catch (err: any) {
       const status = err instanceof SearchValidationError ? err.status : 500;

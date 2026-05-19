@@ -5,7 +5,7 @@ export interface SearchSuggestion {
   type: 'completion' | 'popular' | 'entity';
 }
 
-export interface SearchQualityMeta {
+interface SearchQualityMeta {
   expandedTerms: string[];
   correctedQuery?: string;
   suggestions: SearchSuggestion[];
