@@ -19,6 +19,23 @@ export function clearToken() {
   localStorage.removeItem('amaravathi_admin_token');
 }
 
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  entity?: string;
+  data?: any;
+
+  constructor(message: string, status: number, payload?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = payload?.code;
+    this.entity = payload?.entity;
+    this.data = payload?.data;
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+}
+
 export async function api<T>(
   path: string,
   options: RequestInit = {},
@@ -101,20 +118,20 @@ export async function api<T>(
             msg += `: ${details}`;
           }
         }
-        throw new Error(msg);
+        throw new ApiError(msg, response.status, payload);
       }
 
       const fallbackText =
         typeof parsed === 'string' && parsed.trim()
           ? parsed.trim()
           : `API request failed (${response.status})`;
-      throw new Error(fallbackText);
+      throw new ApiError(fallbackText, response.status);
     }
 
     if (parsed && typeof parsed === 'object' && 'success' in parsed) {
       const payload = parsed as ApiResponse<T>;
       if (!payload.success) {
-        throw new Error(payload.message ?? 'API request failed');
+        throw new ApiError(payload.message ?? 'API request failed', response.status, payload);
       }
       return payload.data as T;
     }

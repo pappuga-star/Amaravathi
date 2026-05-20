@@ -56,10 +56,10 @@ const customerTeaFormulaSchema = new Schema(
     costPer100Grams: { type: Number, required: true, min: 0 },
     lineItems: [
       {
-        purchaseBatchCode: { type: String, required: true },
+        purchaseBatchCode: { type: String, required: false },
         purchaseBatchLineItemId: {
           type: Schema.Types.ObjectId,
-          required: true,
+          required: false,
         },
         ingredientCategory: {
           type: String,
@@ -70,6 +70,12 @@ const customerTeaFormulaSchema = new Schema(
         quantityInGrams: { type: Number, required: true, min: 0 },
         pricePerGram: { type: Number, required: true, min: 0 },
         rowCost: { type: Number, required: true, min: 0 },
+        teaPowderTypeId: {
+          type: Schema.Types.ObjectId,
+          ref: 'TeaPowderType',
+          required: false,
+        },
+        teaPowderTypeName: { type: String, required: false },
       },
     ],
     /**

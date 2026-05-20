@@ -43,25 +43,23 @@ describe('validateAndBuildLineItems', () => {
     }
   });
 
-  it('returns 400 when purchaseBatchLineItemId is missing/invalid in payload', async () => {
-    vi.spyOn(AddPurchaseBatch, 'aggregate').mockResolvedValue([] as any);
-
+  it('allows empty purchaseBatchLineItemId and uses provided pricePerGram', async () => {
     const result = await validateAndBuildLineItems([
       {
-        purchaseBatchCode: 'BATCH-001',
+        purchaseBatchCode: '',
         purchaseBatchLineItemId: '',
         ingredientCategory: 'Leaf',
         ingredientName: 'Assam Gold',
         quantityInGrams: 100,
-        pricePerGram: 0,
+        pricePerGram: 0.5,
         rowCost: 0,
       },
     ]);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.status).toBe(400);
-      expect(result.message).toContain('was not found');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.updatedLineItems[0]!.pricePerGram).toBe(0.5);
+      expect(result.updatedLineItems[0]!.rowCost).toBe(50);
     }
   });
 

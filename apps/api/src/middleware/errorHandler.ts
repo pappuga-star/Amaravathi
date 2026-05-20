@@ -49,8 +49,22 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
   }
 
   const status = typeof error?.status === 'number' ? error.status : 500;
-  return res.status(status).json({
+  const responsePayload: any = {
     success: false,
     message: error?.message ?? 'Internal server error',
-  });
+  };
+
+  if (error && typeof error === 'object') {
+    if ('code' in error && (typeof error.code === 'string' || typeof error.code === 'number')) {
+      responsePayload.code = error.code;
+    }
+    if ('entity' in error && typeof error.entity === 'string') {
+      responsePayload.entity = error.entity;
+    }
+    if ('data' in error && error.data) {
+      responsePayload.data = error.data;
+    }
+  }
+
+  return res.status(status).json(responsePayload);
 };

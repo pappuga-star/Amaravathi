@@ -30,21 +30,22 @@ export function buildPrefixRegex(query: string): RegExp {
   return new RegExp(`^${escapeRegex(query)}`, 'i');
 }
 
-export function clampLimit(limit: unknown): number {
+export function clampLimit(limit: unknown, maxLimit = SEARCH_MAX_LIMIT): number {
   const parsed = Number(limit ?? SEARCH_DEFAULT_LIMIT);
   if (!Number.isFinite(parsed)) return SEARCH_DEFAULT_LIMIT;
-  return Math.min(Math.max(Math.floor(parsed), 1), SEARCH_MAX_LIMIT);
+  return Math.min(Math.max(Math.floor(parsed), 1), maxLimit);
 }
 
 export function buildPagination(
   pageInput: unknown,
   limitInput: unknown,
+  maxLimit = SEARCH_MAX_LIMIT,
 ): { page: number; limit: number; skip: number } {
   const parsedPage = Number(pageInput ?? SEARCH_DEFAULT_PAGE);
   const page = Number.isFinite(parsedPage)
     ? Math.max(Math.floor(parsedPage), 1)
     : SEARCH_DEFAULT_PAGE;
-  const limit = clampLimit(limitInput);
+  const limit = clampLimit(limitInput, maxLimit);
   return {
     page,
     limit,

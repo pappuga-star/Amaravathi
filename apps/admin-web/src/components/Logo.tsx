@@ -6,9 +6,9 @@ type LogoProps = {
 };
 
 const LOGO_URL =
-  'https://res.cloudinary.com/dljpzbo20/image/upload/e_background_removal/f_avif,q_auto:best/960c44fe-76bd-465a-b988-69e798a5cf56_ovlo1m.png';
+  'https://res.cloudinary.com/dljpzbo20/image/upload/e_background_removal/amaravathi_logo.png';
 const LOGO_FALLBACK_URL =
-  'https://res.cloudinary.com/dljpzbo20/image/upload/e_background_removal/f_webp,q_auto:best/960c44fe-76bd-465a-b988-69e798a5cf56_ovlo1m.png';
+  'https://res.cloudinary.com/dljpzbo20/image/upload/e_background_removal/amaravathi_logo.png';
 
 export function Logo({
   width = 180,

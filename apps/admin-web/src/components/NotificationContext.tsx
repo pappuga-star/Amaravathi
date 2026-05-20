@@ -4,10 +4,17 @@ import { AccessibleIconButton, Button } from '@amaravathi/shared-ui';
 import { Portal } from './ui/Portal';
 import { Z_INDEX } from '../constants/zIndex';
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: string;
   message: string;
   type: 'success' | 'error' | 'warning' | 'info';
+  title?: string;
+  action?: ToastAction;
 }
 
 interface ConfirmOptions {
@@ -22,6 +29,10 @@ interface NotificationContextType {
   showToast: (
     message: string,
     type?: 'success' | 'error' | 'warning' | 'info',
+    options?: {
+      title?: string;
+      action?: ToastAction;
+    },
   ) => void;
   showError: (err: any) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
@@ -58,12 +69,17 @@ export function NotificationProvider({
     (
       message: string,
       type: 'success' | 'error' | 'warning' | 'info' = 'info',
+      options?: {
+        title?: string;
+        action?: ToastAction;
+      },
     ) => {
       const id = Math.random().toString(36).substring(2, 9);
-      setToasts((prev) => [...prev, { id, message, type }]);
+      setToasts((prev) => [...prev, { id, message, type, ...options }]);
+      const timeoutMs = options?.action ? 8000 : 4000;
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 4000);
+      }, timeoutMs);
     },
     [],
   );
@@ -167,12 +183,29 @@ export function NotificationProvider({
               style={{ animation: 'toast-slide-in 0.25s ease-out' }}
             >
               <Icon className="h-5 w-5 shrink-0 mt-0.5" />
-              <div className="flex-1 text-sm font-medium leading-relaxed">
-                {toast.message}
+              <div className="flex-1 flex flex-col gap-1 text-sm font-medium leading-relaxed">
+                {toast.title && <div className="font-bold text-slate-900 dark:text-slate-100">{toast.title}</div>}
+                <div className={toast.title ? 'text-xs text-slate-600 dark:text-slate-400 font-medium' : ''}>{toast.message}</div>
+                {toast.action && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toast.action?.onClick();
+                      removeToast(toast.id);
+                    }}
+                    className={`mt-2 w-max inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-bold rounded shadow-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      toast.type === 'warning'
+                        ? 'text-amber-950 bg-amber-100 hover:bg-amber-200 focus:ring-amber-500'
+                        : 'text-rose-950 bg-rose-100 hover:bg-rose-200 focus:ring-rose-500'
+                    }`}
+                  >
+                    {toast.action.label}
+                  </button>
+                )}
               </div>
               <AccessibleIconButton
                 onClick={() => removeToast(toast.id)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mt-0.5"
                 label="Close notification"
               >
                 <X className="h-4 w-4" />

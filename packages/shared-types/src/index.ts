@@ -192,21 +192,31 @@ export const customerTeaFormulaSchema = z.object({
   lineItems: z
     .array(
       z.object({
-        purchaseBatchCode: z.string().trim().min(1),
+        purchaseBatchCode: z.string().trim().optional().or(z.literal('')),
         purchaseBatchLineItemId: z
-          .string({
-            required_error: 'Purchase Batch Line Item ID is required.',
-          })
+          .string()
           .trim()
           .regex(
             /^[0-9a-fA-F]{24}$/,
             'Invalid purchase batch line item ID',
-          ),
+          )
+          .optional()
+          .or(z.literal('')),
         ingredientCategory: z.enum(['Leaf', 'Add-On']),
         ingredientName: z.string().trim().min(1),
         quantityInGrams: z.coerce.number().positive(),
         pricePerGram: z.coerce.number().min(0).optional(),
         rowCost: z.coerce.number().min(0).optional(),
+        teaPowderTypeId: z
+          .string()
+          .trim()
+          .regex(
+            /^[0-9a-fA-F]{24}$/,
+            'Invalid tea powder type ID',
+          )
+          .optional()
+          .or(z.literal('')),
+        teaPowderTypeName: z.string().trim().optional().or(z.literal('')),
       }),
     )
     .min(1),
@@ -233,13 +243,15 @@ export const customerTeaFormulaSchema = z.object({
 export type CustomerTeaFormulaInput = z.infer<typeof customerTeaFormulaSchema>;
 
 export type CustomerTeaFormulaLineItem = {
-  purchaseBatchCode: string;
-  purchaseBatchLineItemId: string;
+  purchaseBatchCode?: string;
+  purchaseBatchLineItemId?: string;
   ingredientCategory: 'Leaf' | 'Add-On';
   ingredientName: string;
   quantityInGrams: number;
   pricePerGram: number;
   rowCost: number;
+  teaPowderTypeId?: string;
+  teaPowderTypeName?: string;
 };
 
 export type CustomerTeaFormula = {

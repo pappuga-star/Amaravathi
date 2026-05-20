@@ -1265,7 +1265,7 @@ export function GeneralItemsPage() {
     queryKey: searchKeys.module('general-items-master', {}),
     enabled: activeTab === 'purchase-entry' || activeTab === 'item-master',
     queryFn: () =>
-      api<{ items: GeneralItemsMasterItem[] }>(endpoints.generalItemsMaster).then(
+      api<{ items: GeneralItemsMasterItem[] }>(`${endpoints.generalItemsMaster}?limit=1000`).then(
         (res) => res.items ?? [],
       ),
   });

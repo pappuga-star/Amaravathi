@@ -25,6 +25,8 @@ import {
   PurchaseBatch,
   customerTeaFormulaSchema,
 } from '@amaravathi/shared-types';
+import { AutocompleteSearchInput } from '../search/AutocompleteSearchInput';
+import { searchKeys } from '../search/search-query-keys';
 
 interface CustomerFormulasPageProps {
   editingFormula?: CustomerTeaFormula | null;
@@ -82,7 +84,7 @@ export const CustomerFormulasPage = ({
       );
       setLineItems(
         formulaToUse.lineItems.map((item) => ({
-          purchaseBatchCode: item.purchaseBatchCode,
+          purchaseBatchCode: item.purchaseBatchCode || '',
           purchaseBatchLineItemId:
             typeof item.purchaseBatchLineItemId === 'object'
               ? (item.purchaseBatchLineItemId as any).id ||
@@ -96,6 +98,8 @@ export const CustomerFormulasPage = ({
           quantityInGrams: item.quantityInGrams,
           pricePerGram: item.pricePerGram,
           rowCost: item.rowCost,
+          teaPowderTypeId: item.teaPowderTypeId || '',
+          teaPowderTypeName: item.teaPowderTypeName || item.ingredientName || '',
         })),
       );
       setIsDefault(formulaToUse.isDefault || false);
@@ -136,6 +140,7 @@ export const CustomerFormulasPage = ({
         }),
       });
       await queryClient.invalidateQueries({ queryKey: [endpoints.customers] });
+      await queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix(endpoints.customers) });
       setCustomerId(res.id);
       setShowQuickAddCustomer(false);
       setQuickAddName('');
@@ -172,6 +177,35 @@ export const CustomerFormulasPage = ({
   });
   const batches = batchesData?.items ?? [];
 
+  // Fetch Tea Powder Types for option selection
+  const { data: teaPowderTypes = [] } = useQuery({
+    queryKey: ['teaPowderTypes'],
+    queryFn: () =>
+      api<{ items: { id: string; name: string }[] }>(
+        `${endpoints.teaPowderTypes}?page=1&limit=1000`,
+      ).then((res) => res.items ?? []),
+  });
+
+  const autocompleteOptions = useMemo(() => {
+    return Array.from(new Set(teaPowderTypes.map((t) => t.name.trim()))).filter(Boolean);
+  }, [teaPowderTypes]);
+
+  // Master Creation Mutation for brand new Tea Powder Types
+  const createPowderTypeMutation = useMutation({
+    mutationFn: (name: string) =>
+      api<{ id: string; name: string }>(endpoints.teaPowderTypes, {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teaPowderTypes'] });
+      showToast('New Tea Powder Type created successfully.', 'success');
+    },
+    onError: (err: any) => {
+      showError(err);
+    },
+  });
+
   // Mutate Operations
   const saveMutation = useMutation({
     mutationFn: (payload: any) => {
@@ -207,6 +241,7 @@ export const CustomerFormulasPage = ({
       showError(err);
     },
   });
+
   // Line Item Grid handlers
   const addLineItem = () => {
     setLineItems([
@@ -219,6 +254,8 @@ export const CustomerFormulasPage = ({
         quantityInGrams: 0,
         pricePerGram: 0,
         rowCost: 0,
+        teaPowderTypeId: '',
+        teaPowderTypeName: '',
       },
     ]);
   };
@@ -246,39 +283,60 @@ export const CustomerFormulasPage = ({
       ...fields,
     } as CustomerTeaFormulaLineItem;
 
-    if (fields.purchaseBatchCode !== undefined) {
-      current.purchaseBatchLineItemId = '';
-      current.ingredientName = '';
-      current.pricePerGram = 0;
-      current.rowCost = 0;
-      current.ingredientCategory = 'Leaf';
-    }
-
     if (fields.ingredientName !== undefined) {
-      const selectedBatch = batches.find(
-        (b) => b.batchCode === current.purchaseBatchCode,
-      );
-      const batchItem = selectedBatch?.items.find(
-        (i) => i.teaPowderType === fields.ingredientName,
-      );
-      if (batchItem) {
-        current.pricePerGram =
-          batchItem.pricePerGram ?? (batchItem.ratePerKg ?? 0) / 1000;
-        current.purchaseBatchLineItemId =
-          (batchItem as any)._id?.toString() ||
-          (batchItem as any).id?.toString() ||
-          '';
-        current.ingredientCategory =
-          batchItem.ingredientCategory ||
-          ((batchItem.teaPowderType ?? '').toLowerCase().includes('dust') ||
-          (batchItem.teaPowderType ?? '').toLowerCase().includes('color') ||
-          (batchItem.teaPowderType ?? '').toLowerCase().includes('lumsa')
-            ? 'Add-On'
-            : 'Leaf');
+      let foundBatchCode = '';
+      let foundBatchLineItemId = '';
+      let foundPricePerGram = 0;
+      let foundCategory: 'Leaf' | 'Add-On' = 'Leaf';
+
+      for (const batch of batches) {
+        const lineItemsInBatch = batch.items || batch.lineItems || [];
+        const match = lineItemsInBatch.find(
+          (item: any) =>
+            String(item.teaPowderTypeName || item.teaPowderType || '')
+              .trim()
+              .toLowerCase() === fields.ingredientName!.trim().toLowerCase()
+        );
+        if (match) {
+          foundBatchCode = batch.batchCode;
+          foundBatchLineItemId = String(match._id || match.id || '');
+          foundPricePerGram = Number(match.pricePerGram) || (Number(match.pricePerKg || match.ratePerKg) / 1000) || 0;
+          foundCategory = match.ingredientCategory ||
+            (String(fields.ingredientName).toLowerCase().includes('dust') ||
+             String(fields.ingredientName).toLowerCase().includes('color') ||
+             String(fields.ingredientName).toLowerCase().includes('lumsa')
+              ? 'Add-On'
+              : 'Leaf');
+          break;
+        }
+      }
+
+      if (foundBatchLineItemId) {
+        current.purchaseBatchCode = foundBatchCode;
+        current.purchaseBatchLineItemId = foundBatchLineItemId;
+        current.pricePerGram = foundPricePerGram;
+        current.ingredientCategory = foundCategory;
       } else {
-        current.pricePerGram = 0;
+        current.purchaseBatchCode = '';
         current.purchaseBatchLineItemId = '';
-        current.ingredientCategory = 'Leaf';
+        current.pricePerGram = 0;
+        current.ingredientCategory =
+          String(fields.ingredientName).toLowerCase().includes('dust') ||
+          String(fields.ingredientName).toLowerCase().includes('color') ||
+          String(fields.ingredientName).toLowerCase().includes('lumsa')
+            ? 'Add-On'
+            : 'Leaf';
+      }
+
+      const matchedType = teaPowderTypes.find(
+        (t) => t.name.trim().toLowerCase() === fields.ingredientName!.trim().toLowerCase()
+      );
+      if (matchedType) {
+        current.teaPowderTypeId = matchedType.id;
+        current.teaPowderTypeName = matchedType.name;
+      } else {
+        current.teaPowderTypeId = '';
+        current.teaPowderTypeName = fields.ingredientName;
       }
     }
 
@@ -289,13 +347,13 @@ export const CustomerFormulasPage = ({
     setLineItems(updated);
   };
 
-  // Inline Validation: Duplicate combination of (Batch Code + Ingredient Name)
+  // Inline Validation: Duplicate selection of Tea Powder Type
   const duplicateKeys = useMemo(() => {
     const seen = new Set<string>();
     const duplicates = new Set<string>();
     lineItems.forEach((item) => {
-      if (item.purchaseBatchCode && item.ingredientName) {
-        const key = `${item.purchaseBatchCode.toLowerCase()}:${item.ingredientName.toLowerCase()}`;
+      if (item.ingredientName) {
+        const key = item.ingredientName.trim().toLowerCase();
         if (seen.has(key)) {
           duplicates.add(key);
         }
@@ -343,6 +401,8 @@ export const CustomerFormulasPage = ({
         quantityInGrams: 0,
         pricePerGram: 0,
         rowCost: 0,
+        teaPowderTypeId: '',
+        teaPowderTypeName: '',
       },
     ]);
     setLockedRows({});
@@ -379,13 +439,11 @@ export const CustomerFormulasPage = ({
       return;
     }
 
-    const missingLineItemId = lineItems.some(
-      (item) =>
-        !item.purchaseBatchLineItemId ||
-        !/^[0-9a-fA-F]{24}$/.test(String(item.purchaseBatchLineItemId).trim()),
+    const missingIngredientName = lineItems.some(
+      (item) => !item.ingredientName || !item.ingredientName.trim(),
     );
-    if (missingLineItemId) {
-      showToast('Please select a valid purchase batch ingredient for every row.', 'error');
+    if (missingIngredientName) {
+      showToast('Please select or add a valid Tea Powder Type for every row.', 'error');
       return;
     }
 
@@ -398,13 +456,15 @@ export const CustomerFormulasPage = ({
       customerId,
       notes: notes.trim(),
       lineItems: lineItems.map((item) => ({
-        purchaseBatchCode: item.purchaseBatchCode,
-        purchaseBatchLineItemId: item.purchaseBatchLineItemId,
+        purchaseBatchCode: item.purchaseBatchCode || '',
+        purchaseBatchLineItemId: item.purchaseBatchLineItemId || '',
         ingredientCategory: item.ingredientCategory,
         ingredientName: item.ingredientName,
         quantityInGrams: Number(item.quantityInGrams),
         pricePerGram: Number(item.pricePerGram),
         rowCost: Number(item.rowCost),
+        teaPowderTypeId: item.teaPowderTypeId || undefined,
+        teaPowderTypeName: item.teaPowderTypeName || item.ingredientName,
       })),
       isDefault,
       status,
@@ -557,10 +617,7 @@ export const CustomerFormulasPage = ({
                   <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                     <tr>
                       <th className="px-3 py-2 text-xs uppercase tracking-wide">
-                        {t('customerFormulas.purchaseBatch')}
-                      </th>
-                      <th className="px-3 py-2 text-xs uppercase tracking-wide">
-                        {t('customerFormulas.leafAddOnType')}
+                        {t('customerFormulas.leafAddOnType') || 'Tea Powder Type'}
                       </th>
                       <th className="px-3 py-2 text-xs uppercase tracking-wide w-32">
                         {t('customerFormulas.quantityGrams')}
@@ -578,76 +635,35 @@ export const CustomerFormulasPage = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {lineItems.map((item, idx) => {
-                      const selectedBatch = batches.find(
-                        (b) => b.batchCode === item.purchaseBatchCode,
-                      );
-                      const filteredIngredients = selectedBatch
-                        ? selectedBatch.items
-                        : [];
                       const isDuplicate = !!(
-                        item.purchaseBatchCode &&
                         item.ingredientName &&
-                        duplicateKeys.has(
-                          `${item.purchaseBatchCode.toLowerCase()}:${item.ingredientName.toLowerCase()}`,
-                        )
+                        duplicateKeys.has(item.ingredientName.trim().toLowerCase())
                       );
                       return (
                         <tr key={idx} className="hover:bg-slate-50/50">
-                          {/* Batch Code Selection */}
-                          <td className="px-3 py-2 text-xs font-semibold text-slate-700">
-                            {lockedRows[idx] ? (
-                              <span>{item.purchaseBatchCode}</span>
-                            ) : (
-                              <select
-                                className="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-xs bg-white text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                value={item.purchaseBatchCode}
-                                onChange={(e) =>
-                                  updateLineItem(idx, {
-                                    purchaseBatchCode: e.target.value,
-                                  })
-                                }
-                                disabled={!canEdit}
-                              >
-                                <option value="">
-                                  {t('customerFormulas.selectBatch')}
-                                </option>
-                                {batches.map((b) => (
-                                  <option key={b.id} value={b.batchCode}>
-                                    {b.batchCode} ({b.sellerName})
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </td>
-
-                          {/* Ingredient selection */}
+                          {/* Ingredient selection / Tea Powder Type */}
                           <td className="px-3 py-2 text-xs font-semibold text-slate-700">
                             {lockedRows[idx] ? (
                               <span>{item.ingredientName}</span>
                             ) : (
                               <>
-                                <select
-                                  className="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-xs bg-white text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                <AutocompleteSearchInput
                                   value={item.ingredientName}
-                                  onChange={(e) =>
-                                    updateLineItem(idx, {
-                                      ingredientName: e.target.value,
-                                    })
-                                  }
-                                  disabled={!item.purchaseBatchCode || !canEdit}
-                                >
-                                  <option value="">
-                                    {t('customerFormulas.selectIngredient')}
-                                  </option>
-                                  {filteredIngredients.map((i) => (
-                                    <option
-                                      key={i.subSerialNumber}
-                                      value={i.teaPowderType}
-                                    >
-                                      {i.teaPowderType}
-                                    </option>
-                                  ))}
-                                </select>
+                                  options={autocompleteOptions}
+                                  placeholder="Search Tea Powder Type..."
+                                  createLabel="Tea Powder Type"
+                                  disabled={!canEdit}
+                                  onChange={(val) => updateLineItem(idx, { ingredientName: val })}
+                                  onCreateNew={async (newVal) => {
+                                    try {
+                                      const res = await createPowderTypeMutation.mutateAsync(newVal);
+                                      updateLineItem(idx, { ingredientName: res.name });
+                                    } catch (err) {
+                                      // error is handled by mutation
+                                    }
+                                  }}
+                                  className="w-full h-9"
+                                />
                                 {isDuplicate && (
                                   <span className="text-[10px] font-bold text-red-500 block mt-0.5">
                                     {t('customerFormulas.duplicateSelection')}
@@ -728,7 +744,6 @@ export const CustomerFormulasPage = ({
                                     'customerFormulas.confirmIngredient',
                                   )}
                                   disabled={
-                                    !item.purchaseBatchCode ||
                                     !item.ingredientName ||
                                     item.quantityInGrams <= 0 ||
                                     isDuplicate

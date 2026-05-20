@@ -295,6 +295,7 @@ export async function listGeneralItemsMaster(req: Request, res: Response) {
     query: req.query,
     defaultSortBy: 'itemName',
     allowedSortBy: ['itemName', 'createdAt'],
+    maxLimit: 1000,
     baseFilter: { deletedAt: null },
     buildFilter: (q) => (q ? { itemName: buildContainsRegex(q) } : {}),
   });

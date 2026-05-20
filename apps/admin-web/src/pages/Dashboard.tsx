@@ -32,7 +32,7 @@ export function Dashboard() {
           </Card>
         ))}
       </section>
-      <Card className="p-5">
+      <Card>
         <h3 className="text-lg font-bold">{t('dashboard.workflow')}</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           {[

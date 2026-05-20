@@ -6,6 +6,7 @@ import {
   SEARCH_DEBOUNCE_MS,
   SEARCH_DEFAULT_LIMIT,
   SEARCH_GC_TIME_MS,
+  SEARCH_MIN_CHARS,
   SEARCH_STALE_TIME_MS,
 } from './search.constants';
 import { searchKeys } from './search-query-keys';
@@ -66,7 +67,10 @@ export function useSearch<T>({
         page,
         limit,
       }),
-    enabled,
+    enabled:
+      enabled &&
+      (debouncedQ.trim() === '' ||
+        debouncedQ.trim().length >= SEARCH_MIN_CHARS),
     staleTime: SEARCH_STALE_TIME_MS,
     gcTime: SEARCH_GC_TIME_MS,
   } as UseQueryOptions<SearchResponse<T>>);

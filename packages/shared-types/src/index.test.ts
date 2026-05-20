@@ -111,24 +111,19 @@ describe('Master Data Zod Schemas', () => {
       expect(result.success).toBe(false);
     });
 
-    it('rejects empty or missing purchaseBatchLineItemId', () => {
+    it('allows empty or missing purchaseBatchLineItemId for non-batched ingredients', () => {
       const payload = {
         ...validPayload,
         lineItems: [
           {
             ...validPayload.lineItems[0],
             purchaseBatchLineItemId: '',
+            purchaseBatchCode: '',
           },
         ],
       };
       const result = customerTeaFormulaSchema.safeParse(payload);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        const error = result.error.errors.find(
-          (err) => err.path.includes('purchaseBatchLineItemId')
-        );
-        expect(error?.message).toBe('Invalid purchase batch line item ID');
-      }
+      expect(result.success).toBe(true);
     });
 
     it('rejects invalid purchaseBatchLineItemId format', () => {

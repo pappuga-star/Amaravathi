@@ -4,15 +4,17 @@ import {
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
   type PropsWithChildren,
 } from 'react';
+import { BORDERS, LAYOUT, TYPOGRAPHY } from './design-tokens';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'add' | 'delete' | 'edit' | 'warning' | 'secondary' | 'default';
 }
 
-export interface AccessibleIconButtonProps
-  extends ButtonProps {
+export interface AccessibleIconButtonProps extends ButtonProps {
   label: string;
   tooltipClassName?: string;
   wrapperClassName?: string;
@@ -25,21 +27,22 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variantClasses = {
-    default: 'hover:bg-slate-50 hover:text-slate-900 border-slate-200',
-    add: 'hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border-slate-200',
-    delete:
-      'hover:bg-red-50 hover:text-red-600 hover:border-red-200 border-slate-200',
-    edit: 'hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border-slate-200',
-    warning:
-      'hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 border-slate-200',
-    secondary:
-      'hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 border-slate-200',
+    default: 'bg-white text-slate-900 border-slate-300 hover:bg-slate-50 hover:border-slate-400',
+    secondary: 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50 hover:border-slate-400',
+    add: 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:border-blue-700 shadow-sm focus:ring-blue-600',
+    delete: 'bg-red-600 text-white border-red-600 hover:bg-red-700 hover:border-red-700 shadow-sm focus:ring-red-600',
+    edit: 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 hover:text-blue-900 hover:border-blue-300',
+    warning: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 hover:text-amber-900 hover:border-amber-300',
   };
 
   return (
     <button
       className={clsx(
-        'inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold',
+        'inline-flex items-center justify-center gap-2 rounded-lg border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
+        LAYOUT.buttonHeight,
+        LAYOUT.buttonPadding,
+        TYPOGRAPHY.buttonText,
+        BORDERS.focusRing,
         variantClasses[variant],
         className,
       )}
@@ -68,7 +71,7 @@ export function AccessibleIconButton({
     <span className={clsx('relative inline-flex group', wrapperClassName)}>
       <button
         {...props}
-        className={className}
+        className={clsx(BORDERS.focusRing, 'rounded-md', className)}
         aria-label={label}
         title={label}
       >
@@ -94,7 +97,9 @@ export function Card({
   return (
     <section
       className={clsx(
-        'rounded-lg border border-slate-200 bg-white p-4 shadow-sm',
+        'bg-white shadow-sm transition-shadow duration-200',
+        BORDERS.card,
+        LAYOUT.cardPadding,
         className,
       )}
       {...props}
@@ -108,7 +113,13 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
       <input
         ref={ref}
         className={clsx(
-          'h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100',
+          'w-full bg-white outline-none transition disabled:opacity-50 disabled:cursor-not-allowed',
+          LAYOUT.inputHeight,
+          LAYOUT.inputPadding,
+          TYPOGRAPHY.inputText,
+          TYPOGRAPHY.placeholderText,
+          BORDERS.input,
+          BORDERS.focusRing,
           className,
         )}
         {...props}
@@ -119,17 +130,63 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 
 Input.displayName = 'Input';
 
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
+  ({ className, children, ...props }, ref) => {
+    return (
+      <select
+        ref={ref}
+        className={clsx(
+          'w-full bg-white outline-none transition disabled:opacity-50 disabled:cursor-not-allowed',
+          LAYOUT.inputHeight,
+          LAYOUT.inputPadding,
+          TYPOGRAPHY.inputText,
+          BORDERS.input,
+          BORDERS.focusRing,
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+    );
+  },
+);
+
+Select.displayName = 'Select';
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
+  ({ className, ...props }, ref) => {
+    return (
+      <textarea
+        ref={ref}
+        className={clsx(
+          'w-full bg-white outline-none transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[80px]',
+          LAYOUT.inputPadding,
+          TYPOGRAPHY.inputText,
+          TYPOGRAPHY.placeholderText,
+          BORDERS.input,
+          BORDERS.focusRing,
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);
+
+Textarea.displayName = 'Textarea';
+
 export function Field({
   label,
   error,
   children,
 }: PropsWithChildren<{ label: string; error?: string | undefined }>) {
   return (
-    <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-      <span>{label}</span>
+    <label className="grid gap-1.5 w-full">
+      <span className={clsx(TYPOGRAPHY.fieldLabel)}>{label}</span>
       {children}
       {error ? (
-        <span className="text-xs font-medium text-red-600">{error}</span>
+        <span className={clsx(TYPOGRAPHY.errorText)}>{error}</span>
       ) : null}
     </label>
   );

@@ -29,6 +29,7 @@ type SearchListOptions<T> = {
   projection?: ProjectionType<T>;
   allowedSortBy?: string[];
   defaultSortBy?: string;
+  maxLimit?: number;
   transformItem?: (item: any) => any;
   useEstimatedCountWhenNoFilter?: boolean;
   cacheTtlSeconds?: number;
@@ -47,9 +48,11 @@ export async function runListSearch<T>(
   const validatorOptions: {
     allowedSortBy?: string[];
     defaultSortBy?: string;
+    maxLimit?: number;
   } = {};
   if (options.allowedSortBy) validatorOptions.allowedSortBy = options.allowedSortBy;
   if (options.defaultSortBy) validatorOptions.defaultSortBy = options.defaultSortBy;
+  if (options.maxLimit !== undefined) validatorOptions.maxLimit = options.maxLimit;
   const normalized = validateSearchQuery(options.query, validatorOptions);
 
   const filter: FilterQuery<T> = {

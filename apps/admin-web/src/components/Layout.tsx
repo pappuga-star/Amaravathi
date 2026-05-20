@@ -94,13 +94,13 @@ export function Layout() {
         }`}
         style={{ top: HEADER_HEIGHT, zIndex: Z_INDEX.drawer }}
       >
-        <div className="flex min-h-[52px] items-center justify-between border-b px-4 py-1.5">
+        <div className="flex min-h-[64px] items-center justify-between border-b px-4 py-1.5">
           <div className="flex items-center">
             <Logo
-              width={132}
-              height={48}
+              width={162}
+              height={54}
               priority
-              className="h-auto max-h-12 w-[132px] object-contain"
+              className="h-auto max-h-[54px] w-[162px] object-contain"
             />
           </div>
           <AccessibleIconButton

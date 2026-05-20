@@ -15,6 +15,27 @@ export default {
           700: '#047857',
           900: '#064e3b',
         },
+        // Semantic design system colors
+        'text-primary': '#111827',
+        'text-secondary': '#374151',
+        'text-muted': '#6B7280',
+        'text-placeholder': '#9CA3AF',
+        'text-error': '#DC2626',
+        'text-success': '#059669',
+        
+        'bg-page': '#F9FAFB',
+        'bg-card': '#FFFFFF',
+        'bg-input': '#FFFFFF',
+        'bg-hover': '#F3F4F6',
+        'bg-selected': '#EFF6FF',
+        
+        'border-default': '#D1D5DB',
+        'border-hover': '#9CA3AF',
+        'border-focus': '#2563EB',
+        'border-error': '#DC2626',
+        
+        'btn-primary': '#2563EB',
+        'btn-danger': '#DC2626',
       },
     },
   },

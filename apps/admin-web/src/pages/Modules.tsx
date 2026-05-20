@@ -17,10 +17,12 @@ import {
   Card,
   Input,
 } from '@amaravathi/shared-ui';
+import { useNavigate } from 'react-router-dom';
 import { api, endpoints } from '../lib/api';
 import { DataModule } from '../components/DataModule';
 import { ViewDetailsModal } from '../components/ViewDetailsModal';
 import { useNotification } from '@/components/NotificationContext';
+import { showLinkedRecordsNotification } from '../utils/dependency-error-handler';
 import { Z_INDEX } from '../constants/zIndex';
 import { STICKY_IN_CONTENT } from '../utils/sticky';
 import { useSearch } from '../search/useSearch';
@@ -37,6 +39,7 @@ export const TeaPowderTypesPage = () => {
   const search = useSearch<{ id: string; name: string }>({
     moduleName: endpoints.teaPowderTypes,
     initialLimit: PAGE_SIZE,
+    syncUrl: false,
     queryFn: ({ q, page, limit }) =>
       api<{
         items: { id: string; name: string }[];
@@ -99,6 +102,7 @@ export const TeaPowderTypesPage = () => {
       setName('');
       setEditingId(null);
       queryClient.invalidateQueries({ queryKey: [endpoints.teaPowderTypes] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix(endpoints.teaPowderTypes) });
     },
   });
 
@@ -108,6 +112,7 @@ export const TeaPowderTypesPage = () => {
       api(`${endpoints.teaPowderTypes}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [endpoints.teaPowderTypes] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix(endpoints.teaPowderTypes) });
     },
     onError: (err: any) => {
       showError(err);
@@ -144,7 +149,7 @@ export const TeaPowderTypesPage = () => {
   return (
     <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
       {/* Left Form: Add/Edit Tea Powder Type */}
-      <Card className="h-max p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
+      <Card className="h-max flex flex-col gap-4">
         <h3 className="text-lg font-bold text-slate-800">
           {editingId ? 'Edit Tea Powder Type' : 'Add Tea Powder Type'}
         </h3>
@@ -197,7 +202,7 @@ export const TeaPowderTypesPage = () => {
       </Card>
 
       {/* Right Table: Searchable records */}
-      <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
+      <Card className="min-w-0 flex flex-col gap-4">
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-bold text-slate-800">
             Tea Powder Type Records
@@ -222,29 +227,29 @@ export const TeaPowderTypesPage = () => {
         </div>
 
         <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-sm text-slate-900">
             <thead
-              className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200"
+              className="bg-slate-100 text-slate-900 font-semibold border-b border-slate-200"
               style={STICKY_IN_CONTENT}
             >
               <tr>
-                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide w-20">
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider w-20">
                   S.No
                 </th>
-                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">
                   Tea Powder Type Name
                 </th>
-                <th className="sticky right-0 bg-slate-50 px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide text-center">
+                <th className="sticky right-0 bg-slate-100 px-4 py-3 font-semibold text-xs uppercase tracking-wider text-center">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-200">
               {items.length === 0 ? (
                 <tr>
                   <td
                     colSpan={3}
-                    className="px-4 py-8 text-center text-slate-400 italic text-sm"
+                    className="px-4 py-8 text-center text-slate-500 italic text-sm bg-white"
                   >
                     No tea powder types found.
                   </td>
@@ -253,15 +258,15 @@ export const TeaPowderTypesPage = () => {
                 items.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="hover:bg-slate-50/50 transition-colors"
+                    className="hover:bg-slate-50 transition-colors"
                   >
-                    <td className="px-4 py-2.5 text-base font-semibold text-slate-500">
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-500">
                       {serialStart + index + 1}
                     </td>
-                    <td className="px-4 py-2.5 text-sm font-medium text-slate-700">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900">
                       {item.name}
                     </td>
-                    <td className="sticky right-0 bg-white px-4 py-2.5 text-center">
+                    <td className="sticky right-0 bg-white px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <AccessibleIconButton
                           type="button"
@@ -513,6 +518,7 @@ export const SellersPage = () => {
       setEmail('');
       setEditingId(null);
       queryClient.invalidateQueries({ queryKey: [endpoints.sellers] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix(endpoints.sellers) });
     },
   });
 
@@ -522,6 +528,7 @@ export const SellersPage = () => {
       api(`${endpoints.sellers}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [endpoints.sellers] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix(endpoints.sellers) });
     },
     onError: (err: any) => {
       showError(err);
@@ -575,7 +582,7 @@ export const SellersPage = () => {
   return (
     <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
       {/* Left Form: Add/Edit Seller */}
-      <Card className="h-max p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
+      <Card className="h-max flex flex-col gap-4">
         <h3 className="text-lg font-bold text-slate-800">
           {editingId ? 'Edit Seller (Supplier)' : 'Add Seller (Supplier)'}
         </h3>
@@ -658,7 +665,7 @@ export const SellersPage = () => {
       </Card>
 
       {/* Right Table: Searchable records */}
-      <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
+      <Card className="min-w-0 flex flex-col gap-4">
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-bold text-slate-800">Seller Records</h3>
           <div className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
@@ -681,38 +688,38 @@ export const SellersPage = () => {
         </div>
 
         <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-sm text-slate-900">
             <thead
-              className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200"
+              className="bg-slate-100 text-slate-900 font-semibold border-b border-slate-200"
               style={STICKY_IN_CONTENT}
             >
               <tr>
-                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide w-20">
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider w-20">
                   S.No
                 </th>
-                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">
                   Seller Name
                 </th>
-                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">
                   Contact Person
                 </th>
-                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">
                   Phone
                 </th>
-                <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide">
+                <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">
                   Email
                 </th>
-                <th className="sticky right-0 bg-slate-50 px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide text-center">
+                <th className="sticky right-0 bg-slate-100 px-4 py-3 font-semibold text-xs uppercase tracking-wider text-center">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-200">
               {items.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-4 py-8 text-center text-slate-400 italic text-sm"
+                    className="px-4 py-8 text-center text-slate-500 italic text-sm bg-white"
                   >
                     No sellers (suppliers) found.
                   </td>
@@ -721,24 +728,24 @@ export const SellersPage = () => {
                 items.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="hover:bg-slate-50/50 transition-colors"
+                    className="hover:bg-slate-50 transition-colors"
                   >
-                    <td className="px-4 py-2.5 text-base font-semibold text-slate-500">
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-500">
                       {serialStart + index + 1}
                     </td>
-                    <td className="px-4 py-2.5 text-sm font-medium text-slate-700">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900">
                       {item.name}
                     </td>
-                    <td className="px-4 py-2.5 text-xs font-normal text-slate-600">
+                    <td className="px-4 py-3 text-sm font-normal text-slate-700">
                       {item.contactPerson || '-'}
                     </td>
-                    <td className="px-4 py-2.5 text-xs font-normal text-slate-500">
+                    <td className="px-4 py-3 text-sm font-normal text-slate-600">
                       {item.phone || '-'}
                     </td>
-                    <td className="px-4 py-2.5 text-xs font-normal text-slate-500">
+                    <td className="px-4 py-3 text-sm font-normal text-slate-600">
                       {item.email || '-'}
                     </td>
-                    <td className="sticky right-0 bg-white px-4 py-2.5 text-center">
+                    <td className="sticky right-0 bg-white px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <AccessibleIconButton
                           type="button"
@@ -925,7 +932,8 @@ export const UsersPage = () => (
 export const CustomersPage = () => {
   const PAGE_SIZE = SEARCH_DEFAULT_LIMIT;
   const queryClient = useQueryClient();
-  const { showError, confirm } = useNotification();
+  const navigate = useNavigate();
+  const { showToast, showError, confirm } = useNotification();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
@@ -1022,6 +1030,7 @@ export const CustomersPage = () => {
       setMobileNumber('');
       setEditingId(null);
       queryClient.invalidateQueries({ queryKey: [endpoints.customers] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix(endpoints.customers) });
     },
   });
 
@@ -1030,9 +1039,10 @@ export const CustomersPage = () => {
       api(`${endpoints.customers}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [endpoints.customers] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix(endpoints.customers) });
     },
     onError: (err: any) => {
-      showError(err);
+      showLinkedRecordsNotification(err, navigate, showToast, showError);
     },
   });
 

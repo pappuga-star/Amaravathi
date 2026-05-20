@@ -49,23 +49,27 @@ const SAVE_RESPONSE_FIELDS =
   '_id formulaCode customerId totalWeight totalFormulaCost costPerKg costPer100Grams isDefault status createdAt updatedAt deletedAt';
 
 type IncomingFormulaLineItem = {
-  purchaseBatchCode: string;
-  purchaseBatchLineItemId: unknown;
+  purchaseBatchCode?: string | undefined;
+  purchaseBatchLineItemId?: unknown | undefined;
   ingredientCategory: 'Leaf' | 'Add-On';
   ingredientName: string;
   quantityInGrams: number;
   pricePerGram?: number | undefined;
   rowCost?: number | undefined;
+  teaPowderTypeId?: string | undefined;
+  teaPowderTypeName?: string | undefined;
 };
 
 type NormalizedFormulaLineItem = {
-  purchaseBatchCode: string;
-  purchaseBatchLineItemId: string;
+  purchaseBatchCode?: string | undefined;
+  purchaseBatchLineItemId?: string | undefined;
   ingredientCategory: 'Leaf' | 'Add-On';
   ingredientName: string;
   quantityInGrams: number;
   pricePerGram: number;
   rowCost: number;
+  teaPowderTypeId?: string | undefined;
+  teaPowderTypeName?: string | undefined;
 };
 
 interface PurchaseBatchLineLookup {
@@ -89,30 +93,39 @@ export async function validateAndBuildLineItems(
     }
   | { ok: false; status: number; message: string }
 > {
-  const batchCodes = Array.from(new Set(lineItems.map((item) => item.purchaseBatchCode)));
+  const batchCodes = Array.from(
+    new Set(
+      lineItems
+        .map((item) => item.purchaseBatchCode)
+        .filter((code): code is string => typeof code === 'string' && code.trim() !== ''),
+    ),
+  );
   const lineItemObjectIds = lineItems
     .map((item) => item.purchaseBatchLineItemId)
     .map((id) => String(id ?? '').trim())
     .filter((id) => mongoose.Types.ObjectId.isValid(id))
     .map((id) => toObjectId(id, 'purchase batch line item ID'));
 
-  const matchedBatchLineItems = await AddPurchaseBatch.aggregate<PurchaseBatchLineLookup>([
-    { $match: { batchCode: { $in: batchCodes } } },
-    { $unwind: '$lineItems' },
-    lineItemObjectIds.length > 0
-      ? { $match: { 'lineItems._id': { $in: lineItemObjectIds } } }
-      : { $match: { _id: { $exists: true } } },
-    {
-      $project: {
-        _id: 0,
-        batchCode: 1,
-        lineItemId: '$lineItems._id',
-        teaPowderTypeName: '$lineItems.teaPowderTypeName',
-        pricePerKg: '$lineItems.pricePerKg',
-        availableStockInGrams: '$lineItems.availableStockInGrams',
-      },
-    },
-  ]);
+  const matchedBatchLineItems =
+    batchCodes.length > 0
+      ? await AddPurchaseBatch.aggregate<PurchaseBatchLineLookup>([
+          { $match: { batchCode: { $in: batchCodes } } },
+          { $unwind: '$lineItems' },
+          lineItemObjectIds.length > 0
+            ? { $match: { 'lineItems._id': { $in: lineItemObjectIds } } }
+            : { $match: { _id: { $exists: true } } },
+          {
+            $project: {
+              _id: 0,
+              batchCode: 1,
+              lineItemId: '$lineItems._id',
+              teaPowderTypeName: '$lineItems.teaPowderTypeName',
+              pricePerKg: '$lineItems.pricePerKg',
+              availableStockInGrams: '$lineItems.availableStockInGrams',
+            },
+          },
+        ])
+      : [];
 
   const batchLineItemById = new Map<string, PurchaseBatchLineLookup>(
     matchedBatchLineItems.map((item) => [String(item.lineItemId), item]),
@@ -120,66 +133,87 @@ export async function validateAndBuildLineItems(
 
   const combinations = new Set<string>();
   for (const item of lineItems) {
-    const key = `${item.purchaseBatchCode.toLowerCase()}:${item.ingredientName.toLowerCase()}`;
+    const key = item.purchaseBatchCode
+      ? `${item.purchaseBatchCode.toLowerCase()}:${item.ingredientName.toLowerCase()}`
+      : `nobatch:${item.ingredientName.toLowerCase()}`;
     if (combinations.has(key)) {
       return {
         ok: false,
         status: 400,
-        message: `Duplicate combination inside formula: "${item.ingredientName}" from Batch "${item.purchaseBatchCode}" is selected multiple times.`,
+        message: item.purchaseBatchCode
+          ? `Duplicate combination inside formula: "${item.ingredientName}" from Batch "${item.purchaseBatchCode}" is selected multiple times.`
+          : `Duplicate ingredient inside formula: "${item.ingredientName}" is selected multiple times.`,
       };
     }
     combinations.add(key);
 
-    const batchItem = batchLineItemById.get(String(item.purchaseBatchLineItemId));
-    if (!batchItem) {
-      return {
-        ok: false,
-        status: 400,
-        message: `Ingredient "${item.ingredientName}" was not found in Purchase Batch "${item.purchaseBatchCode}" by selected line item.`,
-      };
-    }
-    if (batchItem.batchCode !== item.purchaseBatchCode) {
-      return {
-        ok: false,
-        status: 400,
-        message: `Purchase Batch line item mismatch for "${item.ingredientName}" and Batch "${item.purchaseBatchCode}".`,
-      };
-    }
-    if (
-      String(batchItem.teaPowderTypeName || '').toLowerCase() !==
-      String(item.ingredientName || '').toLowerCase()
-    ) {
-      return {
-        ok: false,
-        status: 400,
-        message: `Ingredient "${item.ingredientName}" does not match selected Purchase Batch line item.`,
-      };
+    const hasBatchId =
+      item.purchaseBatchLineItemId &&
+      mongoose.Types.ObjectId.isValid(String(item.purchaseBatchLineItemId));
+
+    if (hasBatchId) {
+      const batchItem = batchLineItemById.get(String(item.purchaseBatchLineItemId));
+      if (!batchItem) {
+        return {
+          ok: false,
+          status: 400,
+          message: `Ingredient "${item.ingredientName}" was not found in Purchase Batch "${item.purchaseBatchCode || ''}" by selected line item.`,
+        };
+      }
+      if (item.purchaseBatchCode && batchItem.batchCode !== item.purchaseBatchCode) {
+        return {
+          ok: false,
+          status: 400,
+          message: `Purchase Batch line item mismatch for "${item.ingredientName}" and Batch "${item.purchaseBatchCode}".`,
+        };
+      }
+      if (
+        String(batchItem.teaPowderTypeName || '').toLowerCase() !==
+        String(item.ingredientName || '').toLowerCase()
+      ) {
+        return {
+          ok: false,
+          status: 400,
+          message: `Ingredient "${item.ingredientName}" does not match selected Purchase Batch line item.`,
+        };
+      }
     }
   }
 
   let totalWeight = 0;
   let totalFormulaCost = 0;
   const updatedLineItems: NormalizedFormulaLineItem[] = lineItems.map((item) => {
-    const batchItem = batchLineItemById.get(String(item.purchaseBatchLineItemId));
-    if (!batchItem?.lineItemId) {
+    const hasBatchId =
+      item.purchaseBatchLineItemId &&
+      mongoose.Types.ObjectId.isValid(String(item.purchaseBatchLineItemId));
+    const batchItem = hasBatchId
+      ? batchLineItemById.get(String(item.purchaseBatchLineItemId))
+      : undefined;
+
+    if (hasBatchId && !batchItem?.lineItemId) {
       throw new AppError(
         'Purchase batch line item ID not found for selected ingredient.',
         400,
       );
     }
+
     const pricePerGram = batchItem
       ? batchItem.pricePerKg / 1000
-      : item.pricePerGram || 0;
+      : Number(item.pricePerGram) || 0;
     const rowCost = Number((item.quantityInGrams * pricePerGram).toFixed(2));
     totalWeight += item.quantityInGrams;
     totalFormulaCost += rowCost;
+
     return {
-      ...item,
+      purchaseBatchCode: item.purchaseBatchCode || '',
+      purchaseBatchLineItemId: batchItem ? String(batchItem.lineItemId) : '',
+      ingredientCategory: item.ingredientCategory,
+      ingredientName: item.ingredientName,
+      quantityInGrams: item.quantityInGrams,
       pricePerGram,
       rowCost,
-      purchaseBatchLineItemId: batchItem
-        ? String(toObjectId(batchItem.lineItemId, 'purchase batch line item ID'))
-        : String(toObjectId(item.purchaseBatchLineItemId, 'purchase batch line item ID')),
+      teaPowderTypeId: item.teaPowderTypeId || '',
+      teaPowderTypeName: item.teaPowderTypeName || '',
     };
   });
 
@@ -475,10 +509,20 @@ export const customerTeaFormulasController = {
     const updatedPayload = { ...parsed };
 
     const checkCust = parsed.customerId || existingFormula.customerId;
-    const finalLineItems =
+    const finalLineItems: IncomingFormulaLineItem[] =
       parsed.lineItems !== undefined
         ? parsed.lineItems
-        : existingFormula.lineItems;
+        : existingFormula.lineItems.map((item: any) => ({
+            purchaseBatchCode: item.purchaseBatchCode || undefined,
+            purchaseBatchLineItemId: item.purchaseBatchLineItemId ? String(item.purchaseBatchLineItemId) : undefined,
+            ingredientCategory: item.ingredientCategory,
+            ingredientName: item.ingredientName,
+            quantityInGrams: item.quantityInGrams,
+            pricePerGram: item.pricePerGram,
+            rowCost: item.rowCost,
+            teaPowderTypeId: item.teaPowderTypeId ? String(item.teaPowderTypeId) : undefined,
+            teaPowderTypeName: item.teaPowderTypeName || undefined,
+          }));
 
     if (finalLineItems && finalLineItems.length > 0) {
       const computed = await validateAndBuildLineItems(finalLineItems);

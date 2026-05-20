@@ -68,6 +68,7 @@ import {
   getSystemSettingsController,
   updateSystemSettingsController,
 } from '../controllers/systemSettingsController.js';
+import { throwLinkedRecordsError } from '../utils/errors.js';
 
 const router = Router();
 router.param('id', validateObjectIdParam('id'));
@@ -321,15 +322,20 @@ router.delete(
       });
     }
 
-    const hasLinkedFormulas = await CustomerTeaFormula.exists({
+    const dependencyCount = await CustomerTeaFormula.countDocuments({
       customerId: customerObjectId,
       deletedAt: null,
     });
-    if (hasLinkedFormulas) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'Cannot delete customer because related custom tea formulas exist.',
+    if (dependencyCount > 0) {
+      throwLinkedRecordsError({
+        entity: 'customer',
+        message: 'Cannot delete customer because related custom tea formulas exist.',
+        recordId: id,
+        recordName: customer.name,
+        dependencyType: 'customerTeaFormulas',
+        dependencyCount,
+        actionLabel: 'View Formulas',
+        redirectUrl: `/taste-customization?tab=saved-formulas&q=${encodeURIComponent(customer.name)}`,
       });
     }
 

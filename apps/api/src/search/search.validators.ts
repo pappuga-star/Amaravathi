@@ -29,6 +29,7 @@ export function validateSearchQuery(
     maxQueryLength?: number;
     allowedSortBy?: string[];
     defaultSortBy?: string;
+    maxLimit?: number;
   },
 ): NormalizedSearchQuery {
   const minChars = options?.minChars ?? SEARCH_MIN_CHARS;
@@ -51,7 +52,7 @@ export function validateSearchQuery(
     );
   }
 
-  const { page, limit } = buildPagination(input.page, input.limit);
+  const { page, limit } = buildPagination(input.page, input.limit, options?.maxLimit);
   const sortByRaw = normalizeQuery(input.sortBy);
   const sortBy = sortByRaw || options?.defaultSortBy || 'createdAt';
   if (options?.allowedSortBy?.length && !options.allowedSortBy.includes(sortBy)) {
@@ -69,7 +70,7 @@ export function validateSearchQuery(
     normalizedQuery,
     hasSearchTerm,
     page,
-    limit: clampLimit(limit ?? SEARCH_DEFAULT_LIMIT),
+    limit: clampLimit(limit ?? SEARCH_DEFAULT_LIMIT, options?.maxLimit),
     sortBy,
     sortOrder,
   };

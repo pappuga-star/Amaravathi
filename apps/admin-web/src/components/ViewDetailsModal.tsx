@@ -239,18 +239,18 @@ export function ViewDetailsModal({
               return (
                 <div
                   key={idx}
-                  className={`flex flex-col gap-1 pb-3 border-b border-slate-100 last:border-b-0 last:pb-0 ${
+                  className={`flex flex-col gap-1 pb-3 border-b border-slate-200 last:border-b-0 last:pb-0 ${
                     field.highlighted
                       ? 'bg-emerald-50/30 -mx-6 px-6 py-2 border-y border-emerald-100/50'
                       : ''
                   }`}
                 >
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     {field.label}
                   </span>
 
                   {isEmpty ? (
-                    <span className="text-slate-400 font-medium italic">—</span>
+                    <span className="text-slate-500 font-medium italic">—</span>
                   ) : field.type === 'currency' || field.highlighted ? (
                     <span className="text-lg font-bold text-emerald-800">
                       {(() => {

@@ -74,22 +74,18 @@ export function AddPurchaseBatchPage() {
   const activeTab = searchParams.get('tab') === 'types' ? 'types' : 'batches';
   const setActiveTab = (tab: 'batches' | 'types') => {
     const newParams = new URLSearchParams(searchParams);
+    newParams.delete('q');
     if (tab === 'batches') {
       newParams.delete('tab');
     } else {
       newParams.set('tab', 'types');
     }
     setSearchParams(newParams);
+    batchSearch.setQ('');
   };
   const batchTabs = ['batches', 'types'] as const;
   const onBatchTabsKeyDown = useTabsKeyboardNavigation(batchTabs, activeTab, setActiveTab);
 
-  useEffect(() => {
-    const q = searchParams.get('q');
-    if (q !== null) {
-      batchSearch.setQ(q);
-    }
-  }, [searchParams, batchSearch]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedBatches, setExpandedBatches] = useState<
@@ -176,7 +172,7 @@ export function AddPurchaseBatchPage() {
       setEditingId(null);
       setShowForm(false);
       setEditingRowIndices({ 0: true });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('batches') });
       showToast(
         wasEditing
           ? t('addPurchaseBatch.messages.updatedSuccess')
@@ -194,7 +190,7 @@ export function AddPurchaseBatchPage() {
     mutationFn: (id: string) =>
       api(`${endpoints.batches}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('batches') });
       showToast(t('addPurchaseBatch.messages.deletedSuccess'), 'success');
     },
     onError: (err: any) => {
