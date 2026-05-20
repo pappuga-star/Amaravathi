@@ -199,7 +199,7 @@
     },
     "table": {
       "teaPowderType": "Tea Powder Type",
-      "quantityKg": "Quantity (KG)",
+      "quantityKg": "No.of.Bags",
       "pricePerKg": "Price per Kg (₹)",
       "totalAmount": "Total Amount (₹)",
       "actions": "Actions",
