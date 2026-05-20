@@ -197,6 +197,7 @@
     },
     "table": {
       "teaPowderType": "టీ పౌడర్ రకం",
+      "quantityKg": "బస్తాల సంఖ్య",
       "pricePerKg": "కిలోకు ధర (₹)",
       "actions": "చర్యలు",
       "selectGrade": "గ్రేడ్ లేదా వర్గాన్ని ఎంచుకోండి...",

@@ -1478,19 +1478,26 @@ export function AddPurchaseBatchPage() {
                   {viewingBatch.lineItems.map((item: any, index: number) => (
                     <div
                       key={item.id ?? index}
-                      className="flex justify-between items-center border border-slate-200 rounded-xl p-3 bg-white shadow-[0_1px_0_rgba(15,23,42,0.03)]"
+                      className="flex items-center border border-slate-200 rounded-xl p-3 bg-white shadow-[0_1px_0_rgba(15,23,42,0.03)]"
                     >
-                      <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-                        <span className="grid size-5 place-items-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200">
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-700 w-2/5">
+                        <span className="grid size-5 place-items-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200 shrink-0">
                           {index + 1}
                         </span>
-                        <span className="font-semibold text-slate-800 text-[13px]">
+                        <span className="font-semibold text-slate-800 text-[13px] truncate">
                           {item.teaPowderTypeName}
                         </span>
                       </div>
-                      <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-0.5">
-                        ₹{Number(item.pricePerKg || 0).toFixed(2)}/kg
-                      </span>
+                      <div className="w-1/5 flex justify-center">
+                        <span className="text-[13px] font-bold text-slate-700">
+                          {item.quantityKg}
+                        </span>
+                      </div>
+                      <div className="w-2/5 flex justify-end">
+                        <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-0.5 whitespace-nowrap">
+                          ₹{Number(item.pricePerKg || 0).toFixed(2)}/kg
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
