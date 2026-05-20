@@ -10,9 +10,9 @@ if (env.seedOnStartup) {
 }
 
 const app = createApp();
-const server = app.listen(env.port, () => {
+const server = app.listen(env.port, '0.0.0.0', () => {
   console.log(
-    `Amaravathi Tea Pricing API running on http://localhost:${env.port}`,
+    `Amaravathi Tea Pricing API running on http://0.0.0.0:${env.port}`,
   );
 });
 
