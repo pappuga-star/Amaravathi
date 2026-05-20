@@ -185,7 +185,7 @@ export function AutocompleteSearchInput({
               left: `${coords.left}px`,
               width: `${coords.width}px`,
             }}
-            className={`z-[1300] max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg ${
+            className={`z-[1300] max-h-64 overflow-y-auto rounded-lg border border-slate-300 bg-white p-1 shadow-lg ${
               coords.placeAbove ? 'popover-animate-above' : 'popover-animate-below'
             }`}
           >

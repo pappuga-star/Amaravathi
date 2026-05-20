@@ -27,12 +27,12 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variantClasses = {
-    default: 'bg-white text-slate-900 border-slate-300 hover:bg-slate-50 hover:border-slate-400',
-    secondary: 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50 hover:border-slate-400',
+    default: 'bg-white text-slate-900 border-slate-400 hover:bg-slate-50 hover:border-slate-500 hover:text-slate-900 shadow-sm',
+    secondary: 'bg-white text-slate-900 border-slate-400 hover:bg-slate-50 hover:border-slate-500 hover:text-slate-900 shadow-sm',
     add: 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:border-blue-700 shadow-sm focus:ring-blue-600',
     delete: 'bg-red-600 text-white border-red-600 hover:bg-red-700 hover:border-red-700 shadow-sm focus:ring-red-600',
-    edit: 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 hover:text-blue-900 hover:border-blue-300',
-    warning: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 hover:text-amber-900 hover:border-amber-300',
+    edit: 'bg-blue-50 text-blue-950 border-blue-400 hover:bg-blue-100 hover:text-blue-950 hover:border-blue-500',
+    warning: 'bg-amber-50 text-amber-950 border-amber-400 hover:bg-amber-100 hover:text-amber-950 hover:border-amber-500',
   };
 
   return (

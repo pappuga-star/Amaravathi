@@ -19,7 +19,7 @@ export default {
         'text-primary': '#111827',
         'text-secondary': '#374151',
         'text-muted': '#6B7280',
-        'text-placeholder': '#9CA3AF',
+        'text-placeholder': '#6B7280',
         'text-error': '#DC2626',
         'text-success': '#059669',
         
@@ -29,8 +29,8 @@ export default {
         'bg-hover': '#F3F4F6',
         'bg-selected': '#EFF6FF',
         
-        'border-default': '#D1D5DB',
-        'border-hover': '#9CA3AF',
+        'border-default': '#9CA3AF',
+        'border-hover': '#6B7280',
         'border-focus': '#2563EB',
         'border-error': '#DC2626',
         

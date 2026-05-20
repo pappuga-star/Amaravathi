@@ -329,17 +329,19 @@ function GeneralItemsForm({
   };
 
   return (
-    <Card className="grid gap-5 p-5">
-      <div>
-        <h3 className="text-lg font-bold text-slate-900">
-          {isEditing ? 'Edit General Item Purchase' : 'New General Item Purchase'}
-        </h3>
-        <p className="text-xs text-slate-500">
-          Track non-tea purchases with supplier rate validation and stock updates.
-        </p>
+    <Card className="flex flex-col !p-0" style={{ height: 'calc(100vh - 220px)', minHeight: '500px' }}>
+      <div className="flex items-center px-4 py-2.5 border-b border-slate-200 shrink-0">
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">
+            {isEditing ? 'Edit General Item Purchase' : 'New General Item Purchase'}
+          </h3>
+          <p className="text-[11px] text-slate-500">
+            Track non-tea purchases with supplier rate validation and stock updates.
+          </p>
+        </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-2 md:grid-cols-2 px-4 py-2 border-b border-slate-200 shrink-0">
         <Field label="Purchase Date">
           <Input
             type="date"
@@ -348,6 +350,7 @@ function GeneralItemsForm({
               setForm((prev) => ({ ...prev, purchaseDate: e.target.value }))
             }
             disabled={!canEdit}
+            className="h-9 text-sm"
           />
         </Field>
 
@@ -359,27 +362,28 @@ function GeneralItemsForm({
             }
             placeholder="Optional"
             disabled={!canEdit}
+            className="h-9 text-sm"
           />
         </Field>
 
         <Field label="Supplier Name">
-          <div className="grid gap-2">
-            <SupplierAutocompleteInput
-              value={form.supplierName}
-              onChange={(value) =>
-                setForm((prev) => ({ ...prev, supplierName: value }))
-              }
-              onSearchTermChange={onSupplierSearchTermChange}
-              options={supplierOptions}
-              placeholder="Select or type supplier"
-              disabled={!canEdit}
-            />
-            <div>
-              <Button type="button" className="h-8 px-3 text-xs" onClick={onOpenSupplierModal} disabled={!canEdit}>
-                <Plus size={12} />
-                New Supplier
-              </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <SupplierAutocompleteInput
+                value={form.supplierName}
+                onChange={(value) =>
+                  setForm((prev) => ({ ...prev, supplierName: value }))
+                }
+                onSearchTermChange={onSupplierSearchTermChange}
+                options={supplierOptions}
+                placeholder="Select or type supplier"
+                disabled={!canEdit}
+              />
             </div>
+            <Button type="button" className="h-9 px-2 text-xs shrink-0" onClick={onOpenSupplierModal} disabled={!canEdit}>
+              <Plus size={11} />
+              New
+            </Button>
           </div>
         </Field>
 
@@ -389,33 +393,35 @@ function GeneralItemsForm({
             onChange={(e) =>
               setForm((prev) => ({ ...prev, notes: e.target.value }))
             }
-            rows={2}
+            rows={1}
             disabled={!canEdit}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="w-full rounded-md border border-slate-400 bg-white px-3 py-1.5 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 resize-none"
           />
         </Field>
       </div>
 
-      <div className="rounded-lg border border-slate-200 overflow-visible">
-        <div className="overflow-x-auto overflow-y-visible">
-          <table className="min-w-[860px] w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto border-b border-slate-300">
+        <table className="min-w-[860px] w-full text-xs">
+          <thead
+            className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-700 font-bold border-b border-slate-300"
+            style={{ position: 'sticky', top: 0, zIndex: 10 }}
+          >
             <tr>
-              <th className="px-3 py-2 text-left">Particulars</th>
-              <th className="px-3 py-2 text-left">Quantity</th>
-              <th className="px-3 py-2 text-left">Unit</th>
-              <th className="px-3 py-2 text-left">Rate Per Unit</th>
-              <th className="px-3 py-2 text-left">Amount</th>
-              <th className="px-3 py-2 text-left">Actions</th>
+              <th className="px-2 py-1.5 text-left">Particulars</th>
+              <th className="px-2 py-1.5 text-left">Quantity</th>
+              <th className="px-2 py-1.5 text-left">Unit</th>
+              <th className="px-2 py-1.5 text-left">Rate Per Unit</th>
+              <th className="px-2 py-1.5 text-left">Amount</th>
+              <th className="px-2 py-1.5 text-left">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-200">
             {form.lineItems.map((item, index) => (
               <tr
                 key={index}
-                className={index === selectedRowIndex ? 'bg-emerald-50/40' : ''}
+                className={index === selectedRowIndex ? 'bg-emerald-50/40' : 'bg-white'}
               >
-                <td className="px-3 py-2">
+                <td className="px-2 py-1">
                   <ParticularsAutocompleteInput
                     value={item.particulars}
                     onFocus={() => setSelectedRowIndex(index)}
@@ -425,7 +431,7 @@ function GeneralItemsForm({
                     disabled={!canEdit}
                   />
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-2 py-1">
                   <Input
                     type="number"
                     min={0}
@@ -438,9 +444,10 @@ function GeneralItemsForm({
                       })
                     }
                     disabled={!canEdit}
+                    className="h-8 text-xs"
                   />
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-2 py-1">
                   <select
                     value={item.unit}
                     onFocus={() => setSelectedRowIndex(index)}
@@ -448,7 +455,7 @@ function GeneralItemsForm({
                       updateLine(index, { unit: e.target.value as Unit })
                     }
                     disabled={!canEdit}
-                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                    className="h-8 w-full rounded-md border border-slate-400 bg-white px-2 text-xs outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                   >
                     {UNIT_OPTIONS.map((unit) => (
                       <option key={unit} value={unit}>
@@ -457,7 +464,7 @@ function GeneralItemsForm({
                     ))}
                   </select>
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-2 py-1">
                   <Input
                     type="number"
                     min={0}
@@ -470,34 +477,35 @@ function GeneralItemsForm({
                       })
                     }
                     disabled={!canEdit}
+                    className="h-8 text-xs"
                   />
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-2 py-1">
                   <Input
                     value={item.amount.toFixed(2)}
                     readOnly
-                    className="bg-slate-50 font-semibold"
+                    className="h-8 text-xs bg-slate-50 font-semibold"
                   />
                 </td>
-                <td className="px-3 py-2">
-                  <div className="flex gap-2">
+                <td className="px-2 py-1">
+                  <div className="flex gap-1.5">
                     <AccessibleIconButton
                       type="button"
-                      className="h-9 px-2"
+                      className="h-8 w-7 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
                       onClick={addLine}
                       disabled={!canEdit}
                       label="Add line item"
                     >
-                      <Plus size={14} />
+                      <Plus size={13} />
                     </AccessibleIconButton>
                     <AccessibleIconButton
                       type="button"
-                      className="h-9 px-2"
+                      className="h-8 w-7 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-slate-700 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
                       onClick={() => removeLine(index)}
                       disabled={!canEdit}
                       label="Remove line item"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </AccessibleIconButton>
                   </div>
                 </td>
@@ -505,13 +513,12 @@ function GeneralItemsForm({
             ))}
           </tbody>
         </table>
-        </div>
       </div>
 
       {rateComparison}
 
       <div
-        className="sticky bottom-0 border-t border-slate-200 bg-white/95 pt-3 backdrop-blur"
+        className="shrink-0 border-t border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur"
         style={{ zIndex: Z_INDEX.sticky }}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -652,26 +659,28 @@ function RateComparisonCard({
         };
 
   return (
-    <Card className="grid gap-3 border-dashed">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h4 className="text-sm font-bold text-slate-800">Rate Comparison</h4>
-        <div className="text-right">
-          <p className="text-xs text-slate-500">Total Purchase Amount</p>
-          <p className="text-sm font-bold text-slate-800">{formatCurrency(totalPurchaseAmount)}</p>
+    <div className="shrink-0 border-t border-slate-200">
+      <div className="flex items-start justify-between gap-4 px-4 py-2 bg-slate-50/70">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Rate Comparison</p>
+          <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-[11px] text-slate-700">
+            <span>Last Date: <strong>{stats?.lastPurchaseDate ? new Date(stats.lastPurchaseDate).toLocaleDateString('en-IN') : 'N/A'}</strong></span>
+            <span>Last Rate: <strong>{lastRate !== null ? formatCurrency(lastRate) : 'N/A'}</strong></span>
+            <span>Lowest: <strong>{stats?.lowestRate !== null && stats?.lowestRate !== undefined ? formatCurrency(stats.lowestRate) : 'N/A'}</strong></span>
+            <span>Highest: <strong>{stats?.highestRate !== null && stats?.highestRate !== undefined ? formatCurrency(stats.highestRate) : 'N/A'}</strong></span>
+            <span>Average: <strong>{averageRate !== null && averageRate !== undefined ? formatCurrency(averageRate) : 'N/A'}</strong></span>
+            <span>Current: <strong>{currentRate > 0 ? formatCurrency(currentRate) : 'N/A'}</strong></span>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-[10px] text-slate-500">Total Purchase Amount</p>
+          <p className="text-sm font-bold text-slate-900">{formatCurrency(totalPurchaseAmount)}</p>
         </div>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-xs">
-        <p>Last Purchase Date: <strong>{stats?.lastPurchaseDate ? new Date(stats.lastPurchaseDate).toLocaleDateString('en-IN') : 'N/A'}</strong></p>
-        <p>Last Rate: <strong>{lastRate !== null ? formatCurrency(lastRate) : 'N/A'}</strong></p>
-        <p>Lowest Rate: <strong>{stats?.lowestRate !== null && stats?.lowestRate !== undefined ? formatCurrency(stats.lowestRate) : 'N/A'}</strong></p>
-        <p>Highest Rate: <strong>{stats?.highestRate !== null && stats?.highestRate !== undefined ? formatCurrency(stats.highestRate) : 'N/A'}</strong></p>
-        <p>Average Rate: <strong>{averageRate !== null && averageRate !== undefined ? formatCurrency(averageRate) : 'N/A'}</strong></p>
-        <p>Current Rate: <strong>{currentRate > 0 ? formatCurrency(currentRate) : 'N/A'}</strong></p>
-      </div>
-      <div className={`rounded-md border px-3 py-2 text-xs font-semibold ${alert.cls}`}>
+      <div className={`px-4 py-1.5 text-[11px] font-semibold border-t ${alert.cls}`}>
         {alert.text}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -1709,11 +1718,11 @@ export function GeneralItemsPage() {
     },
   );
   const tabBtnClass =
-    'h-10 rounded-md border px-4 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99]';
+    '!h-10 !rounded-md !border !px-4 !text-sm !font-semibold !shadow-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2';
   const tabActiveClass =
-    '!bg-emerald-600 !text-white !border-emerald-600 shadow-sm hover:!bg-emerald-600 hover:!text-white focus-visible:!text-white';
+    '!bg-emerald-600 !text-white !border-emerald-800 relative z-10 hover:!bg-emerald-700 hover:!border-emerald-900 hover:!text-white focus-visible:!text-white';
   const tabInactiveClass =
-    'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900';
+    '!bg-white !text-slate-700 !border-slate-300 hover:!bg-slate-50 hover:!border-slate-400 hover:!text-slate-900';
 
   return (
     <div className="grid gap-6">
@@ -1787,32 +1796,9 @@ export function GeneralItemsPage() {
         </div>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <p className="text-xs text-slate-500">Total Purchases This Month</p>
-          <p className="mt-2 text-xl font-bold text-emerald-700">{formatCurrency(summary.currentMonthTotal)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-500">Number of Suppliers</p>
-          <p className="mt-2 text-xl font-bold">{summary.suppliersCount}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-500">Number of Items Purchased</p>
-          <p className="mt-2 text-xl font-bold">{summary.uniqueItemsCount}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-500">Latest Price Trends</p>
-          <p className="mt-2 text-sm font-semibold text-slate-700">
-            {rateHistoryQuery.data?.stats?.lastRate
-              ? `Last: ${formatCurrency(rateHistoryQuery.data.stats.lastRate)}`
-              : 'Select Supplier + Item'}
-          </p>
-        </Card>
-      </div>
 
       {activeTab === 'purchase-entry' && (
-        <div className="grid gap-6">
-          <GeneralItemsForm
+        <GeneralItemsForm
             form={form}
             setForm={setForm}
             onSubmit={handleSavePurchase}
@@ -1843,8 +1829,6 @@ export function GeneralItemsPage() {
               />
             }
           />
-
-        </div>
       )}
 
       {activeTab === 'purchase-register' && (

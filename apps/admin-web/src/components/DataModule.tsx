@@ -5,7 +5,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { AccessibleIconButton, Button, Card, Input } from '@amaravathi/shared-ui';
+import { AccessibleIconButton, Button, Card, Input, Select, Textarea } from '@amaravathi/shared-ui';
 import { api } from '../lib/api';
 import {
   Save,
@@ -266,8 +266,8 @@ export function DataModule({
 
   return (
     <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
-      <Card className="h-max p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
-        <h3 className="text-lg font-bold text-slate-800">
+      <Card className="h-max p-5 rounded-xl border border-slate-300 bg-white shadow-sm flex flex-col gap-4">
+        <h3 className="text-lg font-bold text-slate-900">
           {editingId ? `Modify ${title}` : `Add ${title}`}
         </h3>
         <form
@@ -280,12 +280,11 @@ export function DataModule({
           {fields.map((field) => (
             <label
               key={field.key}
-              className="grid gap-1.5 text-sm font-medium text-slate-700"
+              className="grid gap-1.5 text-sm font-semibold text-slate-900"
             >
               <span>{field.label}</span>
               {field.type === 'select' ? (
-                <select
-                  className="h-10 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-white disabled:bg-slate-50 disabled:text-slate-500"
+                <Select
                   value={form[field.key] ?? ''}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -301,10 +300,10 @@ export function DataModule({
                       {opt.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               ) : field.type === 'textarea' || field.type === 'json' ? (
-                <textarea
-                  className="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                <Textarea
+                  className="min-h-24"
                   placeholder={field.placeholder}
                   value={form[field.key] ?? ''}
                   onChange={(event) =>
@@ -332,7 +331,7 @@ export function DataModule({
             </label>
           ))}
           {mutation.error ? (
-            <p className="text-sm text-red-600 font-medium">
+            <p className="text-sm text-red-600 font-semibold">
               {mutation.error.message}
             </p>
           ) : null}
@@ -342,7 +341,7 @@ export function DataModule({
                 type="button"
                 onClick={handleCancel}
                 variant="secondary"
-                className="flex-1 h-10 text-sm font-medium"
+                className="flex-1 h-10 text-sm font-semibold"
               >
                 Cancel
               </Button>
@@ -350,7 +349,7 @@ export function DataModule({
             <Button
               type="submit"
               variant="add"
-              className="flex-1 h-10 text-sm font-medium"
+              className="flex-1 h-10 text-sm font-semibold"
               disabled={mutation.isPending || !canEdit}
             >
               <Save className="h-4 w-4 text-current" />
@@ -359,10 +358,10 @@ export function DataModule({
           </div>
         </form>
       </Card>
-      <Card className="min-w-0 p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-4">
+      <Card className="min-w-0 p-5 rounded-xl border border-slate-300 bg-white shadow-sm flex flex-col gap-4">
         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-base font-bold text-slate-800">{title} records</h3>
-          <div className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
+          <h3 className="text-base font-bold text-slate-900">{title} records</h3>
+          <div className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-850 border border-emerald-200">
             Total Records: {totalRecords}
           </div>
         </div>
@@ -375,14 +374,14 @@ export function DataModule({
               loading={search.query.isFetching}
             />
           </div>
-          <p className="text-[11px] font-medium text-slate-500">
+          <p className="text-[11px] font-semibold text-slate-700">
             Page Size: {pageSize}
           </p>
         </div>
-        <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-200">
+        <div className="max-h-[62vh] overflow-auto rounded-xl border border-slate-300">
           <table className="w-full text-left text-xs">
             <thead
-              className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200"
+              className="bg-slate-100 text-slate-900 font-bold border-b border-slate-300"
               style={STICKY_IN_CONTENT}
             >
               {table.getHeaderGroups().map((group) => (
@@ -390,9 +389,9 @@ export function DataModule({
                   {group.headers.map((header) => (
                     <th
                       key={header.id}
-                      className={`px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide ${
+                      className={`px-4 py-2.5 font-bold text-[11px] uppercase tracking-wide ${
                         header.id.includes('actions')
-                          ? 'sticky right-0 bg-slate-50 text-center'
+                          ? 'sticky right-0 bg-slate-100 text-center'
                           : ''
                       }`}
                     >
@@ -405,12 +404,12 @@ export function DataModule({
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-300">
               {rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={fields.length + 1}
-                    className="px-4 py-8 text-center text-slate-400 italic text-sm"
+                    className="px-4 py-8 text-center text-slate-600 italic text-sm font-medium"
                   >
                     No {title.toLowerCase()} records found.
                   </td>
@@ -419,14 +418,14 @@ export function DataModule({
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="hover:bg-slate-50/50 transition-colors"
+                    className="hover:bg-slate-50 transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <td
                         key={cell.id}
-                        className={`px-4 py-2.5 text-xs font-normal text-slate-600 ${
+                        className={`px-4 py-2.5 text-xs font-medium text-slate-900 ${
                           cell.column.id === 'serialNumber'
-                            ? 'text-base font-semibold text-slate-500'
+                            ? 'text-base font-bold text-slate-800'
                             : cell.column.id === 'actions'
                               ? 'sticky right-0 bg-white text-center'
                               : ''
@@ -445,18 +444,18 @@ export function DataModule({
           </table>
         </div>
         <div
-          className="sticky bottom-0 -mx-5 mt-1 border-t border-slate-200 bg-white/95 px-5 py-2 backdrop-blur"
+          className="sticky bottom-0 -mx-5 mt-1 border-t border-slate-300 bg-white/95 px-5 py-2 backdrop-blur"
           style={{ zIndex: Z_INDEX.sticky }}
         >
           <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-center sm:justify-between sm:pr-24">
-            <p className="text-[11px] font-medium text-slate-500">
+            <p className="text-[11px] font-semibold text-slate-700">
               Showing {rows.length ? serialStart + 1 : 0} to{' '}
               {serialStart + rows.length} of {totalRecords}
             </p>
             <div className="mr-20 flex items-center gap-1.5 sm:mr-24">
               <AccessibleIconButton
                 type="button"
-                className="inline-flex items-center justify-center h-7 px-2 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
+                className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-slate-300 bg-white text-slate-900 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-950 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage <= 1}
                 label="Go to first page"
@@ -465,7 +464,7 @@ export function DataModule({
               </AccessibleIconButton>
               <AccessibleIconButton
                 type="button"
-                className="inline-flex items-center justify-center h-7 px-2 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
+                className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-slate-300 bg-white text-slate-900 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-950 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1}
                 label="Go to previous page"
@@ -478,15 +477,15 @@ export function DataModule({
                 return (
                   <div key={pageNumber} className="flex items-center gap-1.5">
                     {gapBefore ? (
-                      <span className="text-[10px] text-slate-400">...</span>
+                      <span className="text-[10px] font-bold text-slate-500">...</span>
                     ) : null}
                     <button
                       type="button"
                       onClick={() => setCurrentPage(pageNumber)}
-                      className={`h-7 min-w-7 rounded-md border px-2 text-[11px] font-semibold ${
+                      className={`h-7 min-w-7 rounded-md border px-2 text-[11px] font-bold ${
                         currentPage === pageNumber
-                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                          : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 hover:text-slate-900'
                       }`}
                     >
                       {pageNumber}
@@ -496,7 +495,7 @@ export function DataModule({
               })}
               <AccessibleIconButton
                 type="button"
-                className="inline-flex items-center justify-center h-7 px-2 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
+                className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-slate-300 bg-white text-slate-900 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-950 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
                 onClick={() =>
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
@@ -507,7 +506,7 @@ export function DataModule({
               </AccessibleIconButton>
               <AccessibleIconButton
                 type="button"
-                className="inline-flex items-center justify-center h-7 px-2 rounded-md border bg-white text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
+                className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-slate-300 bg-white text-slate-900 shadow-sm transition-colors duration-200 hover:bg-slate-50 hover:text-slate-950 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-[11px]"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage >= totalPages}
                 label="Go to last page"

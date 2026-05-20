@@ -10,7 +10,7 @@ export const COLORS = {
     primary: '#111827',
     secondary: '#374151',
     muted: '#6B7280',
-    placeholder: '#9CA3AF',
+    placeholder: '#6B7280',
     error: '#DC2626',
     success: '#059669',
   },
@@ -24,8 +24,8 @@ export const COLORS = {
   },
   // Border colors
   border: {
-    default: '#D1D5DB',
-    hover: '#9CA3AF',
+    default: '#9CA3AF',
+    hover: '#6B7280',
     focus: '#2563EB',
     error: '#DC2626',
   },
@@ -34,7 +34,7 @@ export const COLORS = {
     primary: '#2563EB',
     primaryText: '#FFFFFF',
     secondaryBg: '#FFFFFF',
-    secondaryBorder: '#D1D5DB',
+    secondaryBorder: '#9CA3AF',
     danger: '#DC2626',
   },
 } as const;
@@ -45,7 +45,7 @@ export const TYPOGRAPHY = {
   cardTitle: 'text-lg font-semibold text-slate-900', // 18px, #111827
   fieldLabel: 'text-sm font-semibold text-slate-900', // 14px, #111827
   inputText: 'text-sm font-medium text-slate-900', // 14px, #111827
-  placeholderText: 'placeholder:text-slate-400 placeholder:font-normal', // #9CA3AF
+  placeholderText: 'placeholder:text-slate-500 placeholder:font-normal', // #6B7280
   tableHeader: 'text-sm font-semibold text-slate-900', // 14px, #111827
   tableBody: 'text-sm font-medium text-slate-900', // 14px, #111827
   buttonText: 'text-sm font-semibold', // 14px
@@ -54,9 +54,9 @@ export const TYPOGRAPHY = {
 } as const;
 
 export const BORDERS = {
-  input: 'border border-slate-300 rounded-lg', // #D1D5DB, 8px radius
-  card: 'border border-slate-200 rounded-xl', // #E5E7EB, 12px radius
-  focusRing: 'focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2',
+  input: 'border border-slate-400 rounded-lg bg-white', // #9CA3AF, 8px radius
+  card: 'border border-slate-300 rounded-xl bg-white shadow-sm', // #D1D5DB, 12px radius
+  focusRing: 'focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200 focus-visible:ring-offset-2 focus-visible:border-blue-600',
 } as const;
 
 export const LAYOUT = {
