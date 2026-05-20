@@ -1939,41 +1939,7 @@ export function GeneralItemsPage() {
 
       {activeTab === 'purchase-register' && (
         <div className="grid gap-6">
-          <Card className="grid gap-3 p-5">
-            <h4 className="text-sm font-bold text-slate-800">Filters and Search</h4>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-              <Input
-                value={search.q}
-                onChange={(e) => search.setQ(e.target.value)}
-                placeholder="Global search"
-              />
-              <Input
-                value={filterSupplierName}
-                onChange={(e) => setFilterSupplierName(e.target.value)}
-                placeholder="Supplier Name"
-              />
-              <Input
-                value={filterParticulars}
-                onChange={(e) => setFilterParticulars(e.target.value)}
-                placeholder="Particulars"
-              />
-              <Input
-                value={filterBillNumber}
-                onChange={(e) => setFilterBillNumber(e.target.value)}
-                placeholder="Bill Number"
-              />
-              <Input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
-              <Input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
-            </div>
-          </Card>
+
 
           {/* fix #10 — loading indicator for purchase register */}
           {purchasesQuery.isLoading ? (
