@@ -174,6 +174,44 @@ type FlatRow = {
   amount: number;
 };
 
+/** Round a value to 2 decimal places for consistent monetary precision (fix #14). */
+function roundCurrency(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+/** Centralised form-reset factory — eliminates duplicated reset blocks (fix #13). */
+function createDefaultForm() {
+  return {
+    purchaseDate: toDateInputValue(new Date()),
+    billNumber: '',
+    supplierName: '',
+    notes: '',
+    lineItems: [createLineItem()],
+  };
+}
+
+/**
+ * Open a dedicated print window so only report content is printed,
+ * not the entire application shell (fix #11).
+ */
+function printReport(title: string, htmlContent: string): void {
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) return;
+  win.document.write(
+    `<!DOCTYPE html><html><head><title>${title}</title><style>` +
+    `body{font-family:system-ui,sans-serif;font-size:12px;color:#111;padding:20px}` +
+    `table{width:100%;border-collapse:collapse;margin-bottom:24px}` +
+    `th,td{border:1px solid #d1d5db;padding:6px 10px;text-align:left}` +
+    `th{background:#f9fafb;font-weight:600}` +
+    `h2{font-size:14px;font-weight:700;margin-bottom:8px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}` +
+    `@media print{body{padding:0}}` +
+    `</style></head><body>${htmlContent}</body></html>`,
+  );
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); win.close(); }, 300);
+}
+
 function createLineItem(defaultUnit: Unit = 'Pieces'): GeneralItemLineItem {
   return {
     particulars: '',
@@ -297,7 +335,7 @@ function GeneralItemsForm({
 
       const quantity = Number(updated.quantity || 0);
       const ratePerUnit = Number(updated.ratePerUnit || 0);
-      updated.amount = Number((quantity * ratePerUnit).toFixed(2));
+      updated.amount = roundCurrency(quantity * ratePerUnit); // fix #14
       next[index] = updated;
 
       return {
@@ -307,25 +345,30 @@ function GeneralItemsForm({
     });
   };
 
+  // fix #3 — compute next length inside the setter to avoid stale closure
   const addLine = () => {
-    setForm((prev) => ({
-      ...prev,
-      lineItems: [...prev.lineItems, createLineItem()],
-    }));
-    setSelectedRowIndex(form.lineItems.length);
+    setForm((prev) => {
+      const nextLineItems = [...prev.lineItems, createLineItem()];
+      setSelectedRowIndex(nextLineItems.length - 1);
+      return { ...prev, lineItems: nextLineItems };
+    });
   };
 
+  // fix #4 — clamp selected index so it is always valid after deletion
   const removeLine = (index: number) => {
     setForm((prev) => {
       const next = prev.lineItems.filter((_, i) => i !== index);
-      return {
-        ...prev,
-        lineItems: next.length ? next : [createLineItem()],
-      };
+      const newItems = next.length ? next : [createLineItem()];
+      const newIndex = Math.max(
+        0,
+        Math.min(
+          selectedRowIndex >= index ? selectedRowIndex - 1 : selectedRowIndex,
+          newItems.length - 1,
+        ),
+      );
+      setSelectedRowIndex(newIndex);
+      return { ...prev, lineItems: newItems };
     });
-    if (selectedRowIndex >= index && selectedRowIndex > 0) {
-      setSelectedRowIndex(selectedRowIndex - 1);
-    }
   };
 
   return (
@@ -584,39 +627,39 @@ function NewSupplierModal({
 
   return (
     <Portal>
-    <div
-      className="fixed inset-0 grid place-items-center bg-slate-900/50 p-4"
-      style={{ zIndex: Z_INDEX.modalBackdrop }}
-    >
-      <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
-        <div className="mb-3 flex items-center justify-between">
-          <h4 className="text-base font-bold text-slate-900">New Supplier</h4>
-          <Button className="h-8 px-2" onClick={onClose}>Close</Button>
-        </div>
-        <div className="grid gap-3">
-          <Field label="Supplier Name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} />
-          </Field>
-          <Field label="Mobile Number">
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!canEdit} />
-          </Field>
-          <Field label="Address">
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} />
-          </Field>
-          <p className="text-xs text-slate-500">Address is collected for workflow context and is not persisted in current supplier schema.</p>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button
-              variant="add"
-              disabled={!canEdit || isSaving || !name.trim()}
-              onClick={() => onSave({ name: name.trim(), phone: phone.trim(), address: address.trim() })}
-            >
-              {isSaving ? 'Saving...' : 'Create Supplier'}
-            </Button>
+      <div
+        className="fixed inset-0 grid place-items-center bg-slate-900/50 p-4"
+        style={{ zIndex: Z_INDEX.modalBackdrop }}
+      >
+        <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-base font-bold text-slate-900">New Supplier</h4>
+            <Button className="h-8 px-2" onClick={onClose}>Close</Button>
+          </div>
+          <div className="grid gap-3">
+            <Field label="Supplier Name">
+              <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} />
+            </Field>
+            <Field label="Mobile Number">
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!canEdit} />
+            </Field>
+            <Field label="Address">
+              <Input value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} />
+            </Field>
+            <p className="text-xs text-slate-500">Address is collected for workflow context and is not persisted in current supplier schema.</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button
+                variant="add"
+                disabled={!canEdit || isSaving || !name.trim()}
+                onClick={() => onSave({ name: name.trim(), phone: phone.trim(), address: address.trim() })}
+              >
+                {isSaving ? 'Saving...' : 'Create Supplier'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </Portal>
   );
 }
@@ -632,31 +675,37 @@ function RateComparisonCard({
 }) {
   const lastRate = stats?.lastRate ?? null;
   const averageRate = stats?.averageRate ?? null;
-  const avgDiff = averageRate && currentRate ? currentRate - averageRate : 0;
-  const avgPct = averageRate && currentRate ? (avgDiff / averageRate) * 100 : 0;
+  // fix #5 — explicit null/undefined checks so averageRate = 0 is handled correctly
+  const hasAverage = averageRate !== null && averageRate !== undefined;
+  const hasCurrent = currentRate > 0;
+  const avgDiff = hasAverage && hasCurrent ? currentRate - (averageRate as number) : 0;
+  const avgPct =
+    hasAverage && hasCurrent && (averageRate as number) !== 0
+      ? (avgDiff / (averageRate as number)) * 100
+      : 0;
 
   const alert =
-    averageRate === null || currentRate <= 0
+    !hasAverage || !hasCurrent
       ? { text: 'No previous purchase for this supplier and item.', cls: 'bg-slate-50 text-slate-700 border-slate-200' }
       : Math.abs(avgPct) <= 5
-      ? {
+        ? {
           text: `Near Average: ${avgPct >= 0 ? '+' : ''}${avgPct.toFixed(2)}% vs average`,
           cls: 'bg-amber-50 text-amber-700 border-amber-200',
         }
-      : avgDiff > 0
-      ? {
-          text: `Higher Than Average: +${avgDiff.toFixed(2)} (${avgPct.toFixed(2)}%)`,
-          cls: 'bg-red-50 text-red-700 border-red-200',
-        }
-      : avgDiff < 0
-      ? {
-          text: `Lower Than Average: ${avgDiff.toFixed(2)} (${avgPct.toFixed(2)}%)`,
-          cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        }
-      : {
-          text: 'Price is same as average rate.',
-          cls: 'bg-slate-50 text-slate-700 border-slate-200',
-        };
+        : avgDiff > 0
+          ? {
+            text: `Higher Than Average: +${avgDiff.toFixed(2)} (${avgPct.toFixed(2)}%)`,
+            cls: 'bg-red-50 text-red-700 border-red-200',
+          }
+          : avgDiff < 0
+            ? {
+              text: `Lower Than Average: ${avgDiff.toFixed(2)} (${avgPct.toFixed(2)}%)`,
+              cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            }
+            : {
+              text: 'Price is same as average rate.',
+              cls: 'bg-slate-50 text-slate-700 border-slate-200',
+            };
 
   return (
     <div className="shrink-0 border-t border-slate-200">
@@ -734,58 +783,58 @@ function GeneralItemsViewDialog({
 }) {
   return (
     <Portal>
-    <div
-      className="fixed inset-0 grid place-items-center bg-slate-900/50 p-4"
-      style={{ zIndex: Z_INDEX.modalBackdrop }}
-    >
-      <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-          <div>
-            <h4 className="font-bold">General Item Purchase Details</h4>
-            <p className="text-xs text-slate-500">
-              {purchase.supplierName} • {new Date(purchase.purchaseDate).toLocaleDateString('en-IN')}
-            </p>
+      <div
+        className="fixed inset-0 grid place-items-center bg-slate-900/50 p-4"
+        style={{ zIndex: Z_INDEX.modalBackdrop }}
+      >
+        <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white shadow-xl">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div>
+              <h4 className="font-bold">General Item Purchase Details</h4>
+              <p className="text-xs text-slate-500">
+                {purchase.supplierName} • {new Date(purchase.purchaseDate).toLocaleDateString('en-IN')}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <AccessibleIconButton className="h-8" onClick={onEdit} label="Edit general item purchase">
+                <Edit3 size={14} />
+              </AccessibleIconButton>
+              <Button className="h-8" onClick={onClose}>
+                Close
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <AccessibleIconButton className="h-8" onClick={onEdit} label="Edit general item purchase">
-              <Edit3 size={14} />
-            </AccessibleIconButton>
-            <Button className="h-8" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        </div>
-        <div className="grid gap-3 p-4 text-sm">
-          <p><strong>Bill Number:</strong> {purchase.billNumber || 'N/A'}</p>
-          <p><strong>Notes:</strong> {purchase.notes || 'N/A'}</p>
-          <p><strong>Total Amount:</strong> {formatCurrency(purchase.totalAmount)}</p>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="min-w-[640px] w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-2 text-left">Particulars</th>
-                  <th className="px-3 py-2 text-left">Qty</th>
-                  <th className="px-3 py-2 text-left">Unit</th>
-                  <th className="px-3 py-2 text-left">Rate</th>
-                  <th className="px-3 py-2 text-left">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {purchase.lineItems.map((line, index) => (
-                  <tr key={`${purchase.id}-${index}`}>
-                    <td className="px-3 py-2">{line.particulars}</td>
-                    <td className="px-3 py-2">{line.quantity}</td>
-                    <td className="px-3 py-2">{line.unit}</td>
-                    <td className="px-3 py-2">{line.ratePerUnit}</td>
-                    <td className="px-3 py-2">{formatCurrency(line.amount)}</td>
+          <div className="grid gap-3 p-4 text-sm">
+            <p><strong>Bill Number:</strong> {purchase.billNumber || 'N/A'}</p>
+            <p><strong>Notes:</strong> {purchase.notes || 'N/A'}</p>
+            <p><strong>Total Amount:</strong> {formatCurrency(purchase.totalAmount)}</p>
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="min-w-[640px] w-full text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Particulars</th>
+                    <th className="px-3 py-2 text-left">Qty</th>
+                    <th className="px-3 py-2 text-left">Unit</th>
+                    <th className="px-3 py-2 text-left">Rate</th>
+                    <th className="px-3 py-2 text-left">Amount</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {purchase.lineItems.map((line, index) => (
+                    <tr key={`${purchase.id}-${index}`}>
+                      <td className="px-3 py-2">{line.particulars}</td>
+                      <td className="px-3 py-2">{line.quantity}</td>
+                      <td className="px-3 py-2">{line.unit}</td>
+                      <td className="px-3 py-2">{line.ratePerUnit}</td>
+                      <td className="px-3 py-2">{formatCurrency(line.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </Portal>
   );
 }
@@ -1103,11 +1152,10 @@ function GeneralItemsMasterPage({
                     <button
                       type="button"
                       onClick={() => setCurrentPage(pageNumber)}
-                      className={`h-7 min-w-7 rounded-md border px-2 text-[11px] font-semibold ${
-                        safeCurrentPage === pageNumber
+                      className={`h-7 min-w-7 rounded-md border px-2 text-[11px] font-semibold ${safeCurrentPage === pageNumber
                           ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      }`}
+                        }`}
                     >
                       {pageNumber}
                     </button>
@@ -1208,9 +1256,13 @@ export function GeneralItemsPage() {
     lineItems: [createLineItem()],
   });
 
+  // fix #1 — guard with value comparison to prevent identity-change loop
+  const urlQ = searchParams.get('q') || '';
   useEffect(() => {
-    search.setQ(searchParams.get('q') || '');
-  }, [searchParams, search]);
+    if (search.q !== urlQ) {
+      search.setQ(urlQ);
+    }
+  }, [urlQ, search.q, search.setQ]);
 
   useEffect(() => {
     supplierFilterSearch.setQ(filterSupplierName);
@@ -1230,6 +1282,25 @@ export function GeneralItemsPage() {
   useEffect(() => {
     supplierLookupSearch.setQ(supplierSearchTerm);
   }, [supplierSearchTerm, supplierLookupSearch]);
+
+  // fix #2 — reset register page whenever any filter/search value changes
+  useEffect(() => {
+    setRegisterPage(1);
+  }, [
+    search.debouncedQ,
+    supplierFilterSearch.debouncedQ,
+    particularsFilterSearch.debouncedQ,
+    billFilterSearch.debouncedQ,
+    fromDateSearch.debouncedQ,
+    toDateSearch.debouncedQ,
+  ]);
+
+  // fix #15 — clamp selectedRowIndex whenever lineItems shrinks
+  useEffect(() => {
+    if (form.lineItems.length > 0 && selectedRowIndex >= form.lineItems.length) {
+      setSelectedRowIndex(form.lineItems.length - 1);
+    }
+  }, [form.lineItems.length, selectedRowIndex]);
 
   const selectedLine = form.lineItems[selectedRowIndex] ?? form.lineItems[0];
   const rateSupplierSearch = useSearch<never>({
@@ -1338,8 +1409,45 @@ export function GeneralItemsPage() {
     enabled: rateLookupParticulars.length > 0,
   });
 
+  // fix #8 — dedicated query for reports that fetches all matching records (not paginated)
+  const allPurchasesForReportsQuery = useQuery({
+    queryKey: [
+      ...searchKeys.module('general-items-reports-all', {
+        q: search.debouncedQ,
+        supplierName: supplierFilterSearch.debouncedQ,
+        particulars: particularsFilterSearch.debouncedQ,
+        billNumber: billFilterSearch.debouncedQ,
+        fromDate: fromDateSearch.debouncedQ,
+        toDate: toDateSearch.debouncedQ,
+      }),
+    ],
+    enabled: activeTab === 'reports',
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.set('page', '1');
+      params.set('limit', '10000');
+      if (search.debouncedQ.trim()) params.set('q', search.debouncedQ.trim());
+      if (supplierFilterSearch.debouncedQ.trim()) params.set('supplierName', supplierFilterSearch.debouncedQ.trim());
+      if (particularsFilterSearch.debouncedQ.trim()) params.set('particulars', particularsFilterSearch.debouncedQ.trim());
+      if (billFilterSearch.debouncedQ.trim()) params.set('billNumber', billFilterSearch.debouncedQ.trim());
+      if (fromDateSearch.debouncedQ.trim()) params.set('fromDate', fromDateSearch.debouncedQ.trim());
+      if (toDateSearch.debouncedQ.trim()) params.set('toDate', toDateSearch.debouncedQ.trim());
+      return api<{ items: GeneralItemPurchase[]; total: number; page: number; limit: number }>(
+        `${endpoints.generalItems}?${params.toString()}`,
+      );
+    },
+  });
+  const allPurchasesForReports = allPurchasesForReportsQuery.data?.items ?? [];
+
   const saveMutation = useMutation({
-    mutationFn: (payload: any) => {
+    // fix #12 — typed payload replaces `any`
+    mutationFn: (payload: {
+      purchaseDate: string;
+      billNumber: string;
+      supplierName: string;
+      notes: string;
+      lineItems: Array<{ particulars: string; quantity: number; unit: Unit; ratePerUnit: number; amount: number }>;
+    }) => {
       if (editingId) {
         return api(`${endpoints.generalItems}/${editingId}`, {
           method: 'PUT',
@@ -1352,20 +1460,14 @@ export function GeneralItemsPage() {
       });
     },
     onSuccess: () => {
-      setForm({
-        purchaseDate: toDateInputValue(new Date()),
-        billNumber: '',
-        supplierName: '',
-        notes: '',
-        lineItems: [createLineItem()],
-      });
+      setForm(createDefaultForm()); // fix #13 — centralised reset
       setEditingId(null);
       setSelectedRowIndex(0);
       queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-purchases') });
       queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-stock-summary') });
       showToast('General item purchase saved successfully.', 'success');
     },
-    onError: (err: any) => showError(err),
+    onError: (err: unknown) => showError(err), // fix #12
   });
 
   const deleteMutation = useMutation({
@@ -1376,11 +1478,12 @@ export function GeneralItemsPage() {
       queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-stock-summary') });
       showToast('General item purchase deleted.', 'success');
     },
-    onError: (err: any) => showError(err),
+    onError: (err: unknown) => showError(err), // fix #12
   });
 
+  // fix #12 — typed payloads replace `any`
   const masterCreateMutation = useMutation({
-    mutationFn: (payload: any) =>
+    mutationFn: (payload: Omit<GeneralItemsMasterItem, 'id'>) =>
       api(endpoints.generalItemsMaster, {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -1389,11 +1492,11 @@ export function GeneralItemsPage() {
       queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-master') });
       showToast('General item master created.', 'success');
     },
-    onError: (err: any) => showError(err),
+    onError: (err: unknown) => showError(err),
   });
 
   const masterUpdateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: any }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: Omit<GeneralItemsMasterItem, 'id'> }) =>
       api(`${endpoints.generalItemsMaster}/${id}`, {
         method: 'PUT',
         body: JSON.stringify(payload),
@@ -1402,7 +1505,7 @@ export function GeneralItemsPage() {
       queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-master') });
       showToast('General item master updated.', 'success');
     },
-    onError: (err: any) => showError(err),
+    onError: (err: unknown) => showError(err),
   });
 
   const masterDeleteMutation = useMutation({
@@ -1412,7 +1515,7 @@ export function GeneralItemsPage() {
       queryClient.invalidateQueries({ queryKey: searchKeys.modulePrefix('general-items-master') });
       showToast('General item master deleted.', 'success');
     },
-    onError: (err: any) => showError(err),
+    onError: (err: unknown) => showError(err),
   });
 
   const purchases = purchasesQuery.data?.items ?? [];
@@ -1424,13 +1527,9 @@ export function GeneralItemsPage() {
   );
   const masterItems = masterQuery.data ?? [];
   const stockRows = stockSummaryQuery.data ?? [];
+  // fix #14 — roundCurrency for consistent 2-dp monetary precision
   const formTotalAmount = useMemo(
-    () =>
-      Number(
-        form.lineItems
-          .reduce((sum, item) => sum + Number(item.amount || 0), 0)
-          .toFixed(2),
-      ),
+    () => roundCurrency(form.lineItems.reduce((sum, item) => sum + Number(item.amount || 0), 0)),
     [form.lineItems],
   );
   const isDirty = useMemo(
@@ -1460,9 +1559,10 @@ export function GeneralItemsPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
 
-  const flatRows = useMemo<FlatRow[]>(
+  // fix #8 — allFlatRows derives from the full (unpaginated) dataset for report accuracy
+  const allFlatRows = useMemo<FlatRow[]>(
     () =>
-      purchases.flatMap((purchase) =>
+      allPurchasesForReports.flatMap((purchase) =>
         purchase.lineItems.map((lineItem) => ({
           purchaseId: purchase.id,
           purchaseDate: purchase.purchaseDate,
@@ -1477,34 +1577,13 @@ export function GeneralItemsPage() {
           amount: Number(lineItem.amount),
         })),
       ),
-    [purchases],
+    [allPurchasesForReports],
   );
 
-  const summary = useMemo(() => {
-    const now = new Date();
-    const currentMonthTotal = purchases
-      .filter((p) => {
-        const date = new Date(p.purchaseDate);
-        return (
-          date.getMonth() === now.getMonth() &&
-          date.getFullYear() === now.getFullYear()
-        );
-      })
-      .reduce((sum, p) => sum + Number(p.totalAmount || 0), 0);
-
-    const suppliersCount = sellersQuery.data?.total ?? sellersQuery.data?.items?.length ?? 0;
-    const uniqueItemsCount = masterItems.filter((item) => item.isActive).length;
-
-    return {
-      currentMonthTotal,
-      suppliersCount,
-      uniqueItemsCount,
-    };
-  }, [masterItems, purchases, sellersQuery.data]);
-
+  // fix #8 — all three report computations now use the full (unpaginated) allPurchasesForReports
   const itemWiseReport = useMemo(() => {
     const grouped = new Map<string, { particulars: string; quantity: number; amount: number; unit: Unit }>();
-    flatRows.forEach((row) => {
+    allFlatRows.forEach((row) => {
       const key = `${row.particulars}::${row.unit}`;
       const curr = grouped.get(key) ?? {
         particulars: row.particulars,
@@ -1513,15 +1592,15 @@ export function GeneralItemsPage() {
         unit: row.unit,
       };
       curr.quantity += row.quantity;
-      curr.amount += row.amount;
+      curr.amount = roundCurrency(curr.amount + row.amount); // fix #14
       grouped.set(key, curr);
     });
     return Array.from(grouped.values()).sort((a, b) => a.particulars.localeCompare(b.particulars));
-  }, [flatRows]);
+  }, [allFlatRows]);
 
   const supplierWiseReport = useMemo(() => {
     const grouped = new Map<string, { supplierName: string; purchaseCount: number; totalAmount: number }>();
-    purchases.forEach((purchase) => {
+    allPurchasesForReports.forEach((purchase) => {
       const key = purchase.supplierName.trim();
       const curr = grouped.get(key) ?? {
         supplierName: key,
@@ -1529,24 +1608,24 @@ export function GeneralItemsPage() {
         totalAmount: 0,
       };
       curr.purchaseCount += 1;
-      curr.totalAmount += purchase.totalAmount;
+      curr.totalAmount = roundCurrency(curr.totalAmount + purchase.totalAmount); // fix #14
       grouped.set(key, curr);
     });
     return Array.from(grouped.values()).sort((a, b) => b.totalAmount - a.totalAmount);
-  }, [purchases]);
+  }, [allPurchasesForReports]);
 
   const monthlySummaryReport = useMemo(() => {
     const grouped = new Map<string, { month: string; totalAmount: number; purchaseCount: number }>();
-    purchases.forEach((purchase) => {
+    allPurchasesForReports.forEach((purchase) => {
       const date = new Date(purchase.purchaseDate);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const curr = grouped.get(key) ?? { month: key, totalAmount: 0, purchaseCount: 0 };
-      curr.totalAmount += purchase.totalAmount;
+      curr.totalAmount = roundCurrency(curr.totalAmount + purchase.totalAmount); // fix #14
       curr.purchaseCount += 1;
       grouped.set(key, curr);
     });
     return Array.from(grouped.values()).sort((a, b) => b.month.localeCompare(a.month));
-  }, [purchases]);
+  }, [allPurchasesForReports]);
 
   const historyRows = useMemo(() => {
     const rows = itemRateHistoryQuery.data?.history ?? [];
@@ -1641,9 +1720,21 @@ export function GeneralItemsPage() {
     saveMutation.mutate(payload);
   };
 
-  const handleEdit = (purchaseId: string) => {
-    const purchase = purchases.find((item) => item.id === purchaseId);
-    if (!purchase) return;
+  // fix #6 — fall back to API fetch when the record is not in the current paginated slice
+  const handleEdit = async (purchaseId: string): Promise<void> => {
+    let purchase: GeneralItemPurchase | undefined =
+      purchases.find((item) => item.id === purchaseId) ??
+      (viewingPurchase?.id === purchaseId ? viewingPurchase : undefined);
+
+    if (!purchase) {
+      try {
+        purchase = await api<GeneralItemPurchase>(`${endpoints.generalItems}/${purchaseId}`);
+      } catch {
+        showToast('Could not load purchase record. Please try again.', 'error');
+        return;
+      }
+    }
+
     setEditingId(purchase.id);
     setForm({
       purchaseDate: toDateInputValue(purchase.purchaseDate),
@@ -1686,7 +1777,16 @@ export function GeneralItemsPage() {
       setShowNewSupplierModal(false);
       showToast(`Supplier "${supplier.name}" added successfully.`, 'success');
     },
-    onError: (err: any) => showError(err),
+    // fix #7 — duplicate supplier is handled gracefully instead of showing an error
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      if (/duplicate|already exists/i.test(message)) {
+        setShowNewSupplierModal(false);
+        showToast('This supplier already exists — please select it from the dropdown.', 'success');
+        return;
+      }
+      showError(err);
+    },
   });
 
   const changeTab = async (tab: typeof activeTab) => {
@@ -1699,6 +1799,10 @@ export function GeneralItemsPage() {
         variant: 'primary',
       });
       if (!approved) return;
+    }
+    // fix #9 — clamp register page if it exceeds available pages after switching back
+    if (tab === 'purchase-register' && registerPage > totalRegisterPages) {
+      setRegisterPage(Math.max(1, totalRegisterPages));
     }
     setActiveTab(tab);
   };
@@ -1726,6 +1830,7 @@ export function GeneralItemsPage() {
 
   return (
     <div className="grid gap-6">
+
       <Card className="px-3 py-3">
         <div
           role="tablist"
@@ -1799,36 +1904,37 @@ export function GeneralItemsPage() {
 
       {activeTab === 'purchase-entry' && (
         <GeneralItemsForm
-            form={form}
-            setForm={setForm}
-            onSubmit={handleSavePurchase}
-            onCancel={() => {
-              setEditingId(null);
-              setForm({
-                purchaseDate: toDateInputValue(new Date()),
-                billNumber: '',
-                supplierName: '',
-                notes: '',
-                lineItems: [createLineItem()],
-              });
-            }}
-            isEditing={Boolean(editingId)}
-            isSaving={saveMutation.isPending}
-            canEdit={canEdit}
-            supplierOptions={supplierOptions}
-            onOpenSupplierModal={() => setShowNewSupplierModal(true)}
-            onSupplierSearchTermChange={setSupplierSearchTerm}
-            masterItems={masterItems}
-            selectedRowIndex={selectedRowIndex}
-            setSelectedRowIndex={setSelectedRowIndex}
-            rateComparison={
+          form={form}
+          setForm={setForm}
+          onSubmit={handleSavePurchase}
+          onCancel={() => {
+            setEditingId(null);
+            setForm(createDefaultForm()); // fix #13 — centralised reset
+          }}
+          isEditing={Boolean(editingId)}
+          isSaving={saveMutation.isPending}
+          canEdit={canEdit}
+          supplierOptions={supplierOptions}
+          onOpenSupplierModal={() => setShowNewSupplierModal(true)}
+          onSupplierSearchTermChange={setSupplierSearchTerm}
+          masterItems={masterItems}
+          selectedRowIndex={selectedRowIndex}
+          setSelectedRowIndex={setSelectedRowIndex}
+          rateComparison={
+            // fix #10 — loading indicator while rate data is fetching
+            rateHistoryQuery.isLoading ? (
+              <div className="shrink-0 border-t border-slate-200 px-4 py-2 text-[11px] text-slate-500 animate-pulse">
+                Loading rate comparison…
+              </div>
+            ) : (
               <RateComparisonCard
                 stats={rateHistoryQuery.data?.stats ?? null}
                 currentRate={Number(selectedLine?.ratePerUnit || 0)}
                 totalPurchaseAmount={formTotalAmount}
               />
-            }
-          />
+            )
+          }
+        />
       )}
 
       {activeTab === 'purchase-register' && (
@@ -1869,27 +1975,36 @@ export function GeneralItemsPage() {
             </div>
           </Card>
 
-          <GeneralItemsTable
-            rows={purchases}
-            canEdit={canEdit}
-            isAdmin={isAdmin}
-            onView={(purchaseId) => {
-              const purchase = purchases.find((item) => item.id === purchaseId);
-              if (!purchase) return;
-              setViewingPurchase(purchase);
-            }}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-          <Card className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-600">
-              Page {registerPage} of {totalRegisterPages} • {totalRegisterRecords} records
-            </p>
-            <div className="flex gap-2">
-              <Button className="h-8 px-2" variant="secondary" disabled={registerPage <= 1} onClick={() => setRegisterPage((p) => Math.max(1, p - 1))}>Prev</Button>
-              <Button className="h-8 px-2" variant="secondary" disabled={registerPage >= totalRegisterPages} onClick={() => setRegisterPage((p) => Math.min(totalRegisterPages, p + 1))}>Next</Button>
-            </div>
-          </Card>
+          {/* fix #10 — loading indicator for purchase register */}
+          {purchasesQuery.isLoading ? (
+            <Card>
+              <p className="py-6 text-center text-sm text-slate-500 animate-pulse">Loading purchases…</p>
+            </Card>
+          ) : (
+            <>
+              <GeneralItemsTable
+                rows={purchases}
+                canEdit={canEdit}
+                isAdmin={isAdmin}
+                onView={(purchaseId) => {
+                  const purchase = purchases.find((item) => item.id === purchaseId);
+                  if (!purchase) return;
+                  setViewingPurchase(purchase);
+                }}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+              <Card className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-600">
+                  Page {registerPage} of {totalRegisterPages} • {totalRegisterRecords} records
+                </p>
+                <div className="flex gap-2">
+                  <Button className="h-8 px-2" variant="secondary" disabled={registerPage <= 1} onClick={() => setRegisterPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                  <Button className="h-8 px-2" variant="secondary" disabled={registerPage >= totalRegisterPages} onClick={() => setRegisterPage((p) => Math.min(totalRegisterPages, p + 1))}>Next</Button>
+                </div>
+              </Card>
+            </>
+          )}
         </div>
       )}
 
@@ -1923,22 +2038,30 @@ export function GeneralItemsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {historyRows.map((row, index) => (
-                    <tr key={`${row.purchaseDate}-${row.supplierName}-${index}`}>
-                      <td className="px-3 py-2">{new Date(row.purchaseDate).toLocaleDateString('en-IN')}</td>
-                      <td className="px-3 py-2">{row.supplierName}</td>
-                      <td className="px-3 py-2">{row.billNumber || 'N/A'}</td>
-                      <td className="px-3 py-2">{row.quantity} {row.unit}</td>
-                      <td className="px-3 py-2">{formatCurrency(row.ratePerUnit)}</td>
-                      <td className="px-3 py-2">{formatCurrency(row.amount)}</td>
+                  {/* fix #10 — loading indicator for rate history */}
+                  {itemRateHistoryQuery.isLoading ? (
+                    <tr>
+                      <td className="px-3 py-4 text-center text-slate-500 animate-pulse" colSpan={6}>
+                        Loading rate history…
+                      </td>
                     </tr>
-                  ))}
-                  {historyRows.length === 0 && (
+                  ) : historyRows.length === 0 ? (
                     <tr>
                       <td className="px-3 py-4 text-center text-slate-500" colSpan={6}>
                         Select an item in the form to view rate history.
                       </td>
                     </tr>
+                  ) : (
+                    historyRows.map((row, index) => (
+                      <tr key={`${row.purchaseDate}-${row.supplierName}-${index}`}>
+                        <td className="px-3 py-2">{new Date(row.purchaseDate).toLocaleDateString('en-IN')}</td>
+                        <td className="px-3 py-2">{row.supplierName}</td>
+                        <td className="px-3 py-2">{row.billNumber || 'N/A'}</td>
+                        <td className="px-3 py-2">{row.quantity} {row.unit}</td>
+                        <td className="px-3 py-2">{formatCurrency(row.ratePerUnit)}</td>
+                        <td className="px-3 py-2">{formatCurrency(row.amount)}</td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
@@ -1949,7 +2072,14 @@ export function GeneralItemsPage() {
 
       {activeTab === 'stock-summary' && (
         <div className="grid gap-6">
-          <StockSummaryCard stockRows={stockRows} />
+          {/* fix #10 — loading indicator for stock summary */}
+          {stockSummaryQuery.isLoading ? (
+            <Card>
+              <p className="py-6 text-center text-sm text-slate-500 animate-pulse">Loading stock summary…</p>
+            </Card>
+          ) : (
+            <StockSummaryCard stockRows={stockRows} />
+          )}
         </div>
       )}
 
@@ -1975,7 +2105,9 @@ export function GeneralItemsPage() {
       {activeTab === 'reports' && (
         <div className="grid gap-5">
           <Card className="flex flex-wrap gap-2">
+            {/* fix #10 — disable export buttons while data is loading */}
             <Button
+              disabled={allPurchasesForReportsQuery.isLoading}
               onClick={() => {
                 const rows = [
                   ['Particulars', 'Unit', 'Total Quantity', 'Total Amount'],
@@ -1991,15 +2123,53 @@ export function GeneralItemsPage() {
             >
               Export Excel (CSV)
             </Button>
-            <Button onClick={() => window.print()}>
+            {/* fix #11 — dedicated print window instead of window.print() on full page */}
+            <Button
+              disabled={allPurchasesForReportsQuery.isLoading}
+              onClick={() => {
+                const buildTable = (title: string, headers: string[], bodyRows: string[][]): string =>
+                  `<h2>${title}</h2><table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${bodyRows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+                const html = [
+                  itemWiseReport.length
+                    ? buildTable('Item Wise Purchase Report', ['Particulars', 'Unit', 'Qty', 'Amount'],
+                        itemWiseReport.map((r) => [r.particulars, r.unit, String(r.quantity), r.amount.toFixed(2)]))
+                    : '',
+                  supplierWiseReport.length
+                    ? buildTable('Supplier Wise Report', ['Supplier', 'Count', 'Total Amount'],
+                        supplierWiseReport.map((r) => [r.supplierName, String(r.purchaseCount), r.totalAmount.toFixed(2)]))
+                    : '',
+                  monthlySummaryReport.length
+                    ? buildTable('Monthly Summary', ['Month', 'Count', 'Total Amount'],
+                        monthlySummaryReport.map((r) => [r.month, String(r.purchaseCount), r.totalAmount.toFixed(2)]))
+                    : '',
+                ].join('');
+                printReport('General Items Purchase Report', html);
+              }}
+            >
               <Printer size={14} />
               Export PDF
             </Button>
-            <Button onClick={() => window.print()}>
+            <Button
+              disabled={allPurchasesForReportsQuery.isLoading}
+              onClick={() => {
+                const html = itemWiseReport.length
+                  ? `<h2>Item Wise Purchase Report</h2><table><thead><tr><th>Particulars</th><th>Unit</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${
+                      itemWiseReport.map((r) => `<tr><td>${r.particulars}</td><td>${r.unit}</td><td>${r.quantity}</td><td>${r.amount.toFixed(2)}</td></tr>`).join('')
+                    }</tbody></table>`
+                  : '<p>No data to print.</p>';
+                printReport('General Items Purchase Print', html);
+              }}
+            >
               <Printer size={14} />
               Print
             </Button>
           </Card>
+          {/* fix #10 — loading indicator for report tables */}
+          {allPurchasesForReportsQuery.isLoading && (
+            <Card>
+              <p className="py-6 text-center text-sm text-slate-500 animate-pulse">Loading report data…</p>
+            </Card>
+          )}
 
           <Card className="grid gap-3">
             <h4 className="text-sm font-bold text-slate-800">Item Wise Purchase Report</h4>
@@ -2066,8 +2236,9 @@ export function GeneralItemsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
+                  {/* fix #8 + #12 — use allFlatRows (full dataset) and typed Map (no any) */}
                   {Array.from(
-                    flatRows.reduce((map, row) => {
+                    allFlatRows.reduce((map, row) => {
                       const key = `${row.particulars}::${row.supplierName}`;
                       const current = map.get(key) ?? {
                         particulars: row.particulars,
@@ -2092,7 +2263,7 @@ export function GeneralItemsPage() {
                       current.count += 1;
                       map.set(key, current);
                       return map;
-                    }, new Map<string, any>()),
+                    }, new Map<string, { particulars: string; supplierName: string; latestDate: string; latestRate: number; minRate: number; maxRate: number; sumRate: number; count: number }>()),
                   )
                     .map(([, value]) => value)
                     .sort((a, b) => a.particulars.localeCompare(b.particulars))
